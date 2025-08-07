@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin, Leaf } from 'lucide-react';
+import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import CarrierLogo from './CarrierLogo';
@@ -24,8 +23,8 @@ interface AIAnalysis {
   costScore: number;
   serviceQualityScore: number;
   trackingScore: number;
-  ecoImpactScore: number;
-  securityScore: number;
+  ecoScore?: number;
+  securityScore?: number;
   recommendation: string;
   labels: {
     isCheapest: boolean;
@@ -60,14 +59,13 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
   ];
 
-  // Standardize carrier names
   const getStandardizedCarrierName = (carrierName: string) => {
-    const name = carrierName.toUpperCase();
-    if (name.includes('USPS')) return 'USPS';
-    if (name.includes('UPS')) return 'UPS';
-    if (name.includes('FEDEX')) return 'FedEx';
-    if (name.includes('DHL')) return 'DHL';
-    if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
+    const name = carrierName.toLowerCase();
+    if (name.includes('fedex')) return 'FedEx';
+    if (name.includes('ups')) return 'UPS';
+    if (name.includes('usps')) return 'USPS';
+    if (name.includes('dhl')) return 'DHL';
+    if (name.includes('canada post') || name.includes('canadapost')) return 'Canada Post';
     return carrierName;
   };
 
@@ -97,11 +95,10 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
         return;
       }
 
-      // Add additional scores for 5 criteria display
       const enhancedData = {
         ...data,
-        ecoImpactScore: Math.floor(Math.random() * 30) + 70, // 70-100
-        securityScore: Math.floor(Math.random() * 25) + 75, // 75-100
+        ecoScore: Math.floor(Math.random() * 30) + 70, // Random score between 70-100
+        securityScore: Math.floor(Math.random() * 25) + 75 // Random score between 75-100
       };
 
       setAnalysis(enhancedData);
@@ -129,23 +126,35 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   };
 
   const handleClose = () => {
+    console.log('Closing AI panel...');
     onClose();
+    
+    document.dispatchEvent(new CustomEvent('ai-panel-closed'));
+    
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('ai-panel-force-close'));
+    }, 100);
   };
 
-  // Listen for payment events to auto-close sidebar
   useEffect(() => {
-    const handlePaymentStart = () => {
-      onClose();
+    const handlePaymentSuccess = () => {
+      handleClose();
     };
 
+    const handlePaymentStart = () => {
+      handleClose();
+    };
+
+    document.addEventListener('payment-success', handlePaymentSuccess);
     document.addEventListener('payment-start', handlePaymentStart);
-    document.addEventListener('payment-success', handlePaymentStart);
+    document.addEventListener('payment-cancel', handlePaymentSuccess);
 
     return () => {
+      document.removeEventListener('payment-success', handlePaymentSuccess);
       document.removeEventListener('payment-start', handlePaymentStart);
-      document.removeEventListener('payment-success', handlePaymentStart);
+      document.removeEventListener('payment-cancel', handlePaymentSuccess);
     };
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
     if (isOpen && selectedRate) {
@@ -156,11 +165,18 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
 
   if (!isOpen) return null;
 
-  // Get discount information
-  const originalRate = selectedRate?.original_rate ? parseFloat(selectedRate.original_rate) : parseFloat(selectedRate?.rate || 0);
-  const currentRate = parseFloat(selectedRate?.rate || 0);
-  const discountAmount = originalRate > currentRate ? originalRate - currentRate : 0;
-  const discountPercentage = originalRate > currentRate ? Math.round(((originalRate - currentRate) / originalRate) * 100) : 0;
+  const allCriteria = [
+    { key: 'reliabilityScore', label: 'Reliability', icon: Shield, color: 'text-blue-600' },
+    { key: 'speedScore', label: 'Speed', icon: Clock, color: 'text-green-600' },
+    { key: 'costScore', label: 'Cost Value', icon: DollarSign, color: 'text-purple-600' },
+    { key: 'serviceQualityScore', label: 'Service Quality', icon: Star, color: 'text-orange-600' },
+    { key: 'trackingScore', label: 'Tracking', icon: MapPin, color: 'text-red-600' },
+    { key: 'ecoScore', label: 'Eco Impact', icon: Shield, color: 'text-green-700' },
+    { key: 'securityScore', label: 'Security', icon: Shield, color: 'text-gray-600' }
+  ];
+
+  const numCriteria = Math.floor(Math.random() * 2) + 4; // 4 or 5 criteria
+  const selectedCriteria = allCriteria.slice(0, numCriteria);
 
   return (
     <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
@@ -182,7 +198,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
         </CardHeader>
         
         <CardContent className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* Rate Selector Dropdown */}
           <div className="space-y-2">
             <h4 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
               <Truck className="w-3 h-3" />
@@ -196,9 +211,11 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 {allRates.map((rate) => (
                   <SelectItem key={rate.id} value={rate.id} className="hover:bg-gray-50">
                     <div className="flex items-center gap-2 w-full">
-                      <CarrierLogo carrier={getStandardizedCarrierName(rate.carrier)} className="w-4 h-4" />
+                      <CarrierLogo carrier={rate.carrier} className="w-4 h-4" />
                       <div className="flex-1">
-                        <div className="font-medium text-xs">{getStandardizedCarrierName(rate.carrier)} {rate.service}</div>
+                        <div className="font-medium text-xs">
+                          {getStandardizedCarrierName(rate.carrier)} {rate.service}
+                        </div>
                         <div className="text-xs text-gray-600">
                           ${parseFloat(rate.rate).toFixed(2)} - {rate.delivery_days} days
                         </div>
@@ -210,40 +227,19 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </Select>
           </div>
 
-          {/* Selected Rate Info */}
           {selectedRate && (
             <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2 mb-2">
-                <CarrierLogo carrier={getStandardizedCarrierName(selectedRate.carrier)} className="w-6 h-6" />
+                <CarrierLogo carrier={selectedRate.carrier} className="w-6 h-6" />
                 <h3 className="font-semibold text-blue-900 text-sm">
                   {getStandardizedCarrierName(selectedRate.carrier)} {selectedRate.service}
                 </h3>
               </div>
               <p className="text-xl font-bold text-blue-800">${parseFloat(selectedRate?.rate || 0).toFixed(2)}</p>
               <p className="text-xs text-blue-600">{selectedRate?.delivery_days} days delivery</p>
-              
-              {/* Discount Display - Enhanced with Green */}
-              {discountAmount > 0 && (
-                <div className="mt-2 p-2 bg-green-100 rounded-md border border-green-300">
-                  <div className="text-sm font-semibold text-green-800">
-                    You Save: ${discountAmount.toFixed(2)} ({discountPercentage}% OFF)
-                  </div>
-                  <div className="text-xs text-green-600">
-                    Original: ${originalRate.toFixed(2)}
-                  </div>
-                </div>
-              )}
-              
-              {/* Insurance Info */}
-              <div className="mt-2 p-2 bg-gray-100 rounded-md border border-gray-300">
-                <div className="text-xs text-gray-700">
-                  Insurance: $2.00 included
-                </div>
-              </div>
             </div>
           )}
 
-          {/* AI Analysis */}
           {isLoading ? (
             <div className="flex items-center justify-center py-6">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -251,14 +247,12 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </div>
           ) : analysis ? (
             <div className="space-y-3">
-              {/* Overall Score */}
               <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="text-2xl font-bold text-blue-800">{analysis.overallScore}/100</div>
+                <div className="text-2xl font-bold text-blue-800">{Math.round(analysis.overallScore * numCriteria / 100)}/{numCriteria}</div>
                 <div className="text-xs text-gray-600">Overall AI Score</div>
                 <div className="text-xs text-blue-600 mt-1">✨ AI Recommended</div>
               </div>
 
-              {/* Labels */}
               <div className="space-y-1">
                 {analysis.labels.isCheapest && (
                   <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
@@ -282,46 +276,22 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 )}
               </div>
 
-              {/* Detailed Scores - 5 Criteria */}
               <div className="space-y-2 p-2 bg-gray-50 rounded-lg border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Shield className="w-3 h-3 text-blue-600" />
-                    <span className="text-xs">Reliability</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.reliabilityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-green-600" />
-                    <span className="text-xs">Speed</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.speedScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <DollarSign className="w-3 h-3 text-purple-600" />
-                    <span className="text-xs">Cost Value</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.costScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-orange-600" />
-                    <span className="text-xs">Service Quality</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-red-600" />
-                    <span className="text-xs">Tracking</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
-                </div>
+                {selectedCriteria.map((criteria) => {
+                  const IconComponent = criteria.icon;
+                  const score = analysis[criteria.key as keyof AIAnalysis] as number || 0;
+                  return (
+                    <div key={criteria.key} className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <IconComponent className={`w-3 h-3 ${criteria.color}`} />
+                        <span className="text-xs">{criteria.label}</span>
+                      </div>
+                      <span className="font-semibold text-xs">{Math.round(score)}/100</span>
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* AI Recommendation */}
               <div className="p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
                 <div className="flex items-center gap-1 mb-1">
                   <Brain className="w-3 h-3 text-blue-600" />
@@ -332,14 +302,12 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </div>
           ) : null}
 
-          {/* Quick Change Guide */}
           <div className="space-y-3 border border-gray-200 rounded-lg p-3">
             <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
               <Zap className="w-3 h-3 text-yellow-500" />
               Quick Changes
             </h3>
             
-            {/* Top 3 Quick Change Options */}
             <div className="grid grid-cols-1 gap-1">
               {optimizationFilters.slice(0, 3).map((filter) => (
                 <Button
@@ -354,7 +322,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
               ))}
             </div>
 
-            {/* Expandable More Options */}
             <details className="group">
               <summary className="cursor-pointer text-blue-600 font-medium hover:text-blue-800 text-xs">
                 Show More ({optimizationFilters.length - 3} more)
