@@ -1,413 +1,229 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain, CheckCircle, Sparkles, ArrowRight, Zap, FileCheck } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Upload, FileText, MapPin, Edit } from 'lucide-react';
+import { SavedAddress } from '@/services/AddressService';
+import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import { toast } from '@/components/ui/sonner';
-import { addressService, SavedAddress } from '@/services/AddressService';
-import CsvHeaderMapper from './CsvHeaderMapper';
 
-export interface BulkUploadFormProps {
+interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
   onUploadFail: (error: string) => void;
   onPickupAddressSelect: (address: SavedAddress | null) => void;
-  isUploading?: boolean;
-  progress?: number;
-  handleUpload?: (file: File) => Promise<any>;
+  isUploading: boolean;
+  progress: number;
+  handleUpload: (file: File) => Promise<void>;
 }
-
-type UploadStep = 'select' | 'mapping' | 'processing';
 
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   onUploadSuccess,
   onUploadFail,
   onPickupAddressSelect,
-  isUploading = false,
-  progress = 0,
+  isUploading,
+  progress,
   handleUpload
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [csvContent, setCsvContent] = useState<string>('');
-  const [dragActive, setDragActive] = useState(false);
-  const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [addressesLoaded, setAddressesLoaded] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<UploadStep>('select');
+  const { addresses, isLoading: addressesLoading } = usePickupAddresses();
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [selectedPickupAddress, setSelectedPickupAddress] = React.useState<SavedAddress | null>(null);
 
-  useEffect(() => {
-    const loadAddresses = async () => {
-      try {
-        console.log('Loading addresses in BulkUploadForm...');
-        const addresses = await addressService.getSavedAddresses();
-        console.log('Loaded addresses:', addresses);
-        setAvailableAddresses(addresses);
+  React.useEffect(() => {
+    if (addresses.length > 0 && !selectedPickupAddress) {
+      const defaultAddress = addresses.find(addr => addr.is_default) || addresses[0];
+      setSelectedPickupAddress(defaultAddress);
+      onPickupAddressSelect(defaultAddress);
+    }
+  }, [addresses, selectedPickupAddress, onPickupAddressSelect]);
 
-        const defaultAddress = addresses.find(addr => addr.is_default_from);
-        if (defaultAddress) {
-          console.log('Found default address:', defaultAddress);
-          setSelectedAddressId(defaultAddress.id.toString());
-          onPickupAddressSelect(defaultAddress);
-        } else if (addresses.length > 0) {
-          console.log('Using first available address:', addresses[0]);
-          setSelectedAddressId(addresses[0].id.toString());
-          onPickupAddressSelect(addresses[0]);
-        } else {
-          console.log('No addresses available');
-          toast.error('No pickup addresses found. Please add a pickup address in Settings first.');
-        }
-
-        setAddressesLoaded(true);
-      } catch (error) {
-        console.error('Error loading addresses:', error);
-        toast.error('Failed to load pickup addresses. Please check your settings.');
-        setAddressesLoaded(true);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+        toast.error('Please select a valid CSV file');
+        return;
       }
-    };
-
-    loadAddresses();
-  }, [onPickupAddressSelect]);
-
-  const handleAddressChange = (addressId: string) => {
-    console.log('Address changed to:', addressId);
-    setSelectedAddressId(addressId);
-    const selectedAddress = availableAddresses.find(addr => addr.id.toString() === addressId);
-    if (selectedAddress) {
-      console.log('Selecting address:', selectedAddress);
-      onPickupAddressSelect(selectedAddress);
-      toast.success(`Selected pickup address: ${selectedAddress.name || selectedAddress.street1}`);
+      setSelectedFile(file);
     }
   };
 
-  const validateCSVFile = (file: File): boolean => {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast.error('Please upload a CSV file');
-      return false;
+  const handleUploadClick = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a CSV file first');
+      return;
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File is too large. Maximum size is 10MB.');
-      return false;
-    }
-
-    if (file.size === 0) {
-      toast.error('The CSV file is empty. Please upload a valid CSV file.');
-      return false;
-    }
-
-    return true;
-  };
-
-  const processFile = async (file: File) => {
-    console.log('Processing file:', file.name);
     
-    if (!validateCSVFile(file)) {
-      return false;
+    if (!selectedPickupAddress) {
+      toast.error('Please select a pickup address');
+      return;
     }
 
-    setSelectedFile(file);
-    
     try {
-      const text = await file.text();
-      console.log('CSV content length:', text.length);
-      
-      if (text.trim().length === 0) {
-        toast.error('The CSV file appears to be empty.');
-        return false;
-      }
-
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      if (lines.length < 2) {
-        toast.error('CSV file must have at least a header row and one data row.');
-        return false;
-      }
-
-      console.log('CSV validation passed, lines:', lines.length);
-      setCsvContent(text);
-      setCurrentStep('mapping');
-      toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
-      return true;
+      await handleUpload(selectedFile);
+      onUploadSuccess('Upload completed successfully');
     } catch (error) {
-      console.error('Error reading CSV file:', error);
-      toast.error('Error reading CSV file. Please make sure it\'s a valid CSV file.');
-      return false;
+      onUploadFail(error instanceof Error ? error.message : 'Upload failed');
     }
   };
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
+  const handlePickupAddressChange = (addressId: string) => {
+    const address = addresses.find(addr => addr.id === addressId);
+    if (address) {
+      setSelectedPickupAddress(address);
+      onPickupAddressSelect(address);
     }
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      await processFile(e.dataTransfer.files[0]);
-    }
+  const handleEditPickupAddress = () => {
+    // Navigate to settings page to edit pickup addresses
+    window.location.href = '/settings';
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      await processFile(e.target.files[0]);
-    }
-  };
-
-  const handleMappingComplete = async (convertedCsv: string) => {
-    console.log('Header mapping completed, processing CSV...');
-    setCurrentStep('processing');
+  const handleDownloadTemplate = () => {
+    const csvContent = `customer_name,street1,street2,city,state,zip,country,phone,email,company,parcel_length,parcel_width,parcel_height,parcel_weight,declared_value
+John Doe,123 Main St,,New York,NY,10001,US,555-1234,john@email.com,,12,8,6,2.5,100
+Jane Smith,456 Oak Ave,Apt 2B,Los Angeles,CA,90210,US,555-5678,jane@email.com,ABC Corp,10,10,8,5.0,200`;
     
-    try {
-      const blob = new Blob([convertedCsv], { type: 'text/csv' });
-      const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
-      
-      if (handleUpload) {
-        await handleUpload(convertedFile);
-        onUploadSuccess({});
-      }
-    } catch (error) {
-      console.error('Upload failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      onUploadFail(errorMessage);
-      toast.error(errorMessage);
-      setCurrentStep('select');
-    }
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bulk_shipping_template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('Template downloaded successfully');
   };
 
-  const handleMappingCancel = () => {
-    setCurrentStep('select');
-    setSelectedFile(null);
-    setCsvContent('');
-    toast.info('CSV upload cancelled. You can select a new file.');
-  };
-
-  const handleAreaClick = () => {
-    document.getElementById('file-upload')?.click();
-  };
-
-  // Enhanced header mapping step - only show the mapper, no upload UI
-  if (currentStep === 'mapping' && csvContent) {
-    return (
-      <div className="space-y-6">
-        <CsvHeaderMapper
-          csvContent={csvContent}
-          onMappingComplete={handleMappingComplete}
-          onCancel={handleMappingCancel}
-        />
-      </div>
-    );
-  }
-
-  // Enhanced processing step
-  if (currentStep === 'processing') {
-    return (
-      <div className="space-y-10">
-        <div className="text-center py-16">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500 via-green-500 to-teal-600 rounded-full mb-8 shadow-2xl">
-            <Loader2 className="w-12 h-12 text-white animate-spin" />
+  return (
+    <div className="space-y-6">
+      {/* Pickup Address Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <MapPin className="h-5 w-5" />
+            <span>Select Pickup Address</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <div className="flex-1">
+              <Label htmlFor="pickup-address">Pickup Address *</Label>
+              <Select
+                value={selectedPickupAddress?.id || ''}
+                onValueChange={handlePickupAddressChange}
+                disabled={addressesLoading}
+              >
+                <SelectTrigger id="pickup-address">
+                  <SelectValue placeholder={addressesLoading ? "Loading addresses..." : "Select pickup address"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {addresses.map((address) => (
+                    <SelectItem key={address.id} value={address.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{address.name || 'Unnamed Address'}</span>
+                        <span className="text-sm text-gray-500">
+                          {address.street1}, {address.city}, {address.state} {address.zip}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEditPickupAddress}
+              className="mt-6"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
           </div>
-          <h2 className="text-4xl font-bold text-gray-900 mb-6">Processing Your Shipments</h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
-            Creating shipments and fetching live rates from multiple carriers including UPS, USPS, FedEx, and DHL. 
-            Our system is comparing thousands of rate options to find you the best deals.
-          </p>
           
-          {progress > 0 && (
-            <div className="max-w-lg mx-auto mb-10">
-              <div className="flex justify-between text-lg text-gray-700 mb-3">
-                <span className="font-semibold">Progress</span>
-                <span className="font-bold">{progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-4 shadow-inner">
-                <div
-                  className="bg-gradient-to-r from-blue-500 via-green-500 to-teal-500 h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
-                  style={{ width: `${progress}%` }}
-                />
+          {selectedPickupAddress && (
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-sm">
+                <div className="font-medium">{selectedPickupAddress.name}</div>
+                <div>{selectedPickupAddress.street1}</div>
+                {selectedPickupAddress.street2 && <div>{selectedPickupAddress.street2}</div>}
+                <div>
+                  {selectedPickupAddress.city}, {selectedPickupAddress.state} {selectedPickupAddress.zip}
+                </div>
+                <div>{selectedPickupAddress.country}</div>
               </div>
             </div>
           )}
-        </div>
-      </div>
-    );
-  }
-
-  // Enhanced file selection step
-  return (
-    <div className="space-y-8">
-      {/* Enhanced Pickup Address Selection */}
-      <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-lg">
-        <CardContent className="p-6">
-          <div className="flex items-start space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                <MapPin className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <Label htmlFor="pickup-address" className="text-lg font-bold text-gray-900 mb-2 block">
-                Select Pickup Address
-              </Label>
-              <p className="text-gray-600 mb-4 leading-relaxed">
-                Choose the address where packages will be picked up from.
-              </p>
-              
-              {!addressesLoaded ? (
-                <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                  <span className="text-gray-600">Loading addresses...</span>
-                </div>
-              ) : availableAddresses.length > 0 ? (
-                <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-                  <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-3">
-                    <SelectValue placeholder="Select pickup address" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableAddresses.map((address) => (
-                      <SelectItem key={address.id} value={address.id.toString()}>
-                        <div className="flex flex-col py-1">
-                          <span className="font-semibold text-gray-900">{address.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {address.street1}, {address.city}, {address.state} {address.zip}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Alert className="border-amber-200 bg-amber-50">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800">
-                    <strong>No addresses found.</strong> Please add a pickup address in Settings first.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
         </CardContent>
       </Card>
 
-      {/* Enhanced File Upload Area - Make entire area clickable */}
-      <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors shadow-lg">
-        <CardContent className="p-8">
-          <div
-            className={`
-              relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer
-              ${dragActive
-                ? 'border-blue-400 bg-blue-50 scale-105'
-                : selectedFile
-                ? 'border-green-400 bg-green-50'
-                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-              }
-            `}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={handleAreaClick}
-          >
-            <input
-              id="file-upload"
+      {/* File Upload */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Upload className="h-5 w-5" />
+            <span>Upload CSV File</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="csv-file">CSV File *</Label>
+            <Input
+              id="csv-file"
               type="file"
               accept=".csv"
               onChange={handleFileSelect}
-              className="hidden"
+              disabled={isUploading}
             />
-            
-            <div className="space-y-6">
-              {selectedFile ? (
-                <>
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-full shadow-lg">
-                    <FileCheck className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-green-700 mb-2">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-green-600 mb-4">
-                      {(selectedFile.size / 1024).toFixed(1)} KB - Ready for AI processing
-                    </p>
-                    <div className="flex items-center justify-center space-x-2 text-green-600">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="font-semibold">File validated successfully</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-200 rounded-full">
-                    <Upload className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-gray-700 mb-2">
-                      Click anywhere to upload CSV file
-                    </p>
-                    <p className="text-gray-600 mb-4">
-                      or drag and drop your file here
-                    </p>
-                    <p className="text-gray-500">
-                      Supports CSV files up to 10MB
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
-
+          
           {selectedFile && (
-            <div className="flex items-center justify-center space-x-4 mt-6">
-              <Button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAreaClick();
-                }}
-                variant="outline"
-                className="border-2 hover:border-blue-300 px-4 py-2"
-              >
-                Choose Different File
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentStep('mapping');
-                }}
-                disabled={!selectedAddressId || !addressesLoaded}
-                className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-6 py-2"
-              >
-                <Brain className="mr-2 h-4 w-4" />
-                Continue with AI Mapping
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center space-x-2 text-sm">
+                <FileText className="h-4 w-4 text-green-600" />
+                <span className="font-medium">{selectedFile.name}</span>
+                <span className="text-gray-500">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+              </div>
             </div>
           )}
+          
+          {isUploading && (
+            <div className="space-y-2">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-600">Uploading... {progress}%</p>
+            </div>
+          )}
+
+          <div className="flex space-x-4">
+            <Button
+              onClick={handleUploadClick}
+              disabled={!selectedFile || !selectedPickupAddress || isUploading}
+              className="flex-1"
+            >
+              {isUploading ? 'Uploading...' : 'Upload & Process CSV'}
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={handleDownloadTemplate}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+          </div>
         </CardContent>
       </Card>
-
-      {/* Enhanced info section */}
-      <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 p-4">
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0">
-            <Sparkles className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <AlertDescription className="text-blue-800 leading-relaxed">
-              <strong className="font-bold">Smart CSV Processing:</strong> Our AI automatically analyzes and maps your CSV headers to the correct shipping format. 
-              No manual field mapping required - just upload and let our intelligence handle the complex work!
-            </AlertDescription>
-          </div>
-        </div>
-      </Alert>
     </div>
   );
 };
