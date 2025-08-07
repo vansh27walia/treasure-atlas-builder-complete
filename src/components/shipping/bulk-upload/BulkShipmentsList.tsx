@@ -20,6 +20,7 @@ import CarrierLogo from '../CarrierLogo';
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import CustomsClearanceButton from './CustomsClearanceButton';
+import { standardizeCarrierName } from '@/utils/carrierUtils';
 
 // Local interface for customs info to avoid conflicts
 interface LocalCustomsInfo {
@@ -326,22 +327,23 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setEditingShipments(prev => new Set([...prev, shipmentId]));
     
     try {
-      // Update the shipment details
+      // Update the shipment details first
       onEditShipment(shipmentId, editedData);
       
       // Close the dialog
       handleCloseEditDialog(shipmentId);
       
       // Show loading toast
-      toast.info('Refreshing rates with updated information...');
+      toast.info('Saving changes and refreshing rates...', { duration: 2000 });
       
-      // Refresh rates for this shipment after a brief delay
+      // Refresh rates for this specific shipment after a brief delay
       setTimeout(async () => {
         try {
           await onRefreshRates(shipmentId);
-          toast.success('Rates updated successfully with new shipment details');
+          toast.success('Shipment updated and rates refreshed successfully');
         } catch (error) {
-          toast.error('Failed to refresh rates after edit');
+          console.error('Error refreshing rates after edit:', error);
+          toast.error('Changes saved, but failed to refresh rates');
         } finally {
           // Remove from editing set
           setEditingShipments(prev => {
@@ -571,7 +573,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                               onValueChange={(value) => handleRateSelection(shipment.id, value)} 
                               disabled={shipment.status === 'pending_rates' || isEditing}
                             >
-                              <SelectTrigger className="min-w-[200px] border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
+                              <SelectTrigger className="min-w-[280px] h-auto border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
                                 <SelectValue placeholder={
                                   isEditing ? "🔄 Updating rates..." :
                                   shipment.status === 'pending_rates' 
@@ -579,44 +581,55 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                     : "Select a carrier"
                                 } />
                               </SelectTrigger>
-                              <SelectContent className="max-w-sm bg-white border-2 border-gray-200 shadow-xl z-50">
-                                {(shipment.availableRates || []).map(rate => (
-                                  <SelectItem key={rate.id} value={rate.id}>
-                                    <div className="flex items-start space-x-3 w-full p-2">
-                                      <CarrierLogo carrier={rate.carrier} className="w-8 h-8 flex-shrink-0" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center space-x-2 mb-1">
-                                          <span className="text-sm font-semibold text-gray-900">
-                                            {rate.carrier} - {rate.service}
-                                          </span>
-                                          {rate.delivery_days && (
-                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                              {rate.delivery_days} days
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        
-                                        <div className="flex items-center space-x-3">
-                                          <div className="text-right">
-                                            <div className="text-xs text-gray-500 line-through">
-                                              ${(parseFloat(formatRate(rate.rate)) * (2.2 + Math.random() * 1.3)).toFixed(2)}
-                                            </div>
-                                            <div className="text-lg font-bold text-green-600">
-                                              ${formatRate(rate.rate)}
+                              <SelectContent className="min-w-[320px] bg-white border-2 border-gray-200 shadow-xl z-50">
+                                {(shipment.availableRates || []).map(rate => {
+                                  const standardizedCarrier = standardizeCarrierName(rate.carrier);
+                                  const discountPercent = getDiscountPercentage(rate);
+                                  const currentRatePrice = parseFloat(formatRate(rate.rate));
+                                  const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
+                                  
+                                  return (
+                                    <SelectItem key={rate.id} value={rate.id} className="p-0">
+                                      <div className="flex items-start space-x-4 w-full p-4 hover:bg-blue-50 rounded-lg">
+                                        <CarrierLogo carrier={standardizedCarrier} className="w-10 h-10 flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center space-x-3">
+                                              <span className="text-base font-bold text-gray-900">
+                                                {standardizedCarrier}
+                                              </span>
+                                              {rate.delivery_days && (
+                                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 px-2 py-1">
+                                                  {rate.delivery_days} days
+                                                </Badge>
+                                              )}
                                             </div>
                                           </div>
-                                          <div className="text-xs text-green-600 font-medium bg-green-100 px-2 py-1 rounded">
-                                            Save {getDiscountPercentage(rate)}%
+                                          
+                                          <div className="text-sm text-gray-600 mb-3">
+                                            {rate.service}
                                           </div>
-                                        </div>
-                                        
-                                        <div className="text-xs text-gray-600 mt-1">
-                                          You're saving {getDiscountPercentage(rate)}% with our negotiated rate
+                                          
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                              <div className="text-xs text-gray-400 line-through">
+                                                Was ${originalPrice.toFixed(2)}
+                                              </div>
+                                              <div className="text-xl font-bold text-green-600">
+                                                ${formatRate(rate.rate)}
+                                              </div>
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                                                Save {discountPercent}%
+                                              </div>
+                                            </div>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  </SelectItem>
-                                ))}
+                                    </SelectItem>
+                                  );
+                                })}
                               </SelectContent>
                             </Select>
                             
