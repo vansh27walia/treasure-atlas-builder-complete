@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { addressService, SavedAddress } from '@/services/AddressService';
+import { parseCsvFile } from '@/utils/csvParser';
 
 interface UploadResults {
   total: number;
@@ -12,43 +13,6 @@ interface UploadResults {
   processedShipments: BulkShipment[];
   totalCost?: number;
 }
-
-// Helper function to parse CSV data
-const parseCsvFile = async (file: File, setProgress: (progress: number) => void): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split('\n');
-        const headers = lines[0].split(',').map(header => header.trim());
-        
-        const data = [];
-        for (let i = 1; i < lines.length; i++) {
-          if (lines[i].trim()) {
-            const values = lines[i].split(',').map(value => value.trim());
-            const row: any = {};
-            headers.forEach((header, index) => {
-              row[header] = values[index] || '';
-            });
-            data.push(row);
-          }
-          
-          // Update progress
-          setProgress(Math.round((i / lines.length) * 100));
-        }
-        
-        resolve(data);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsText(file);
-  });
-};
 
 // Helper function to standardize address
 const standardizeAddress = async (fullAddress: string, city: string, state: string, zip: string): Promise<any> => {
@@ -105,6 +69,7 @@ export const useBulkUpload = () => {
               recipient: item.customer_name || item.recipient,
               email: item.customer_email,
               phone: item.customer_phone,
+              status: 'pending',
               details: {
                 weight: parseFloat(item.weight) || 1,
                 length: parseFloat(item.length) || 1,
@@ -113,7 +78,7 @@ export const useBulkUpload = () => {
                 declared_value: parseFloat(item.declared_value) || 200,
                 insurance_enabled: item.insurance_enabled === 'true'
               }
-            };
+            } as BulkShipment;
           } catch (addressError) {
             console.error("Address standardization error:", addressError);
             toast.error(`Address standardization failed for shipment ${index + 1}`);

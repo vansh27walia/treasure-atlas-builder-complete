@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useBulkUpload } from '@/hooks/useBulkUpload';
+import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import SuccessNotification from './bulk-upload/SuccessNotification';
@@ -36,7 +36,6 @@ const BulkUpload: React.FC = () => {
   });
 
   const {
-    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -272,13 +271,30 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
-                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
-                    setSortField(field);
-                    setSortDirection(direction);
-                  }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
+                      <BulkShipmentFilters 
+                        searchTerm={searchTerm} 
+                        onSearchChange={setSearchTerm} 
+                        sortField={sortField} 
+                        sortDirection={sortDirection} 
+                        onSortChange={(field, direction) => {
+                          setSortField(field);
+                          setSortDirection(direction);
+                        }} 
+                        selectedCarrier={selectedCarrierFilter} 
+                        onCarrierFilterChange={setSelectedCarrierFilter} 
+                        onApplyCarrierToAll={handleBulkApplyCarrier} 
+                      />
                     </div>
                     
-                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={handleEditShipment} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
+                    <BulkShipmentsList 
+                      shipments={filteredShipments} 
+                      isFetchingRates={isFetchingRates} 
+                      onSelectRate={handleSelectRate} 
+                      onRemoveShipment={handleRemoveShipment} 
+                      onEditShipment={handleEditShipment}
+                      onRefreshRates={handleRefreshRates} 
+                      onAIAnalysis={handleAIAnalysis} 
+                    />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
