@@ -203,24 +203,12 @@ const CreateLabelPage = () => {
       <div className={`transition-all duration-300 ${showAIPanel && !isPaymentInProgress ? 'pr-80' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
-            {/* Header Section with AI Button */}
+            {/* Header Section */}
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
-              <p className="text-muted-foreground text-lg max-w-3xl mx-auto mb-6">
+              <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
                 Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
               </p>
-              
-              {/* AI Powered Analysis Button - Better placement in header */}
-              <div className="flex justify-center">
-                <Button
-                  onClick={handleAIPoweredAnalysis}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
-                  disabled={!rates || rates.length === 0}
-                >
-                  <Brain className="w-5 h-5" />
-                  AI Powered Analysis
-                </Button>
-              </div>
             </div>
 
             {/* Main Form Section */}
@@ -228,12 +216,20 @@ const CreateLabelPage = () => {
               <EnhancedShippingForm />
             </div>
 
-            {/* Rate Filter */}
-            <div className="mb-6">
+            {/* Rate Filter with AI Powered Analysis Button */}
+            <div className="mb-6 flex gap-4">
               <RateFilter 
                 activeFilter={activeFilter} 
                 onFilterChange={handleFilterChange} 
               />
+              <Button
+                onClick={handleAIPoweredAnalysis}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 flex items-center gap-2"
+                disabled={!rates || rates.length === 0}
+              >
+                <Brain className="w-4 h-4" />
+                AI Powered Analysis
+              </Button>
             </div>
             
             {/* Shipping Rates Section */}
