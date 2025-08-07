@@ -9,12 +9,14 @@ import { Calculator, Package, MapPin, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import CarrierLogo from './CarrierLogo';
+import { countries } from '@/lib/countries';
 
 interface RateResult {
   id: string;
   carrier: string;
   service: string;
   rate: string;
+  currency: string;
   delivery_days: number;
 }
 
@@ -22,8 +24,27 @@ const EmbeddableRateCalculator: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<RateResult[]>([]);
   const [formData, setFormData] = useState({
+    // From Address
+    fromName: '',
+    fromCompany: '',
+    fromStreet1: '',
+    fromStreet2: '',
+    fromCity: '',
+    fromState: '',
     fromZip: '',
+    fromCountry: 'US',
+    fromPhone: '',
+    // To Address
+    toName: '',
+    toCompany: '',
+    toStreet1: '',
+    toStreet2: '',
+    toCity: '',
+    toState: '',
     toZip: '',
+    toCountry: 'US',
+    toPhone: '',
+    // Package Details
     weight: '',
     length: '',
     width: '',
@@ -35,24 +56,38 @@ const EmbeddableRateCalculator: React.FC = () => {
   };
 
   const handleCalculateRates = async () => {
-    // Validate form
-    if (!formData.fromZip || !formData.toZip || !formData.weight) {
-      toast.error('Please fill in origin, destination, and weight');
+    // Validate required fields
+    if (!formData.fromStreet1 || !formData.fromCity || !formData.fromZip || 
+        !formData.toStreet1 || !formData.toCity || !formData.toZip || !formData.weight) {
+      toast.error('Please fill in all required address fields and weight');
       return;
     }
 
     setIsLoading(true);
     
     try {
-      // Prepare addresses
       const fromAddress = {
+        name: formData.fromName,
+        company: formData.fromCompany,
+        street1: formData.fromStreet1,
+        street2: formData.fromStreet2,
+        city: formData.fromCity,
+        state: formData.fromState,
         zip: formData.fromZip,
-        country: 'US'
+        country: formData.fromCountry,
+        phone: formData.fromPhone
       };
       
       const toAddress = {
+        name: formData.toName,
+        company: formData.toCompany,
+        street1: formData.toStreet1,
+        street2: formData.toStreet2,
+        city: formData.toCity,
+        state: formData.toState,
         zip: formData.toZip,
-        country: 'US'
+        country: formData.toCountry,
+        phone: formData.toPhone
       };
       
       const parcel = {
@@ -93,60 +128,236 @@ const EmbeddableRateCalculator: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <Card className="shadow-lg border-2">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
           <CardTitle className="flex items-center gap-2">
             <Calculator className="w-5 h-5 text-blue-600" />
-            Shipping Rate Calculator
+            Advanced Shipping Rate Calculator
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6 space-y-6">
-          {/* Address Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                From ZIP Code
-              </Label>
-              <Input
-                placeholder="90210"
-                value={formData.fromZip}
-                onChange={(e) => handleInputChange('fromZip', e.target.value)}
-                maxLength={5}
-              />
+        <CardContent className="p-6 space-y-8">
+          {/* From Address Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              From Address
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Name *</Label>
+                <Input
+                  placeholder="Full Name"
+                  value={formData.fromName}
+                  onChange={(e) => handleInputChange('fromName', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Company</Label>
+                <Input
+                  placeholder="Company Name (Optional)"
+                  value={formData.fromCompany}
+                  onChange={(e) => handleInputChange('fromCompany', e.target.value)}
+                />
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                To ZIP Code
-              </Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Address Line 1 *</Label>
+                <Input
+                  placeholder="Street Address"
+                  value={formData.fromStreet1}
+                  onChange={(e) => handleInputChange('fromStreet1', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Address Line 2</Label>
+                <Input
+                  placeholder="Apartment, Suite, etc. (Optional)"
+                  value={formData.fromStreet2}
+                  onChange={(e) => handleInputChange('fromStreet2', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>City *</Label>
+                <Input
+                  placeholder="City"
+                  value={formData.fromCity}
+                  onChange={(e) => handleInputChange('fromCity', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>State/Province</Label>
+                <Input
+                  placeholder="State"
+                  value={formData.fromState}
+                  onChange={(e) => handleInputChange('fromState', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>ZIP/Postal Code *</Label>
+                <Input
+                  placeholder="ZIP Code"
+                  value={formData.fromZip}
+                  onChange={(e) => handleInputChange('fromZip', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Country</Label>
+                <Select value={formData.fromCountry} onValueChange={(value) => handleInputChange('fromCountry', value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white z-50 max-h-48 overflow-y-auto">
+                    {countries.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label>Phone Number *</Label>
               <Input
-                placeholder="10001"
-                value={formData.toZip}
-                onChange={(e) => handleInputChange('toZip', e.target.value)}
-                maxLength={5}
+                placeholder="Phone Number"
+                value={formData.fromPhone}
+                onChange={(e) => handleInputChange('fromPhone', e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          {/* To Address Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              To Address
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Name *</Label>
+                <Input
+                  placeholder="Full Name"
+                  value={formData.toName}
+                  onChange={(e) => handleInputChange('toName', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Company</Label>
+                <Input
+                  placeholder="Company Name (Optional)"
+                  value={formData.toCompany}
+                  onChange={(e) => handleInputChange('toCompany', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Address Line 1 *</Label>
+                <Input
+                  placeholder="Street Address"
+                  value={formData.toStreet1}
+                  onChange={(e) => handleInputChange('toStreet1', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Address Line 2</Label>
+                <Input
+                  placeholder="Apartment, Suite, etc. (Optional)"
+                  value={formData.toStreet2}
+                  onChange={(e) => handleInputChange('toStreet2', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>City *</Label>
+                <Input
+                  placeholder="City"
+                  value={formData.toCity}
+                  onChange={(e) => handleInputChange('toCity', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>State/Province</Label>
+                <Input
+                  placeholder="State"
+                  value={formData.toState}
+                  onChange={(e) => handleInputChange('toState', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>ZIP/Postal Code *</Label>
+                <Input
+                  placeholder="ZIP Code"
+                  value={formData.toZip}
+                  onChange={(e) => handleInputChange('toZip', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Country</Label>
+                <Select value={formData.toCountry} onValueChange={(value) => handleInputChange('toCountry', value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white z-50 max-h-48 overflow-y-auto">
+                    {countries.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label>Phone Number *</Label>
+              <Input
+                placeholder="Phone Number"
+                value={formData.toPhone}
+                onChange={(e) => handleInputChange('toPhone', e.target.value)}
+                required
               />
             </div>
           </div>
 
           {/* Package Section */}
           <div className="space-y-4">
-            <Label className="flex items-center gap-2">
+            <Label className="flex items-center gap-2 text-lg font-semibold">
               <Package className="w-4 h-4" />
               Package Details
             </Label>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <Label className="text-xs text-gray-600">Weight (lbs)</Label>
+                <Label className="text-xs text-gray-600">Weight (lbs) *</Label>
                 <Input
                   placeholder="5.0"
                   type="number"
                   step="0.1"
                   value={formData.weight}
                   onChange={(e) => handleInputChange('weight', e.target.value)}
+                  required
                 />
               </div>
               

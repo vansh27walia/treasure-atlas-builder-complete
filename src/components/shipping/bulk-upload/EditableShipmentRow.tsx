@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableRow, TableCell } from '@/components/ui/table';
@@ -35,35 +35,60 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     declared_value: shipment.details?.declared_value || 200
   });
 
+  // Update editData when shipment changes
+  useEffect(() => {
+    setEditData({
+      customer_name: shipment.customer_name || shipment.recipient,
+      weight: shipment.details?.weight || 1,
+      length: shipment.details?.length || 1,
+      width: shipment.details?.width || 1,
+      height: shipment.details?.height || 1,
+      declared_value: shipment.details?.declared_value || 200
+    });
+  }, [shipment]);
+
   const handleEdit = () => {
     setIsEditing(true);
   };
 
   const handleSave = async () => {
-    // Apply the changes to the shipment
-    const updates = {
-      customer_name: editData.customer_name,
-      recipient: editData.customer_name,
-      details: {
-        ...shipment.details,
-        weight: parseWeightInput(editData.weight),
-        length: editData.length,
-        width: editData.width,
-        height: editData.height,
-        declared_value: editData.declared_value
+    try {
+      // Create updates object with proper structure
+      const updates: Partial<BulkShipment> = {
+        customer_name: editData.customer_name,
+        recipient: editData.customer_name,
+        details: {
+          ...shipment.details,
+          weight: parseWeightInput(editData.weight),
+          length: editData.length,
+          width: editData.width,
+          height: editData.height,
+          declared_value: editData.declared_value
+        }
+      };
+      
+      console.log('Saving shipment updates:', updates);
+      
+      // Apply the changes to the shipment
+      onEditShipment(shipment.id, updates);
+      
+      // Exit edit mode
+      setIsEditing(false);
+      
+      // Refresh rates after saving changes if function is provided
+      if (onRefreshRates) {
+        console.log('Refreshing rates for shipment:', shipment.id);
+        setTimeout(() => {
+          onRefreshRates(shipment.id);
+        }, 500); // Small delay to ensure state updates are processed
       }
-    };
-    
-    onEditShipment(shipment.id, updates);
-    setIsEditing(false);
-    
-    // Refresh rates after saving changes
-    if (onRefreshRates) {
-      onRefreshRates(shipment.id);
+    } catch (error) {
+      console.error('Error saving shipment changes:', error);
     }
   };
 
   const handleCancel = () => {
+    // Reset editData to original shipment values
     setEditData({
       customer_name: shipment.customer_name || shipment.recipient,
       weight: shipment.details?.weight || 1,
@@ -73,6 +98,10 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
       declared_value: shipment.details?.declared_value || 200
     });
     setIsEditing(false);
+  };
+
+  const handleInputChange = (field: string, value: number | string) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
   };
 
   // Get street address safely
@@ -92,7 +121,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         {isEditing ? (
           <Input
             value={editData.customer_name}
-            onChange={(e) => setEditData(prev => ({ ...prev, customer_name: e.target.value }))}
+            onChange={(e) => handleInputChange('customer_name', e.target.value)}
             className="w-full"
           />
         ) : (
@@ -109,7 +138,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
             <Input
               type="number"
               value={editData.weight}
-              onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+              onChange={(e) => handleInputChange('weight', Number(e.target.value))}
               placeholder="Weight (lb)"
               step="0.1"
             />
@@ -117,21 +146,21 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
               <Input
                 type="number"
                 value={editData.length}
-                onChange={(e) => setEditData(prev => ({ ...prev, length: Number(e.target.value) }))}
+                onChange={(e) => handleInputChange('length', Number(e.target.value))}
                 placeholder="L"
                 step="0.1"
               />
               <Input
                 type="number"
                 value={editData.width}
-                onChange={(e) => setEditData(prev => ({ ...prev, width: Number(e.target.value) }))}
+                onChange={(e) => handleInputChange('width', Number(e.target.value))}
                 placeholder="W"
                 step="0.1"
               />
               <Input
                 type="number"
                 value={editData.height}
-                onChange={(e) => setEditData(prev => ({ ...prev, height: Number(e.target.value) }))}
+                onChange={(e) => handleInputChange('height', Number(e.target.value))}
                 placeholder="H"
                 step="0.1"
               />
@@ -177,14 +206,16 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         <InsuranceOptions
           shipmentId={shipment.id}
           insuranceEnabled={shipment.details?.insurance_enabled !== false}
-          declaredValue={editData.declared_value}
+          declaredValue={isEditing ? editData.declared_value : (shipment.details?.declared_value || 200)}
           onInsuranceToggle={(id, enabled) => {
             onEditShipment(id, {
               details: { ...shipment.details, insurance_enabled: enabled }
             });
           }}
           onDeclaredValueChange={(id, value) => {
-            setEditData(prev => ({ ...prev, declared_value: value }));
+            if (isEditing) {
+              handleInputChange('declared_value', value);
+            }
             onEditShipment(id, {
               details: { ...shipment.details, declared_value: value }
             });
