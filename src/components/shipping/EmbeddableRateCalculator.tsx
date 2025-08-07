@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import { Calculator, Package, MapPin, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import CarrierLogo from './CarrierLogo';
-import CountrySelector from './CountrySelector';
 
 interface RateResult {
   id: string;
@@ -24,8 +24,6 @@ const EmbeddableRateCalculator: React.FC = () => {
   const [formData, setFormData] = useState({
     fromZip: '',
     toZip: '',
-    fromCountry: 'US',
-    toCountry: 'US',
     weight: '',
     length: '',
     width: '',
@@ -46,15 +44,15 @@ const EmbeddableRateCalculator: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Prepare addresses with country support
+      // Prepare addresses
       const fromAddress = {
         zip: formData.fromZip,
-        country: formData.fromCountry
+        country: 'US'
       };
       
       const toAddress = {
         zip: formData.toZip,
-        country: formData.toCountry
+        country: 'US'
       };
       
       const parcel = {
@@ -105,49 +103,31 @@ const EmbeddableRateCalculator: React.FC = () => {
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           {/* Address Section */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  From Country
-                </Label>
-                <CountrySelector
-                  selectedCountry={formData.fromCountry}
-                  onCountryChange={(country) => handleInputChange('fromCountry', country)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  To Country
-                </Label>
-                <CountrySelector
-                  selectedCountry={formData.toCountry}
-                  onCountryChange={(country) => handleInputChange('toCountry', country)}
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                From ZIP Code
+              </Label>
+              <Input
+                placeholder="90210"
+                value={formData.fromZip}
+                onChange={(e) => handleInputChange('fromZip', e.target.value)}
+                maxLength={5}
+              />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>From ZIP/Postal Code</Label>
-                <Input
-                  placeholder="90210"
-                  value={formData.fromZip}
-                  onChange={(e) => handleInputChange('fromZip', e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>To ZIP/Postal Code</Label>
-                <Input
-                  placeholder="10001"
-                  value={formData.toZip}
-                  onChange={(e) => handleInputChange('toZip', e.target.value)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                To ZIP Code
+              </Label>
+              <Input
+                placeholder="10001"
+                value={formData.toZip}
+                onChange={(e) => handleInputChange('toZip', e.target.value)}
+                maxLength={5}
+              />
             </div>
           </div>
 
@@ -226,50 +206,25 @@ const EmbeddableRateCalculator: React.FC = () => {
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-900">Available Rates:</h3>
               <div className="space-y-2">
-                {rates.map((rate, index) => {
-                  // Only show main carriers
-                  const allowedCarriers = ['UPS', 'USPS', 'FedEx', 'DHL'];
-                  const standardizedCarrier = rate.carrier.toUpperCase();
-                  const isAllowed = allowedCarriers.some(carrier => 
-                    standardizedCarrier.includes(carrier)
-                  );
-                  
-                  if (!isAllowed) return null;
-                  
-                  const rateValue = parseFloat(rate.rate);
-                  const displayListRate = rateValue * 4;
-                  const savings = Math.round(((displayListRate - rateValue) / displayListRate) * 100);
-                  
-                  return (
-                    <div
-                      key={rate.id || index}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <CarrierLogo carrier={rate.carrier} className="w-8 h-8" />
-                        <div>
-                          <div className="font-medium">{rate.carrier} {rate.service}</div>
-                          <div className="text-sm text-gray-600">
-                            Delivery: {rate.delivery_days} day{rate.delivery_days !== 1 ? 's' : ''}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <div>
-                          <div className="text-xs text-gray-500 line-through">
-                            ${displayListRate.toFixed(2)}
-                          </div>
-                          <div className="text-lg font-bold text-blue-600">
-                            ${rateValue.toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="bg-red-500 text-white px-2 py-1 rounded text-sm font-bold">
-                          SAVE {savings}%
+                {rates.map((rate, index) => (
+                  <div
+                    key={rate.id || index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border hover:bg-blue-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CarrierLogo carrier={rate.carrier} className="w-8 h-8" />
+                      <div>
+                        <div className="font-medium">{rate.carrier} {rate.service}</div>
+                        <div className="text-sm text-gray-600">
+                          Delivery: {rate.delivery_days} day{rate.delivery_days !== 1 ? 's' : ''}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="font-bold text-blue-600">
+                      ${parseFloat(rate.rate).toFixed(2)}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

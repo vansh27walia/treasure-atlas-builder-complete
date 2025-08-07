@@ -1,387 +1,142 @@
-import { useState, useCallback } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from 'react';
+import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
+import { useShipmentUpload } from '@/hooks/useShipmentUpload';
+import { useShipmentRates } from '@/hooks/useShipmentRates';
+import { useShipmentManagement } from '@/hooks/useShipmentManagement';
+import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
+import { SavedAddress } from '@/services/AddressService';
+import { addressService } from '@/services/AddressService';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { BulkUploadResult, BulkShipment, ShipmentDetails, AddressDetails } from '@/types/shipping';
-import { addressService, SavedAddress } from '@/services/AddressService';
-import { parseCsvFile } from '@/utils/csvParser';
-
-interface UploadResults {
-  total: number;
-  successful: number;
-  failed: number;
-  processedShipments: BulkShipment[];
-  totalCost?: number;
-}
-
-// Helper function to standardize address
-const standardizeAddress = async (fullAddress: string, city: string, state: string, zip: string): Promise<AddressDetails> => {
-  // Simple address object creation for now
-  return {
-    street1: fullAddress || '',
-    city: city || '',
-    state: state || '',
-    zip: zip || '',
-    country: 'US'
-  };
-};
 
 export const useBulkUpload = () => {
-  const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
-  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [isFetchingRates, setIsFetchingRates] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'editing' | 'success' | 'error'>('idle');
-  const [results, setResults] = useState<BulkUploadResult | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate'>('recipient');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string>('all');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string; shipmentId: string } | null>(null);
+  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
+    isGenerating: false,
+    totalShipments: 0,
+    processedShipments: 0,
+    successfulShipments: 0,
+    failedShipments: 0,
+    currentStep: '',
+    estimatedTimeRemaining: 0
+  });
+  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  
+  const {
+    file,
+    isUploading,
+    uploadStatus,
+    results,
+    progress,
+    setResults,
+    setUploadStatus,
+    handleFileChange,
+    handleUpload: originalHandleUpload,
+    handleDownloadTemplate
+  } = useShipmentUpload();
 
-  const handleUpload = async (file: File) => {
-    setFile(file);
-    setIsUploading(true);
-    setUploadStatus('uploading');
-    setProgress(0);
+  const updateResults = (newResults: BulkUploadResult) => {
+    console.log('Updating results in useBulkUpload:', newResults);
+    setResults(newResults);
+    
+    if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
+      // Only update status if it's one of the types compatible with useShipmentUpload's state
+      const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
+      if (compatibleStatuses.includes(newResults.uploadStatus)) {
+        setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
+      }
+    }
+  };
 
-    try {
-      const parsedData = await parseCsvFile(file, setProgress);
-      console.log("Parsed CSV Data:", parsedData);
+  const {
+    isFetchingRates,
+    fetchAllShipmentRates,
+    handleSelectRate,
+    handleRefreshRates,
+    handleRefreshRatesAfterEdit,
+    handleBulkApplyCarrier
+  } = useShipmentRates(results, updateResults);
 
-      // Standardize addresses and prepare shipments
-      const shipments = await Promise.all(
-        parsedData.map(async (item, index) => {
-          try {
-            const standardized = await standardizeAddress(
-              item.customer_address || `${item.customer_street}, ${item.customer_city}, ${item.customer_state} ${item.customer_zip}`,
-              item.customer_city,
-              item.customer_state,
-              item.customer_zip
-            );
+  const {
+    isPaying,
+    isCreatingLabels,
+    handleRemoveShipment,
+    handleEditShipment: originalHandleEditShipment,
+    handleProceedToPayment,
+    handleCreateLabels: originalHandleCreateLabels,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat, 
+    handleDownloadSingleLabel,
+    handleEmailLabels
+  } = useShipmentManagement(results, updateResults);
 
-            const shipmentDetails: ShipmentDetails = {
-              to_address: standardized,
-              parcel: {
-                weight: parseFloat(item.weight) || 1,
-                length: parseFloat(item.length) || 1,
-                width: parseFloat(item.width) || 1,
-                height: parseFloat(item.height) || 1,
-                // Remove declared_value as it doesn't exist in ParcelDetails
-              }
-            };
+  const {
+    searchTerm,
+    sortField,
+    sortDirection,
+    selectedCarrierFilter,
+    filteredShipments,
+    setSearchTerm,
+    setSortField,
+    setSortDirection,
+    setSelectedCarrierFilter
+  } = useShipmentFiltering(results);
 
-            return {
-              id: `shipment-${Date.now()}-${index}`,
-              customer_name: item.customer_name || item.recipient,
-              customer_address: `${standardized.street1}, ${standardized.city}, ${standardized.state} ${standardized.zip}`,
-              recipient: item.customer_name || item.recipient,
-              email: item.customer_email,
-              phone: item.customer_phone,
-              status: 'pending_rates' as const,
-              details: shipmentDetails
-            } as BulkShipment;
-          } catch (addressError) {
-            console.error("Address standardization error:", addressError);
-            toast.error(`Address standardization failed for shipment ${index + 1}`);
-            return null;
+  useEffect(() => {
+    const loadDefaultPickupAddress = async () => {
+      try {
+        console.log('Loading default pickup address...');
+        const defaultAddress = await addressService.getDefaultFromAddress();
+        console.log("Loaded default pickup address:", defaultAddress);
+        if (defaultAddress) {
+          setPickupAddress(defaultAddress);
+        } else {
+          const addresses = await addressService.getSavedAddresses();
+          if (addresses.length > 0) {
+            const firstAddress = addresses[0];
+            setPickupAddress(firstAddress);
+            console.log("Using first available address:", firstAddress);
           }
-        })
-      );
-
-      // Filter out any null shipments (failed address standardization)
-      const validShipments = shipments.filter(shipment => shipment !== null) as BulkShipment[];
-
-      // Process all shipments to get rates
-      const uploadResults = await processBulkShipping(validShipments, pickupAddress);
-
-      if (uploadResults) {
-        setResults(uploadResults);
-        setUploadStatus('editing');
-        toast.success(`Successfully processed ${uploadResults.successful} shipments`);
-      } else {
-        setUploadStatus('error');
-        toast.error("Failed to process shipments");
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploadStatus('error');
-      toast.error("File upload failed. Please check the file format.");
-    } finally {
-      setIsUploading(false);
-      setProgress(100);
-    }
-  };
-
-  const processBulkShipping = async (shipments: BulkShipment[], pickup: SavedAddress | null): Promise<BulkUploadResult | null> => {
-    if (!pickup) {
-      toast.error("Please select a pickup address before processing shipments.");
-      return null;
-    }
-
-    setIsFetchingRates(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('process-bulk-shipping', {
-        body: {
-          shipments: shipments.map(s => ({
-            id: s.id,
-            customer_name: s.customer_name || s.recipient,
-            customer_address: s.customer_address,
-            details: s.details
-          })),
-          pickupAddress: pickup
         }
-      });
-
-      if (error) throw error;
-
-      if (data?.processedShipments) {
-        const totalCost = data.processedShipments.reduce((sum: number, shipment: any) => {
-          const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === shipment.selectedRateId);
-          return sum + (selectedRate ? parseFloat(selectedRate.rate.toString()) : 0);
-        }, 0);
-
-        const uploadResults: BulkUploadResult = {
-          total: shipments.length,
-          successful: data.processedShipments.length,
-          failed: shipments.length - data.processedShipments.length,
-          processedShipments: data.processedShipments,
-          totalCost: totalCost
-        };
-
-        return uploadResults;
-      } else {
-        toast.error("No shipments processed.");
-        return null;
+      } catch (error) {
+        console.error('Error loading default pickup address:', error);
+        toast.error('Error loading pickup addresses. Please check your settings.');
       }
-    } catch (error) {
-      console.error("Bulk shipping error:", error);
-      toast.error("Failed to process bulk shipping. Please try again.");
-      return null;
-    } finally {
-      setIsFetchingRates(false);
-    }
-  };
-
-  const handleSelectRate = (shipmentId: string, rateId: string) => {
-    if (!results) return;
-
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
-        return { ...shipment, selectedRateId: rateId, rate: parseFloat(selectedRate?.rate?.toString() || '0') };
-      }
-      return shipment;
-    });
-
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      return sum + (shipment.rate || 0);
-    }, 0);
-
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      totalCost: totalCost
-    });
-
-    toast.success('Rate selected for shipment');
-  };
-
-  const handleRemoveShipment = (shipmentId: string) => {
-    if (!results) return;
+    };
     
-    const updatedShipments = results.processedShipments.filter(
-      shipment => shipment.id !== shipmentId
-    );
-    
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate.toString()) : 0);
-    }, 0);
-    
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      successful: updatedShipments.length,
-      totalCost
-    });
-    
-    toast.success('Shipment removed from list');
-  };
+    loadDefaultPickupAddress();
+  }, []);
 
-  const handleEditShipment = async (shipmentId: string, updates: Partial<BulkShipment>) => {
-    if (!results) return;
-    
+  const handleEditShipment = async (shipment: BulkShipment) => {
     try {
-      // Update the shipment
-      const updatedShipments = results.processedShipments.map(s => 
-        s.id === shipmentId ? { ...s, ...updates } : s
-      );
+      // First update the shipment details using the original function
+      await originalHandleEditShipment(shipment);
       
-      setResults({
-        ...results,
-        processedShipments: updatedShipments
-      });
+      // Then refresh rates for the updated shipment
+      console.log('Refreshing rates after shipment edit...');
+      await handleRefreshRatesAfterEdit(shipment.id);
       
-      // Refresh rates for the entire batch with updated pickup address
-      if (pickupAddress) {
-        await handleRefreshAllRates(updatedShipments, pickupAddress);
-      }
-      
-      toast.success('Shipment updated and rates refreshed');
+      toast.success('Shipment updated and rates refreshed successfully');
     } catch (error) {
-      console.error('Error editing shipment:', error);
-      toast.error('Failed to update shipment');
+      console.error('Error updating shipment and refreshing rates:', error);
+      toast.error('Failed to update shipment or refresh rates');
     }
   };
 
-  const handleRefreshAllRates = async (shipments: BulkShipment[], pickup: SavedAddress) => {
-    setIsFetchingRates(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('process-bulk-shipping', {
-        body: {
-          shipments: shipments.map(s => ({
-            id: s.id,
-            customer_name: s.customer_name || s.recipient,
-            customer_address: s.customer_address,
-            details: s.details
-          })),
-          pickupAddress: pickup,
-          refreshRates: true
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.processedShipments) {
-        const totalCost = data.processedShipments.reduce((sum: number, shipment: any) => {
-          const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === shipment.selectedRateId);
-          return sum + (selectedRate ? parseFloat(selectedRate.rate.toString()) : 0);
-        }, 0);
-
-        setResults({
-          ...results!,
-          processedShipments: data.processedShipments,
-          totalCost
-        });
-      }
-    } catch (error) {
-      console.error('Error refreshing batch rates:', error);
-      toast.error('Failed to refresh rates for batch');
-    } finally {
-      setIsFetchingRates(false);
+  useEffect(() => {
+    if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
+      console.log('Payment completed, auto-starting label creation...');
+      handleCreateLabels();
+      setPaymentCompleted(false);
     }
-  };
+  }, [paymentCompleted, isCreatingLabels, results]);
 
-  // Add handleRefreshRates function for individual shipment refreshing
-  const handleRefreshRates = async (shipmentId: string) => {
-    if (!results || !pickupAddress) return;
-    
-    const shipment = results.processedShipments.find(s => s.id === shipmentId);
-    if (!shipment) return;
-    
-    // For now, refresh all rates since individual refresh requires similar logic
-    await handleRefreshAllRates(results.processedShipments, pickupAddress);
-  };
-
-  const handleBulkApplyCarrier = (carrierCode: string) => {
-    if (!results) return;
-
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (!shipment.availableRates || shipment.availableRates.length === 0) {
-        return shipment;
-      }
-
-      let bestRate;
-
-      switch (carrierCode) {
-        case 'cheapest':
-          bestRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
-          break;
-        case 'fastest':
-          bestRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
-          break;
-        case 'balanced':
-          bestRate = shipment.availableRates.reduce((best, rate) => {
-            const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
-            const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
-            return rateScore > bestScore ? rate : best;
-          });
-          break;
-        default:
-          bestRate = shipment.availableRates[0];
-      }
-
-      if (bestRate) {
-        return { ...shipment, selectedRateId: bestRate.id, rate: parseFloat(bestRate.rate.toString()) };
-      }
-
-      return shipment;
-    });
-
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      return sum + (shipment.rate || 0);
-    }, 0);
-
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      totalCost: totalCost
-    });
-
-    toast.success(`Applied ${carrierCode} to all shipments`);
-  };
-
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      "customer_name,customer_address,customer_city,customer_state,customer_zip,customer_email,customer_phone,weight,length,width,height,declared_value,insurance_enabled",
-      "John Doe,123 Main St,Anytown,CA,91234,john.doe@example.com,555-123-4567,1.0,6,4,2,100,true",
-      "Jane Smith,456 Elm St,Springfield,IL,62704,jane.smith@example.com,555-987-6543,2.5,8,6,4,250,false"
-    ].join('\n');
-
-    const blob = new Blob([templateData], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'bulk_shipping_template.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast.success('Downloaded CSV template');
-  };
-
-  const handleDownloadAllLabels = () => {
-    toast.success('Download all labels functionality will be implemented soon');
-  };
-
-  const handleDownloadLabelsWithFormat = (format: string) => {
-    toast.success(`Download labels with ${format} format functionality will be implemented soon`);
-  };
-
-  const handleDownloadSingleLabel = (labelUrl: string, format: string = 'png') => {
-    try {
-      const link = document.createElement('a');
-      link.href = labelUrl;
-      link.download = `shipping_label_${Date.now()}.${format}`;
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download label');
-    }
-  };
-
-  const handleEmailLabels = (email: string) => {
-    toast.success('Email functionality will be implemented soon');
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful, triggering label creation...');
+    setPaymentCompleted(true);
+    toast.success('Payment successful! Creating labels automatically...');
   };
 
   const handleCreateLabels = async () => {
@@ -390,124 +145,289 @@ export const useBulkUpload = () => {
       return;
     }
     
-    setIsCreatingLabels(true);
+    setBatchError(null);
+    
+    let shipmentsArray = [];
+    if (Array.isArray(results.processedShipments)) {
+      shipmentsArray = results.processedShipments;
+    } else if (results.processedShipments && typeof results.processedShipments === 'object') {
+      shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
+    }
+    
+    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
+    
+    if (shipmentsToProcess.length === 0) {
+      toast.error('No shipments with selected rates found');
+      return;
+    }
+
+    const totalShipments = shipmentsArray.length;
+    const shipmentsWithRates = shipmentsToProcess.length;
+    
+    if (shipmentsWithRates !== totalShipments) {
+      const missingRates = totalShipments - shipmentsWithRates;
+      toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
+      console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
+      return;
+    }
+    
+    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
+    
+    setLabelGenerationProgress({
+      isGenerating: true,
+      totalShipments: shipmentsToProcess.length,
+      processedShipments: 0,
+      successfulShipments: 0,
+      failedShipments: 0,
+      currentStep: 'Starting label generation...',
+      estimatedTimeRemaining: shipmentsToProcess.length * 8 
+    });
     
     try {
-      console.log('Creating labels for shipments:', results.processedShipments);
+      setUploadStatus('creating-labels');
       
+      const progressInterval = setInterval(() => {
+        setLabelGenerationProgress(prev => ({
+          ...prev,
+          estimatedTimeRemaining: Math.max(0, prev.estimatedTimeRemaining - 1)
+        }));
+      }, 1000);
+
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: results.processedShipments,
+          shipments: shipmentsToProcess,
           pickupAddress,
           labelOptions: {
-            format: 'PDF',
-            size: '4x6',
-            generateBatch: true
+            generateBatch: true,
+            generateManifest: true,
+            haltOnFailure: true
           }
         }
       });
 
+      clearInterval(progressInterval);
+
       if (error) {
-        throw new Error(error.message);
+        console.error('Label creation error from Supabase function:', error);
+        
+        if (error.message && error.message.includes('Batch halted')) {
+          const errorMatch = error.message.match(/Package #(\d+)/);
+          const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
+          const failedShipment = shipmentsToProcess[packageNumber - 1];
+          
+          setBatchError({
+            packageNumber,
+            error: error.message,
+            shipmentId: failedShipment?.id || 'unknown'
+          });
+          
+          setLabelGenerationProgress({
+            isGenerating: false,
+            totalShipments: shipmentsToProcess.length,
+            processedShipments: packageNumber - 1,
+            successfulShipments: 0,
+            failedShipments: 1,
+            currentStep: 'Batch halted due to error',
+            estimatedTimeRemaining: 0
+          });
+          
+          toast.error(`Batch halted. Package #${packageNumber} couldn't be processed. Please fix the issue to continue.`, {
+            duration: 10000
+          });
+          
+          return;
+        }
+        
+        throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
-      console.log('Label creation response:', data);
+      console.log('Raw label creation response from create-bulk-labels:', data);
 
-      if (data.processedLabels && data.processedLabels.length > 0) {
-        setResults({
-          ...results,
-          processedShipments: data.processedLabels,
-          batchResult: data.batchResult,
-          bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
-          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png,
+      if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
+        const expectedLabels = shipmentsToProcess.length;
+        const actualLabels = data.processedLabels.length;
+        
+        setLabelGenerationProgress({
+          isGenerating: false,
+          totalShipments: expectedLabels,
+          processedShipments: expectedLabels,
+          successfulShipments: actualLabels,
+          failedShipments: data.failedLabels?.length || (expectedLabels - actualLabels),
+          currentStep: 'Label generation complete!',
+          estimatedTimeRemaining: 0
         });
 
-        setUploadStatus('success');
-        toast.success(`Successfully created ${data.successful} shipping labels`);
+        const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
+          const originalShipment = shipmentsToProcess.find(s => 
+            s.easypost_id === labelData.id || s.id === labelData.original_shipment_id || s.id === labelData.id
+          );
+          return {
+            id: labelData.id || originalShipment?.id || `ship_${Date.now()}`,
+            shipment_id: labelData.id,
+            easypost_id: labelData.id,
+            original_shipment_id: labelData.original_shipment_id || originalShipment?.id,
+            row: originalShipment?.row || 0,
+            recipient: labelData.customer_name || originalShipment?.recipient || 'Unknown Recipient',
+            customer_name: labelData.customer_name || originalShipment?.customer_name,
+            customer_address: labelData.customer_address || originalShipment?.customer_address,
+            carrier: labelData.carrier || originalShipment?.carrier,
+            service: labelData.service || originalShipment?.service,
+            rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
+            tracking_code: labelData.tracking_code,
+            tracking_number: labelData.tracking_code,
+            label_url: labelData.label_urls?.png || labelData.label_url,
+            label_urls: labelData.label_urls || { png: labelData.label_url },
+            status: 'completed' as const,
+            details: originalShipment?.details || {},
+            availableRates: originalShipment?.availableRates || [],
+            selectedRateId: originalShipment?.selectedRateId,
+          };
+        });
+        
+        const transformedFailedShipments = (data.failedLabels || []).map((failed: any) => {
+            const originalFailedShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId || s.easypost_id === failed.shipmentId);
+            return {
+                ...(originalFailedShipment || { id: failed.shipmentId, details: {}, recipient: 'Unknown' }),
+                status: 'failed' as const,
+                error: failed.error || 'Label creation failed',
+            };
+        });
 
-        if (data.failedLabels && data.failedLabels.length > 0) {
-          console.error('Failed labels:', data.failedLabels);
-          toast.error(`${data.failedLabels.length} labels failed to create. Check console for details.`);
+        const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
+        
+        let frontendBatchResult: BatchResult | null = null;
+        if (data.batchResult && data.batchResult.batchId) {
+            console.log('Processing batch result:', data.batchResult);
+            frontendBatchResult = {
+                batchId: data.batchResult.batchId,
+                consolidatedLabelUrls: {
+                    pdf: data.batchResult.batchLabelUrls?.pdfUrl || data.batchResult.consolidatedLabelUrls?.pdf,
+                    zpl: data.batchResult.batchLabelUrls?.zplUrl || data.batchResult.consolidatedLabelUrls?.zpl,
+                    epl: data.batchResult.batchLabelUrls?.eplUrl || data.batchResult.consolidatedLabelUrls?.epl,
+                },
+                scanFormUrl: data.batchResult.scanFormUrl || null,
+            };
+            console.log('Created frontend batch result:', frontendBatchResult);
         }
+
+        const updatedResults: BulkUploadResult = {
+          total: data.total || shipmentsToProcess.length,
+          successful: data.successful || transformedSuccessfulShipments.length,
+          failed: data.failed || transformedFailedShipments.length,
+          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
+          processedShipments: allTransformedShipments,
+          failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
+          batchResult: frontendBatchResult,
+          bulk_label_pdf_url: frontendBatchResult?.consolidatedLabelUrls?.pdf || null,
+          uploadStatus: 'success' as const,
+          pickupAddress
+        };
+
+        console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
+        console.log('Final batch result being set:', updatedResults.batchResult);
+        updateResults(updatedResults);
+        
+        if (updatedResults.successful === expectedLabels && expectedLabels > 0) {
+          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels generated!`);
+        } else if (transformedSuccessfulShipments.length > 0) {
+          toast.warning(`⚠️ ${transformedSuccessfulShipments.length} out of ${expectedLabels} labels created. ${transformedFailedShipments.length} failed.`);
+        } else if (expectedLabels > 0) {
+           toast.error(`❌ All ${expectedLabels} label creations failed. Check details.`);
+        }
+
+        if (frontendBatchResult) {
+          toast.success('✅ Batch outputs (PDF, ZPL, EPL, Manifest) generated successfully!');
+        }
+        if (transformedFailedShipments.length > 0) {
+          toast.error(`${transformedFailedShipments.length} labels failed to create. Check details in the table if shown.`);
+        }
+
       } else {
-        throw new Error(data.message || 'No labels were created');
+        console.error('Invalid response format or no labels created by backend:', data);
+        throw new Error(data?.error || 'No labels were created or invalid response format from backend.');
       }
 
     } catch (error) {
       console.error('Error creating labels:', error);
+      setLabelGenerationProgress(prev => ({
+        ...prev,
+        isGenerating: false,
+        currentStep: 'Label generation failed'
+      }));
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
-    } finally {
-      setIsCreatingLabels(false);
+      setUploadStatus('error');
     }
   };
 
-  const filteredShipments = results?.processedShipments?.filter(shipment => {
-    const searchTermLower = searchTerm.toLowerCase();
+  const handleFileUpload = async (file: File) => {
+    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
     
-    // Safe address string construction
-    let addressStr = '';
-    if (shipment.customer_address) {
-      if (typeof shipment.customer_address === 'string') {
-        addressStr = shipment.customer_address;
-      } else if (typeof shipment.customer_address === 'object') {
-        const addr = shipment.customer_address as any;
-        addressStr = `${addr.street1 || ''} ${addr.city || ''} ${addr.state || ''} ${addr.zip || ''}`;
-      }
+    if (!pickupAddress) {
+      const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
+      toast.error(errorMsg, {
+        description: 'Go to Settings > Pickup Address to add your shipping address.',
+        action: {
+          label: 'Go to Settings',
+          onClick: () => window.location.href = '/settings'
+        }
+      });
+      throw new Error(errorMsg);
     }
     
-    const matchesSearch =
-      shipment.customer_name?.toLowerCase().includes(searchTermLower) ||
-      addressStr.toLowerCase().includes(searchTermLower);
+    return originalHandleUpload(file, pickupAddress);
+  };
 
-    const matchesCarrier = selectedCarrierFilter === 'all' || shipment.availableRates?.some(rate => rate.carrier.toLowerCase().includes(selectedCarrierFilter));
-
-    return matchesSearch && matchesCarrier;
-  }).sort((a, b) => {
-    const aValue = a[sortField as keyof BulkShipment];
-    const bValue = b[sortField as keyof BulkShipment];
-
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+  const handleOpenBatchPrintPreview = () => {
+    if (results?.batchResult) {
+      setBatchPrintPreviewModalOpen(true);
     } else {
-      return 0;
+      toast.error("No batch results available to preview. Please generate labels first.");
     }
-  });
+  };
+
+  const handleClearBatchError = () => {
+    setBatchError(null);
+  };
 
   return {
     file,
     isUploading,
-    isPaying,
-    isCreatingLabels,
-    isFetchingRates,
     uploadStatus,
     results,
     progress,
+    isFetchingRates,
+    isPaying,
+    isCreatingLabels,
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
+    batchError,
     setPickupAddress,
-    handleUpload,
-    processBulkShipping,
+    handleFileChange,
+    handleUpload: handleFileUpload,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
-    handleRefreshAllRates,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleDownloadTemplate,
+    handleCreateLabels,
+    handleOpenBatchPrintPreview,
+    handleClearBatchError,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
     handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
+    handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels,
-    handleCreateLabels,
+    handleDownloadTemplate,
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    labelGenerationProgress,
+    handlePaymentSuccess
   };
 };
