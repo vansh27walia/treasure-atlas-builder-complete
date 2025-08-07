@@ -327,6 +327,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setEditingShipments(prev => new Set([...prev, shipmentId]));
     
     try {
+      console.log('Editing shipment with data:', editedData);
+      
       // Update the shipment details first
       onEditShipment(shipmentId, editedData);
       
@@ -339,7 +341,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       // Refresh rates for this specific shipment after a brief delay
       setTimeout(async () => {
         try {
+          console.log('Refreshing rates for shipment:', shipmentId);
           await onRefreshRates(shipmentId);
+          console.log('Successfully refreshed rates for shipment:', shipmentId);
           toast.success('Shipment updated and rates refreshed successfully');
         } catch (error) {
           console.error('Error refreshing rates after edit:', error);
@@ -352,7 +356,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             return newSet;
           });
         }
-      }, 500);
+      }, 1000); // Increased delay to ensure data is saved first
     } catch (error) {
       console.error('Error handling edit submission:', error);
       toast.error('Failed to update shipment');
@@ -573,7 +577,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                               onValueChange={(value) => handleRateSelection(shipment.id, value)} 
                               disabled={shipment.status === 'pending_rates' || isEditing}
                             >
-                              <SelectTrigger className="min-w-[280px] h-auto border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
+                              <SelectTrigger className="w-64 h-auto border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
                                 <SelectValue placeholder={
                                   isEditing ? "🔄 Updating rates..." :
                                   shipment.status === 'pending_rates' 
@@ -581,12 +585,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                     : "Select a carrier"
                                 } />
                               </SelectTrigger>
-                              <SelectContent className="min-w-[320px] bg-white border-2 border-gray-200 shadow-xl z-50">
+                              <SelectContent className="w-80 max-h-96 bg-white border-2 border-gray-200 shadow-xl z-50">
                                 {(shipment.availableRates || []).map(rate => {
                                   const standardizedCarrier = standardizeCarrierName(rate.carrier);
                                   const discountPercent = getDiscountPercentage(rate);
                                   const currentRatePrice = parseFloat(formatRate(rate.rate));
                                   const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
+                                  const carrierColorClass = getCarrierColor(standardizedCarrier);
                                   
                                   return (
                                     <SelectItem key={rate.id} value={rate.id} className="p-0">
@@ -595,7 +600,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center space-x-3">
-                                              <span className="text-base font-bold text-gray-900">
+                                              <span className={`text-base font-bold px-2 py-1 rounded border ${carrierColorClass}`}>
                                                 {standardizedCarrier}
                                               </span>
                                               {rate.delivery_days && (
@@ -620,7 +625,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                               </div>
                                             </div>
                                             <div className="text-right">
-                                              <div className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                                              <div className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                                                discountPercent >= 70 ? 'text-red-700 bg-red-100' :
+                                                discountPercent >= 50 ? 'text-orange-700 bg-orange-100' :
+                                                'text-green-700 bg-green-100'
+                                              }`}>
                                                 Save {discountPercent}%
                                               </div>
                                             </div>
@@ -801,7 +810,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 {isEditing ? 'Updating' : 'Edit'}
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
                               </DialogHeader>
@@ -868,112 +877,115 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
   });
 
   const handleFormSubmit = (data: any) => {
+    console.log('Form submitted with data:', data);
     onSubmit(data);
   };
 
   return (
-    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="to_name">Customer Name *</Label>
-          <Input id="to_name" {...form.register('to_name')} required />
+    <div className="max-h-[60vh] overflow-y-auto">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="to_name">Customer Name *</Label>
+            <Input id="to_name" {...form.register('to_name')} required />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="to_company">Company</Label>
+            <Input id="to_company" {...form.register('to_company')} />
+          </div>
         </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="to_company">Company</Label>
-          <Input id="to_company" {...form.register('to_company')} />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="to_phone">Phone</Label>
-          <Input id="to_phone" {...form.register('to_phone')} />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="to_phone">Phone</Label>
+            <Input id="to_phone" {...form.register('to_phone')} />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="to_email">Email</Label>
+            <Input id="to_email" type="email" {...form.register('to_email')} />
+          </div>
         </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="to_email">Email</Label>
-          <Input id="to_email" type="email" {...form.register('to_email')} />
-        </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="to_street1">Address Line 1 *</Label>
-        <Input id="to_street1" {...form.register('to_street1')} required />
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="to_street1">Address Line 1 *</Label>
+          <Input id="to_street1" {...form.register('to_street1')} required />
+        </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="to_street2">Address Line 2</Label>
-        <Input id="to_street2" {...form.register('to_street2')} />
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="to_street2">Address Line 2</Label>
+          <Input id="to_street2" {...form.register('to_street2')} />
+        </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="to_city">City *</Label>
-          <Input id="to_city" {...form.register('to_city')} required />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="to_city">City *</Label>
+            <Input id="to_city" {...form.register('to_city')} required />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="to_state">State *</Label>
+            <Input id="to_state" {...form.register('to_state')} required />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="to_zip">ZIP Code *</Label>
+            <Input id="to_zip" {...form.register('to_zip')} required />
+          </div>
         </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="to_state">State *</Label>
-          <Input id="to_state" {...form.register('to_state')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="to_zip">ZIP Code *</Label>
-          <Input id="to_zip" {...form.register('to_zip')} required />
-        </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="to_country">Country *</Label>
-        <Input id="to_country" {...form.register('to_country')} required />
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="to_country">Country *</Label>
+          <Input id="to_country" {...form.register('to_country')} required />
+        </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="reference">Reference/Order #</Label>
-        <Input id="reference" {...form.register('reference')} />
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="reference">Reference/Order #</Label>
+          <Input id="reference" {...form.register('reference')} />
+        </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="weight">Weight (oz) *</Label>
-          <Input id="weight" type="number" step="0.1" {...form.register('weight', {
-            valueAsNumber: true
-          })} required />
+        <div className="grid grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="weight">Weight (oz) *</Label>
+            <Input id="weight" type="number" step="0.1" {...form.register('weight', {
+              valueAsNumber: true
+            })} required />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="length">Length (in) *</Label>
+            <Input id="length" type="number" step="0.1" {...form.register('length', {
+              valueAsNumber: true
+            })} required />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="width">Width (in) *</Label>
+            <Input id="width" type="number" step="0.1" {...form.register('width', {
+              valueAsNumber: true
+            })} required />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="height">Height (in) *</Label>
+            <Input id="height" type="number" step="0.1" {...form.register('height', {
+              valueAsNumber: true
+            })} required />
+          </div>
         </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="length">Length (in) *</Label>
-          <Input id="length" type="number" step="0.1" {...form.register('length', {
-            valueAsNumber: true
-          })} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="width">Width (in) *</Label>
-          <Input id="width" type="number" step="0.1" {...form.register('width', {
-            valueAsNumber: true
-          })} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="height">Height (in) *</Label>
-          <Input id="height" type="number" step="0.1" {...form.register('height', {
-            valueAsNumber: true
-          })} required />
-        </div>
-      </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit">
-          <Check className="h-4 w-4 mr-1" />
-          Save & Refresh Rates
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end space-x-2 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit">
+            <Check className="h-4 w-4 mr-1" />
+            Save & Refresh Rates
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 };
 
