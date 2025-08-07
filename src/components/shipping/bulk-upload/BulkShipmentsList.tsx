@@ -22,13 +22,13 @@ interface BulkShipmentsListProps {
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
-  shipments,
+  shipments = [], // Add default empty array
   onShipmentUpdate,
   onShipmentRemove,
-  selectedShipments,
+  selectedShipments = [], // Add default empty array
   onShipmentToggle,
   onSelectAll,
-  allSelected
+  allSelected = false // Add default value
 }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [tempShipment, setTempShipment] = useState<BulkShipment | null>(null);
@@ -177,6 +177,26 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     );
   };
 
+  // Add safety check for shipments array
+  if (!shipments) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            Shipments (0)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-gray-500">
+            <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <p>Loading shipments...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -278,11 +298,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     </div>
                     <div className="text-sm text-gray-600">
                       <div className="font-medium">
-                        {shipment.details.from_address?.name || 'Pickup Address'}
+                        {shipment.details?.from_address?.name || 'Pickup Address'}
                       </div>
-                      <div>{shipment.details.from_address?.street1 || 'Default pickup location'}</div>
+                      <div>{shipment.details?.from_address?.street1 || 'Default pickup location'}</div>
                       <div>
-                        {shipment.details.from_address?.city || 'City'}, {shipment.details.from_address?.state || 'ST'} {shipment.details.from_address?.zip || '00000'}
+                        {shipment.details?.from_address?.city || 'City'}, {shipment.details?.from_address?.state || 'ST'} {shipment.details?.from_address?.zip || '00000'}
                       </div>
                     </div>
                   </div>
@@ -294,10 +314,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       To
                     </div>
                     <div className="text-sm text-gray-600">
-                      <div className="font-medium">{shipment.details.to_address.name || shipment.customer_name || 'N/A'}</div>
-                      <div>{shipment.details.to_address.street1}</div>
+                      <div className="font-medium">{shipment.details?.to_address?.name || shipment.customer_name || 'N/A'}</div>
+                      <div>{shipment.details?.to_address?.street1}</div>
                       <div>
-                        {shipment.details.to_address.city}, {shipment.details.to_address.state} {shipment.details.to_address.zip}
+                        {shipment.details?.to_address?.city}, {shipment.details?.to_address?.state} {shipment.details?.to_address?.zip}
                       </div>
                     </div>
                   </div>
@@ -310,9 +330,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     </div>
                     <div className="text-sm text-gray-600">
                       <div>
-                        {shipment.details.parcel.length}"×{shipment.details.parcel.width}"×{shipment.details.parcel.height}"
+                        {shipment.details?.parcel?.length || 0}"×{shipment.details?.parcel?.width || 0}"×{shipment.details?.parcel?.height || 0}"
                       </div>
-                      <div>{shipment.details.parcel.weight} oz</div>
+                      <div>{shipment.details?.parcel?.weight || 0} oz</div>
                     </div>
                   </div>
                 </div>
