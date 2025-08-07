@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,37 +115,37 @@ Jane Smith,456 Oak Ave,Apt 2B,Los Angeles,CA,90210,US,555-5678,jane@email.com,AB
           <div className="flex items-center space-x-4">
             <div className="flex-1">
               <Label htmlFor="pickup-address">Pickup Address *</Label>
-              <Select
-                value={selectedPickupAddress?.id || ''}
-                onValueChange={handlePickupAddressChange}
-                disabled={addressesLoading}
-              >
-                <SelectTrigger id="pickup-address">
-                  <SelectValue placeholder={addressesLoading ? "Loading addresses..." : "Select pickup address"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {addresses.map((address) => (
-                    <SelectItem key={address.id} value={address.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{address.name || 'Unnamed Address'}</span>
-                        <span className="text-sm text-gray-500">
-                          {address.street1}, {address.city}, {address.state} {address.zip}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center space-x-2">
+                <Select
+                  value={selectedPickupAddress?.id || ''}
+                  onValueChange={handlePickupAddressChange}
+                  disabled={addressesLoading}
+                >
+                  <SelectTrigger id="pickup-address" className="flex-1">
+                    <SelectValue placeholder={addressesLoading ? "Loading addresses..." : "Select pickup address"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {addresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{address.name || 'Unnamed Address'}</span>
+                          <span className="text-sm text-gray-500">
+                            {address.street1}, {address.city}, {address.state} {address.zip}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditPickupAddress}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEditPickupAddress}
-              className="mt-6"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
           </div>
           
           {selectedPickupAddress && (
@@ -229,3 +230,4 @@ Jane Smith,456 Oak Ave,Apt 2B,Los Angeles,CA,90210,US,555-5678,jane@email.com,AB
 };
 
 export default BulkUploadForm;
+
