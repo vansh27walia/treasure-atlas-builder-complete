@@ -1,3 +1,4 @@
+
 import React from 'react';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
@@ -12,6 +13,8 @@ const BulkUpload: React.FC = () => {
   const [pickupAddress, setPickupAddress] = React.useState<SavedAddress | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
+  const [isPaying, setIsPaying] = React.useState(false);
+  const [isCreatingLabels, setIsCreatingLabels] = React.useState(false);
   const { toast } = useToast()
 
   const handleUploadSuccess = (results: any) => {
@@ -118,6 +121,41 @@ const BulkUpload: React.FC = () => {
     console.log('Editing shipment:', shipment);
   };
 
+  const handleDownloadAllLabels = () => {
+    setIsCreatingLabels(true);
+    // Implementation for downloading labels
+    setTimeout(() => {
+      setIsCreatingLabels(false);
+    }, 3000);
+  };
+
+  // Calculate totals
+  const calculateTotals = () => {
+    if (!uploadResult?.processedShipments) return { totalCost: 0, totalInsurance: 0, successfulCount: 0 };
+
+    const shipmentsWithRates = uploadResult.processedShipments.filter(s => s.selectedRateId && s.availableRates);
+    const successfulCount = shipmentsWithRates.length;
+
+    let totalCost = 0;
+    let totalInsurance = 0;
+
+    shipmentsWithRates.forEach(shipment => {
+      const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
+      if (selectedRate) {
+        totalCost += parseFloat(selectedRate.rate.toString());
+        
+        // Calculate insurance (1% of declared value, minimum $1)
+        if (shipment.details?.parcel?.predefined_package) {
+          const declaredValue = parseFloat(shipment.details.parcel.predefined_package) || 0;
+          const insurance = Math.max(declaredValue * 0.01, 1);
+          totalInsurance += insurance;
+        }
+      }
+    });
+
+    return { totalCost, totalInsurance, successfulCount };
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -148,9 +186,13 @@ const BulkUpload: React.FC = () => {
           />
           
           <OrderSummary
-            totalShipments={uploadResult.processedShipments.length}
-            totalCost={uploadResult.totalCost || 0}
+            successfulCount={calculateTotals().successfulCount}
+            totalCost={calculateTotals().totalCost}
+            totalInsurance={calculateTotals().totalInsurance}
+            onDownloadAllLabels={handleDownloadAllLabels}
             onProceedToPayment={handleProceedToPayment}
+            isPaying={isPaying}
+            isCreatingLabels={isCreatingLabels}
           />
         </div>
       )}
