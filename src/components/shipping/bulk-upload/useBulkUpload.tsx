@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -80,7 +79,7 @@ export const useBulkUpload = () => {
               recipient: item.customer_name || item.recipient,
               email: item.customer_email,
               phone: item.customer_phone,
-              status: 'pending' as const,
+              status: 'pending_rates' as const,
               details: shipmentDetails
             } as BulkShipment;
           } catch (addressError) {
