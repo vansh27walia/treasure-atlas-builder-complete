@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -196,7 +195,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           
           <CardContent className="space-y-4">
             {editingShipment === shipment.id ? (
-              // Edit Form
               <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -316,9 +314,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 </div>
               </div>
             ) : (
-              // Display Mode
               <>
-                {/* Shipment Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -352,7 +348,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   </div>
                 </div>
 
-                {/* Shipping Rates */}
                 {shipment.availableRates && shipment.availableRates.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -371,6 +366,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         <SelectContent>
                           {shipment.availableRates.map((rate: ShippingOption) => {
                             const standardizedCarrier = standardizeCarrierName(rate.carrier);
+                            const rateValue = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
                             return (
                               <SelectItem key={rate.id} value={rate.id}>
                                 <div className="flex items-center gap-2 w-full">
@@ -378,7 +374,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <div className="flex-1">
                                     <div className="font-medium text-sm">{standardizedCarrier} {rate.service}</div>
                                     <div className="text-xs text-gray-600">
-                                      ${parseFloat(rate.rate).toFixed(2)} - {rate.delivery_days} days
+                                      ${rateValue.toFixed(2)} - {rate.delivery_days} days
                                     </div>
                                   </div>
                                 </div>
@@ -389,11 +385,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       </Select>
                     </div>
 
-                    {/* Selected Rate Display */}
                     {shipment.selectedRateId && (() => {
                       const selectedRate = shipment.availableRates.find(rate => rate.id === shipment.selectedRateId);
                       if (selectedRate) {
                         const standardizedCarrier = standardizeCarrierName(selectedRate.carrier);
+                        const rateValue = typeof selectedRate.rate === 'string' ? parseFloat(selectedRate.rate) : selectedRate.rate;
                         return (
                           <div className="ml-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
                             <div className="flex items-center justify-between">
@@ -407,7 +403,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 <div className="flex items-center gap-1">
                                   <DollarSign className="w-4 h-4 text-green-600" />
                                   <span className="font-bold text-lg text-green-700">
-                                    ${parseFloat(selectedRate.rate).toFixed(2)}
+                                    ${rateValue.toFixed(2)}
                                   </span>
                                 </div>
                                 <div className="text-xs text-gray-600">
@@ -423,7 +419,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   </div>
                 )}
 
-                {/* Error Message */}
                 {shipment.error && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
                     <AlertCircle className="w-4 h-4 text-red-500" />
