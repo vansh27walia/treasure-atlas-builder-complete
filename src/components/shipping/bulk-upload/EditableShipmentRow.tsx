@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,6 @@ import { Edit, Save, X, Trash2 } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
-import AIRatePicker from './AIRatePicker';
 import { displayWeightInPounds, parseWeightInput } from '@/utils/weightConversion';
 
 interface EditableShipmentRowProps {
@@ -15,13 +15,15 @@ interface EditableShipmentRowProps {
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
+  onRefreshRates?: (shipmentId: string) => void;
 }
 
 const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   shipment,
   onSelectRate,
   onRemoveShipment,
-  onEditShipment
+  onEditShipment,
+  onRefreshRates
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
@@ -37,7 +39,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Apply the changes to the shipment
     const updates = {
       customer_name: editData.customer_name,
@@ -54,6 +56,11 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     
     onEditShipment(shipment.id, updates);
     setIsEditing(false);
+    
+    // Refresh rates after saving changes
+    if (onRefreshRates) {
+      onRefreshRates(shipment.id);
+    }
   };
 
   const handleCancel = () => {
