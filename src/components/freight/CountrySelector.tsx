@@ -14,13 +14,16 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({
   onChange,
   placeholder = "Select country"
 }) => {
+  // Filter out any countries with empty codes
+  const validCountries = countries.filter(country => country.code && country.code.trim() !== '');
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-12">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="max-h-60">
-        {countries.map((country) => (
+        {validCountries.map((country) => (
           <SelectItem key={country.code} value={country.code} className="py-3">
             <div className="flex items-center space-x-3">
               <span className="text-lg min-w-[24px]">{country.flag}</span>

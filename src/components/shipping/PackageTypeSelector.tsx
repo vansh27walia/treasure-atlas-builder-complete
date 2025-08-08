@@ -72,11 +72,7 @@ const packageTypes = [
   { value: 'SmallExpressBox', label: '🚛 UPS Small Express Box' },
   { value: 'MediumExpressBox', label: '🚛 UPS Medium Express Box' },
   { value: 'LargeExpressBox', label: '🚛 UPS Large Express Box' },
-  
-  // Legacy packages for backward compatibility
-  { value: 'canada_post_box', label: '🍁 Canada Post Box' },
-  { value: 'uk_post_box', label: '🇬🇧 UK Post Box' },
-];
+].filter(type => type.value && type.value.trim() !== ''); // Filter out any empty values
 
 const PackageTypeSelector: React.FC<PackageTypeSelectorProps> = ({
   value,

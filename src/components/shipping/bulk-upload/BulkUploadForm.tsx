@@ -323,7 +323,9 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                     <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableAddresses.map((address) => (
+                    {availableAddresses
+                      .filter(address => address.id && address.id.toString().trim() !== '')
+                      .map((address) => (
                       <SelectItem key={address.id} value={address.id.toString()}>
                         <div className="flex flex-col py-1">
                           <span className="font-semibold text-gray-900">{address.name}</span>
