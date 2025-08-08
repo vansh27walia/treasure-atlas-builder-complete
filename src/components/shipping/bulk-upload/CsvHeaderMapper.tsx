@@ -10,8 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
 interface CsvHeaderMapperProps {
-  headers: string[];
-  onMappingComplete: (mapping: { [key: string]: string }) => void;
+  csvContent: string;
+  onMappingComplete: (convertedCsv: string) => void;
   onCancel: () => void;
 }
 
@@ -25,61 +25,69 @@ const requiredFields = [
   { key: 'to_street2', label: 'Street Address 2', required: false },
   { key: 'to_company', label: 'Company', required: false },
   { key: 'to_phone', label: 'Phone', required: false },
-  { key: 'parcel_weight', label: 'Weight', required: true },
-  { key: 'parcel_length', label: 'Length', required: false },
-  { key: 'parcel_width', label: 'Width', required: false },
-  { key: 'parcel_height', label: 'Height', required: false },
+  { key: 'weight', label: 'Weight (lbs)', required: true },
+  { key: 'length', label: 'Length (in)', required: false },
+  { key: 'width', label: 'Width (in)', required: false },
+  { key: 'height', label: 'Height (in)', required: false },
   { key: 'reference', label: 'Reference/Order ID', required: false },
 ];
 
 const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
-  headers,
+  csvContent,
   onMappingComplete,
   onCancel,
 }) => {
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiAttempted, setAiAttempted] = useState(false);
   const [aiFailedAutoFallback, setAiFailedAutoFallback] = useState(false);
-  const [mappingMode, setMappingMode] = useState<'ai' | 'manual'>('ai');
 
-  // Auto-attempt AI mapping on component mount
+  // Parse CSV headers on mount
   useEffect(() => {
-    handleAIMapping();
-  }, []);
+    if (csvContent) {
+      const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+      if (lines.length > 0) {
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        setCsvHeaders(headers);
+        
+        // Auto-attempt AI mapping
+        handleAIMapping(headers);
+      }
+    }
+  }, [csvContent]);
 
-  const handleAIMapping = async () => {
+  const handleAIMapping = async (headers: string[]) => {
     setIsLoadingAI(true);
     setAiAttempted(true);
     
     try {
+      console.log('Attempting AI mapping for headers:', headers);
+      
       const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
-        body: { headers }
+        body: { 
+          csvContent,
+          action: 'analyze'
+        }
       });
 
       if (error) {
         console.error('AI mapping error:', error);
-        // Auto-fallback to manual mode
         setAiFailedAutoFallback(true);
-        setMappingMode('manual');
         toast.error('AI mapping failed. Switched to manual mapping mode.');
         return;
       }
 
-      if (data && data.mapping) {
-        setMapping(data.mapping);
+      if (data && data.suggestions && data.suggestions.mappings) {
+        setMapping(data.suggestions.mappings);
         toast.success('AI successfully mapped your CSV headers!');
       } else {
-        // Auto-fallback to manual mode
         setAiFailedAutoFallback(true);
-        setMappingMode('manual');
         toast.warning('AI could not map headers automatically. Please map manually.');
       }
     } catch (error) {
       console.error('AI mapping error:', error);
-      // Auto-fallback to manual mode
       setAiFailedAutoFallback(true);
-      setMappingMode('manual');
       toast.error('AI mapping failed. Switched to manual mapping mode.');
     } finally {
       setIsLoadingAI(false);
@@ -89,11 +97,11 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
   const handleManualMapping = (field: string, header: string) => {
     setMapping(prev => ({
       ...prev,
-      [field]: header
+      [field]: header === '' ? undefined : header
     }));
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     // Validate required fields are mapped
     const missingRequired = requiredFields
       .filter(field => field.required && !mapping[field.key])
@@ -104,11 +112,34 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
       return;
     }
 
-    onMappingComplete(mapping);
+    try {
+      console.log('Converting CSV with mapping:', mapping);
+      
+      const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
+        body: {
+          csvContent,
+          action: 'convert',
+          mappings: mapping
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data && data.convertedCSV) {
+        onMappingComplete(data.convertedCSV);
+      } else {
+        throw new Error('No converted CSV received');
+      }
+    } catch (error) {
+      console.error('CSV conversion error:', error);
+      toast.error('Failed to convert CSV. Please check your mappings.');
+    }
   };
 
   const getMappedCount = () => {
-    return Object.keys(mapping).length;
+    return Object.keys(mapping).filter(key => mapping[key]).length;
   };
 
   const getRequiredMappedCount = () => {
@@ -191,7 +222,7 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="">-- No mapping --</SelectItem>
-                        {headers.map((header) => (
+                        {csvHeaders.filter(header => header && header.trim() !== '').map((header) => (
                           <SelectItem key={header} value={header}>
                             {header}
                           </SelectItem>
@@ -212,7 +243,7 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                 {!aiFailedAutoFallback && aiAttempted && (
                   <Button
                     variant="outline"
-                    onClick={handleAIMapping}
+                    onClick={() => handleAIMapping(csvHeaders)}
                     disabled={isLoadingAI}
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
