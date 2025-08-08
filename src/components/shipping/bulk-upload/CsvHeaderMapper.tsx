@@ -206,7 +206,7 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                     <div className="flex-1">
                       <p className="font-medium text-sm text-green-700">{field?.label}</p>
                       {field?.required && (
-                        <Badge size="sm" className="bg-red-100 text-red-800">Required</Badge>
+                        <Badge className="bg-red-100 text-red-800">Required</Badge>
                       )}
                     </div>
                   </div>

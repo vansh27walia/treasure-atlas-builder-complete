@@ -12,13 +12,26 @@ import CsvHeaderMapper from './CsvHeaderMapper';
 
 interface BulkUploadFormProps {
   onUploadComplete: (shipments: any[]) => void;
+  onUploadSuccess?: (uploadResults: any) => void;
+  onUploadFail?: (error: string) => void;
+  onPickupAddressSelect?: (address: any) => void;
+  isUploading?: boolean;
+  progress?: number;
+  handleUpload?: (file: File) => Promise<void>;
 }
 
-const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ onUploadComplete }) => {
+const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ 
+  onUploadComplete,
+  onUploadSuccess,
+  onUploadFail,
+  onPickupAddressSelect,
+  isUploading = false,
+  progress = 0,
+  handleUpload
+}) => {
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<any[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [showMapper, setShowMapper] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -65,8 +78,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ onUploadComplete }) => 
   };
 
   const handleMappingComplete = useCallback(async (mapping: Record<string, string>) => {
-    setIsUploading(true);
-    
     try {
       console.log('Processing CSV data with mapping:', mapping);
       
@@ -110,16 +121,24 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ onUploadComplete }) => 
 
       // Pass the transformed data to the parent component
       onUploadComplete(transformedData);
+      
+      // Call onUploadSuccess if provided
+      if (onUploadSuccess) {
+        onUploadSuccess({ shipments: transformedData, total: transformedData.length, successful: transformedData.length, failed: 0 });
+      }
+      
       setShowMapper(false);
       toast.success(`Successfully processed ${transformedData.length} shipments`);
       
     } catch (error) {
       console.error('Error processing CSV data:', error);
       toast.error('Failed to process CSV data');
-    } finally {
-      setIsUploading(false);
+      
+      if (onUploadFail) {
+        onUploadFail(error instanceof Error ? error.message : 'Failed to process CSV data');
+      }
     }
-  }, [csvData, onUploadComplete]);
+  }, [csvData, onUploadComplete, onUploadSuccess, onUploadFail]);
 
   const clearFile = () => {
     setFile(null);
@@ -172,6 +191,22 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ onUploadComplete }) => 
             )}
           </div>
         </div>
+
+        {/* Show upload progress if available */}
+        {isUploading && progress > 0 && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Processing...</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {file && (
           <div className="p-4 bg-green-50 rounded-lg border border-green-200">
