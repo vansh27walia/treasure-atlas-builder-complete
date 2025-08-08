@@ -10,7 +10,9 @@ import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, F
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { COUNTRIES_LIST } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
+
 
 // Changed insurance cost to $2 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -47,31 +49,6 @@ const IndependentRateCalculator: React.FC = () => {
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(DEFAULT_INSURANCE_AMOUNT);
-  const countries = [{
-    code: 'US',
-    name: 'United States'
-  }, {
-    code: 'CA',
-    name: 'Canada'
-  }, {
-    code: 'GB',
-    name: 'United Kingdom'
-  }, {
-    code: 'DE',
-    name: 'Germany'
-  }, {
-    code: 'FR',
-    name: 'France'
-  }, {
-    code: 'JP',
-    name: 'Japan'
-  }, {
-    code: 'AU',
-    name: 'Australia'
-  }, {
-    code: 'MX',
-    name: 'Mexico'
-  }];
   const packageTypes = [{
     value: 'box',
     label: '📦 Custom Box',
@@ -328,49 +305,46 @@ const IndependentRateCalculator: React.FC = () => {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <Label className="text-base font-semibold text-gray-800">From (Origin)</Label>
-                </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <Input value={originZip} onChange={e => setOriginZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
-                  </div>
-                  <Select value={originCountry} onValueChange={setOriginCountry}>
-                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map(country => <SelectItem key={country.code} value={country.code}>
-                          {country.code}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+  <div className="col-span-2">
+    <Input value={originZip} onChange={e => setOriginZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
+  </div>
+  <Select value={originCountry} onValueChange={setOriginCountry}>
+    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      {COUNTRIES_LIST.map(country => <SelectItem key={country.code} value={country.code}>
+          {country.code}
+        </SelectItem>)}
+    </SelectContent>
+  </Select>
+</div>
               
               {/* Destination */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <Label className="text-base font-semibold text-gray-800">To (Destination)</Label>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <Input value={destZip} onChange={e => setDestZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
-                  </div>
-                  <Select value={destCountry} onValueChange={setDestCountry}>
-                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map(country => <SelectItem key={country.code} value={country.code}>
-                          {country.code}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+  <div className="flex items-center gap-2 mb-3">
+    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+    <Label className="text-base font-semibold text-gray-800">To (Destination)</Label>
+  </div>
+  <div className="grid grid-cols-3 gap-3">
+    <div className="col-span-2">
+      <Input value={destZip} onChange={e => setDestZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
+    </div>
+    <Select value={destCountry} onValueChange={setDestCountry}>
+      <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {COUNTRIES_LIST.map(country => (
+          <SelectItem key={country.code} value={country.code}>
+            {country.code}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+</div>
 
         {/* Package Details Section - Bottom */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
