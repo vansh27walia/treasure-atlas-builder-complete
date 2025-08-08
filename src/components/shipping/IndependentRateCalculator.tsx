@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import CarrierLogo from './CarrierLogo';
 // Changed insurance cost to $2 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
 const DEFAULT_INSURANCE_AMOUNT = 100;
+
 interface RateResult {
   id: string;
   carrier: string;
@@ -28,6 +30,7 @@ interface RateResult {
   original_rate?: string;
   discount_percentage?: number;
 }
+
 const IndependentRateCalculator: React.FC = () => {
   const [originZip, setOriginZip] = useState('');
   const [destZip, setDestZip] = useState('');
@@ -47,6 +50,7 @@ const IndependentRateCalculator: React.FC = () => {
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(DEFAULT_INSURANCE_AMOUNT);
+
   const countries = [{
     code: 'US',
     name: 'United States'
@@ -72,6 +76,7 @@ const IndependentRateCalculator: React.FC = () => {
     code: 'MX',
     name: 'Mexico'
   }];
+
   const packageTypes = [{
     value: 'box',
     label: '📦 Custom Box',
@@ -117,11 +122,13 @@ const IndependentRateCalculator: React.FC = () => {
     label: '📮 DHL Express Envelope',
     requiresHeight: false
   }];
+
   const isInternational = originCountry !== destCountry;
   const selectedPackage = packageTypes.find(p => p.value === packageType);
   const showHeight = selectedPackage?.requiresHeight || false;
   const isCustomPackage = ['box', 'envelope'].includes(packageType);
   const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
+
   const convertWeight = (weight: number, fromUnit: string, toUnit: string = 'oz') => {
     const conversions = {
       'lbs': 16,
@@ -130,38 +137,49 @@ const IndependentRateCalculator: React.FC = () => {
     };
     return weight * conversions[fromUnit as keyof typeof conversions];
   };
+
   const fetchRates = async () => {
     if (!originZip || !destZip || !packageType) {
       toast.error('Please fill in all required fields');
       return;
     }
+
     if (isCustomPackage && (!dimensions.length || !dimensions.width || !dimensions.weight)) {
       toast.error('Please fill in all package dimensions and weight');
       return;
     }
+
     if (!isCustomPackage && !dimensions.weight) {
       toast.error('Please enter package weight');
       return;
     }
+
     setIsLoading(true);
     try {
-      const {
-        data: googleApiData
-      } = await supabase.functions.invoke('get-google-api-key');
+      const { data: googleApiData } = await supabase.functions.invoke('get-google-api-key');
+      
       if (!googleApiData?.apiKey) {
         toast.error('Google Maps API not configured');
         return;
       }
+
       const originQuery = `${originZip}, ${countries.find(c => c.code === originCountry)?.name || originCountry}`;
-      const originResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(originQuery)}&key=${googleApiData.apiKey}`);
+      const originResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(originQuery)}&key=${googleApiData.apiKey}`
+      );
       const originData = await originResponse.json();
+
       const destQuery = `${destZip}, ${countries.find(c => c.code === destCountry)?.name || destCountry}`;
-      const destResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destQuery)}&key=${googleApiData.apiKey}`);
+      const destResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destQuery)}&key=${googleApiData.apiKey}`
+      );
       const destData = await destResponse.json();
+
       if (!originData.results[0] || !destData.results[0]) {
         toast.error('Invalid zip codes or addresses');
         return;
       }
+
       const parseGoogleAddress = (result: any, country: string) => {
         const components = result.address_components;
         return {
@@ -175,11 +193,14 @@ const IndependentRateCalculator: React.FC = () => {
           phone: ''
         };
       };
+
       const fromAddress = parseGoogleAddress(originData.results[0], originCountry);
       const toAddress = parseGoogleAddress(destData.results[0], destCountry);
+
       let parcel: any = {
         weight: convertWeight(parseFloat(dimensions.weight) || 1, weightUnit)
       };
+
       if (isCustomPackage) {
         parcel.length = parseFloat(dimensions.length) || 10;
         parcel.width = parseFloat(dimensions.width) || 10;
@@ -189,6 +210,7 @@ const IndependentRateCalculator: React.FC = () => {
       } else {
         parcel.predefined_package = packageType;
       }
+
       const payload = {
         fromAddress,
         toAddress,
@@ -200,22 +222,24 @@ const IndependentRateCalculator: React.FC = () => {
           cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) // $2 for $100 coverage
         } : null
       };
+
       console.log('Fetching rates with payload:', payload);
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('get-shipping-rates', {
+
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload
       });
+
       if (error) {
         throw new Error(error.message);
       }
+
       if (data.rates && Array.isArray(data.rates)) {
         const processedRates = data.rates.map(rate => ({
           ...rate,
           insurance_cost: insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0,
           total_cost: parseFloat(rate.rate) + (insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0)
         }));
+        
         setRates(processedRates);
         toast.success(`Found ${processedRates.length} ${isInternational ? 'international' : 'domestic'} shipping rates`);
       } else {
@@ -229,6 +253,7 @@ const IndependentRateCalculator: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const getCarrierGradient = (carrier: string) => {
     switch (carrier.toLowerCase()) {
       case 'usps':
@@ -243,6 +268,7 @@ const IndependentRateCalculator: React.FC = () => {
         return 'from-gray-500 to-gray-700';
     }
   };
+
   const handleShipThis = (rate: RateResult) => {
     const calculatorData = {
       originZip,
@@ -257,12 +283,18 @@ const IndependentRateCalculator: React.FC = () => {
       insuranceAmount,
       timestamp: new Date().toISOString()
     };
+
     sessionStorage.setItem('calculatorData', JSON.stringify(calculatorData));
     sessionStorage.setItem('transferToShipping', 'true');
+    
     toast.success(`Package data saved! ${isInternational ? 'International customs documentation will be required.' : 'Go to Create Label to complete shipping.'}`);
     window.location.href = '/create-label';
   };
-  const filteredRates = rates.filter(rate => carrierFilter === 'all' || rate.carrier.toUpperCase() === carrierFilter.toUpperCase());
+
+  const filteredRates = rates.filter(rate => 
+    carrierFilter === 'all' || rate.carrier.toUpperCase() === carrierFilter.toUpperCase()
+  );
+
   const sortedRates = [...filteredRates].sort((a, b) => {
     if (sortOrder === 'price') {
       return parseFloat(a.rate) - parseFloat(b.rate);
@@ -272,7 +304,9 @@ const IndependentRateCalculator: React.FC = () => {
       return a.carrier.localeCompare(b.carrier);
     }
   });
-  return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">      
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">      
       <div className="container mx-auto px-6 py-8 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -292,14 +326,18 @@ const IndependentRateCalculator: React.FC = () => {
               <CarrierLogo carrier="fedex" className="h-8" />
               <CarrierLogo carrier="dhl" className="h-8" />
             </div>
-            {insuranceEnabled && <Badge variant="secondary" className="bg-green-100 text-green-700">
+            {insuranceEnabled && (
+              <Badge variant="secondary" className="bg-green-100 text-green-700">
                 ${insuranceAmount} Insurance Included
-              </Badge>}
+              </Badge>
+            )}
           </div>
-          {isInternational && <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+          {isInternational && (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
               <Globe className="w-4 h-4" />
               International shipping detected
-            </div>}
+            </div>
+          )}
         </div>
 
         {/* Insurance Toggle Section */}
@@ -310,7 +348,6 @@ const IndependentRateCalculator: React.FC = () => {
               Insurance Options
             </CardTitle>
           </CardHeader>
-          
         </Card>
 
         {/* Address Input Section - Top */}
@@ -331,16 +368,23 @@ const IndependentRateCalculator: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
-                    <Input value={originZip} onChange={e => setOriginZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
+                    <Input 
+                      value={originZip} 
+                      onChange={e => setOriginZip(e.target.value)} 
+                      placeholder="Enter ZIP code" 
+                      className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
+                    />
                   </div>
                   <Select value={originCountry} onValueChange={setOriginCountry}>
                     <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {countries.map(country => <SelectItem key={country.code} value={country.code}>
+                      {countries.map(country => (
+                        <SelectItem key={country.code} value={country.code}>
                           {country.code}
-                        </SelectItem>)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -354,32 +398,25 @@ const IndependentRateCalculator: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
-                    <Input value={destZip} onChange={e => setDestZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
-                  <FormField
-                    control={form.control}
-                    name="country"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm">Country</FormLabel>
-                        <Select 
-                          value={field.value} 
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[200px] bg-white z-50">
-                            {COUNTRIES_LIST.map((country) => (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <Input 
+                      value={destZip} 
+                      onChange={e => setDestZip(e.target.value)} 
+                      placeholder="Enter ZIP code" 
+                      className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
+                    />
+                  </div>
+                  <Select value={destCountry} onValueChange={setDestCountry}>
+                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map(country => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -403,40 +440,58 @@ const IndependentRateCalculator: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {packageTypes.map(pkg => <SelectItem key={pkg.value} value={pkg.value}>
+                  {packageTypes.map(pkg => (
+                    <SelectItem key={pkg.value} value={pkg.value}>
                       {pkg.label}
-                    </SelectItem>)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             {/* Dimensions */}
-            {isCustomPackage && <div>
+            {isCustomPackage && (
+              <div>
                 <Label className="text-base font-semibold text-gray-800 mb-3 block">Dimensions (inches)</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <Input type="number" placeholder="Length" value={dimensions.length} onChange={e => setDimensions(prev => ({
-                ...prev,
-                length: e.target.value
-              }))} className="h-12 border-2 border-gray-200 focus:border-blue-500" />
-                  <Input type="number" placeholder="Width" value={dimensions.width} onChange={e => setDimensions(prev => ({
-                ...prev,
-                width: e.target.value
-              }))} className="h-12 border-2 border-gray-200 focus:border-blue-500" />
-                  {showHeight && <Input type="number" placeholder="Height" value={dimensions.height} onChange={e => setDimensions(prev => ({
-                ...prev,
-                height: e.target.value
-              }))} className="h-12 border-2 border-gray-200 focus:border-blue-500" />}
+                  <Input 
+                    type="number" 
+                    placeholder="Length" 
+                    value={dimensions.length} 
+                    onChange={e => setDimensions(prev => ({ ...prev, length: e.target.value }))} 
+                    className="h-12 border-2 border-gray-200 focus:border-blue-500" 
+                  />
+                  <Input 
+                    type="number" 
+                    placeholder="Width" 
+                    value={dimensions.width} 
+                    onChange={e => setDimensions(prev => ({ ...prev, width: e.target.value }))} 
+                    className="h-12 border-2 border-gray-200 focus:border-blue-500" 
+                  />
+                  {showHeight && (
+                    <Input 
+                      type="number" 
+                      placeholder="Height" 
+                      value={dimensions.height} 
+                      onChange={e => setDimensions(prev => ({ ...prev, height: e.target.value }))} 
+                      className="h-12 border-2 border-gray-200 focus:border-blue-500" 
+                    />
+                  )}
                 </div>
-              </div>}
+              </div>
+            )}
 
             {/* Weight */}
             <div>
               <Label className="text-base font-semibold text-gray-800 mb-3 block">Weight</Label>
               <div className="flex gap-3">
-                <Input type="number" placeholder="0.0" value={dimensions.weight} onChange={e => setDimensions(prev => ({
-                ...prev,
-                weight: e.target.value
-              }))} className="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
+                <Input 
+                  type="number" 
+                  placeholder="0.0" 
+                  value={dimensions.weight} 
+                  onChange={e => setDimensions(prev => ({ ...prev, weight: e.target.value }))} 
+                  className="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
+                />
                 <Select value={weightUnit} onValueChange={setWeightUnit}>
                   <SelectTrigger className="w-32 h-12 border-2 border-gray-200 focus:border-blue-500">
                     <SelectValue />
@@ -451,21 +506,31 @@ const IndependentRateCalculator: React.FC = () => {
             </div>
 
             <div className="text-center pt-4">
-              <Button onClick={fetchRates} disabled={isLoading} className="h-14 px-8 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg" size="lg">
-                {isLoading ? <>
+              <Button 
+                onClick={fetchRates} 
+                disabled={isLoading} 
+                className="h-14 px-8 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg" 
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                     Calculating Best Rates...
-                  </> : <>
+                  </>
+                ) : (
+                  <>
                     <Sparkles className="mr-3 h-5 w-5" />
                     Get {isInternational ? 'International' : 'Domestic'} Rates
-                  </>}
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Results Section */}
-        {rates.length > 0 && <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+        {rates.length > 0 && (
+          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
             <CardHeader>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <CardTitle className="text-2xl text-blue-800 flex items-center gap-2">
@@ -484,9 +549,11 @@ const IndependentRateCalculator: React.FC = () => {
                       <DropdownMenuItem onClick={() => setCarrierFilter('all')}>
                         All Carriers
                       </DropdownMenuItem>
-                      {uniqueCarriers.map(carrier => <DropdownMenuItem key={carrier} onClick={() => setCarrierFilter(carrier)}>
+                      {uniqueCarriers.map(carrier => (
+                        <DropdownMenuItem key={carrier} onClick={() => setCarrierFilter(carrier)}>
                           {carrier}
-                        </DropdownMenuItem>)}
+                        </DropdownMenuItem>
+                      ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
 
@@ -514,18 +581,22 @@ const IndependentRateCalculator: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sortedRates.map(rate => {
-              const currentRate = parseFloat(rate.rate);
-              const originalRate = parseFloat(rate.original_rate || rate.rate);
-              const discountPercentage = rate.discount_percentage || 0;
-              return <div key={rate.id} className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
+                  const currentRate = parseFloat(rate.rate);
+                  const originalRate = parseFloat(rate.original_rate || rate.rate);
+                  const discountPercentage = rate.discount_percentage || 0;
+                  
+                  return (
+                    <div key={rate.id} className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
                       {/* Carrier Header */}
                       <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
-                            {discountPercentage > 0 && <Badge className="bg-green-500 text-white text-xs">
+                            {discountPercentage > 0 && (
+                              <Badge className="bg-green-500 text-white text-xs">
                                 {Math.round(discountPercentage)}% OFF
-                              </Badge>}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <div className="text-sm opacity-90 mt-1">{rate.service}</div>
@@ -538,16 +609,20 @@ const IndependentRateCalculator: React.FC = () => {
                             <div className="text-3xl font-bold text-green-600">
                               ${currentRate.toFixed(2)}
                             </div>
-                            {originalRate > currentRate && <div className="text-lg text-gray-500 line-through">
+                            {originalRate > currentRate && (
+                              <div className="text-lg text-gray-500 line-through">
                                 ${originalRate.toFixed(2)}
-                              </div>}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        {insuranceEnabled && <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
+                        {insuranceEnabled && (
+                          <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
                             <Shield className="w-4 h-4" />
                             ${insuranceAmount} insurance coverage included (${Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)})
-                          </div>}
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">
@@ -562,27 +637,40 @@ const IndependentRateCalculator: React.FC = () => {
                           </div>
                         </div>
 
-                        <Button onClick={() => handleShipThis(rate)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button 
+                          onClick={() => handleShipThis(rate)} 
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        >
                           Ship This Package
                           <ArrowRight className="h-4 w-4 ml-2" />
                         </Button>
                       </div>
-                    </div>;
-            })}
+                    </div>
+                  );
+                })}
               </div>
               
-              {sortedRates.length === 0 && filteredRates.length === 0 && rates.length > 0 && <div className="text-center py-12">
+              {sortedRates.length === 0 && filteredRates.length === 0 && rates.length > 0 && (
+                <div className="text-center py-12">
                   <div className="text-gray-400 mb-4">
                     <Filter className="h-12 w-12 mx-auto" />
                   </div>
                   <p className="text-gray-600 text-lg mb-4">No rates match the current filter.</p>
-                  <Button variant="outline" onClick={() => setCarrierFilter('all')} className="h-12 px-6 border-2 border-blue-200 hover:bg-blue-50">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setCarrierFilter('all')} 
+                    className="h-12 px-6 border-2 border-blue-200 hover:bg-blue-50"
+                  >
                     Clear Filters
                   </Button>
-                </div>}
+                </div>
+              )}
             </CardContent>
-          </Card>}
+          </Card>
+        )}
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default IndependentRateCalculator;
