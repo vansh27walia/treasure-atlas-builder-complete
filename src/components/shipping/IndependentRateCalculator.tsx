@@ -372,7 +372,7 @@ const IndependentRateCalculator: React.FC = () => {
                     <SelectContent>
                       {COUNTRIES_LIST.map(country => (
                         <SelectItem key={country.code} value={country.code}>
-                          {country.code}
+                          {country.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -402,7 +402,7 @@ const IndependentRateCalculator: React.FC = () => {
                     <SelectContent>
                       {COUNTRIES_LIST.map(country => (
                         <SelectItem key={country.code} value={country.code}>
-                          {country.code}
+                          {country.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
