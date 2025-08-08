@@ -45,17 +45,28 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         console.log('Loading addresses in BulkUploadForm...');
         const addresses = await addressService.getSavedAddresses();
         console.log('Loaded addresses:', addresses);
-        setAvailableAddresses(addresses);
+        
+        // Filter out addresses with invalid IDs more thoroughly
+        const validAddresses = addresses.filter(address => 
+          address.id && 
+          address.id.toString().trim() !== '' &&
+          address.name &&
+          address.name.trim() !== '' &&
+          address.street1 &&
+          address.street1.trim() !== ''
+        );
+        
+        setAvailableAddresses(validAddresses);
 
-        const defaultAddress = addresses.find(addr => addr.is_default_from);
+        const defaultAddress = validAddresses.find(addr => addr.is_default_from);
         if (defaultAddress) {
           console.log('Found default address:', defaultAddress);
           setSelectedAddressId(defaultAddress.id.toString());
           onPickupAddressSelect(defaultAddress);
-        } else if (addresses.length > 0) {
-          console.log('Using first available address:', addresses[0]);
-          setSelectedAddressId(addresses[0].id.toString());
-          onPickupAddressSelect(addresses[0]);
+        } else if (validAddresses.length > 0) {
+          console.log('Using first available address:', validAddresses[0]);
+          setSelectedAddressId(validAddresses[0].id.toString());
+          onPickupAddressSelect(validAddresses[0]);
         } else {
           console.log('No addresses available');
           toast.error('No pickup addresses found. Please add a pickup address in Settings first.');
@@ -323,18 +334,24 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                     <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableAddresses
-                      .filter(address => address.id && address.id.toString().trim() !== '')
-                      .map((address) => (
-                      <SelectItem key={address.id} value={address.id.toString()}>
-                        <div className="flex flex-col py-1">
-                          <span className="font-semibold text-gray-900">{address.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {address.street1}, {address.city}, {address.state} {address.zip}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {availableAddresses.map((address) => {
+                      const addressId = address.id?.toString();
+                      // Only render items with valid IDs
+                      if (!addressId || addressId.trim() === '') {
+                        return null;
+                      }
+                      
+                      return (
+                        <SelectItem key={address.id} value={addressId}>
+                          <div className="flex flex-col py-1">
+                            <span className="font-semibold text-gray-900">{address.name}</span>
+                            <span className="text-sm text-gray-500">
+                              {address.street1}, {address.city}, {address.state} {address.zip}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               ) : (
