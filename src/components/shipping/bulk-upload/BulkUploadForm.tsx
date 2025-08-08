@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/sonner';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import CsvHeaderMapper from './CsvHeaderMapper';
-import { supabase } from '@/integrations/supabase/client';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -31,7 +31,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvContent, setCsvContent] = useState<string>('');
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -45,28 +44,17 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         console.log('Loading addresses in BulkUploadForm...');
         const addresses = await addressService.getSavedAddresses();
         console.log('Loaded addresses:', addresses);
-        
-        // Filter out addresses with invalid IDs more thoroughly
-        const validAddresses = addresses.filter(address => 
-          address.id && 
-          address.id.toString().trim() !== '' &&
-          address.name &&
-          address.name.trim() !== '' &&
-          address.street1 &&
-          address.street1.trim() !== ''
-        );
-        
-        setAvailableAddresses(validAddresses);
+        setAvailableAddresses(addresses);
 
-        const defaultAddress = validAddresses.find(addr => addr.is_default_from);
+        const defaultAddress = addresses.find(addr => addr.is_default_from);
         if (defaultAddress) {
           console.log('Found default address:', defaultAddress);
           setSelectedAddressId(defaultAddress.id.toString());
           onPickupAddressSelect(defaultAddress);
-        } else if (validAddresses.length > 0) {
-          console.log('Using first available address:', validAddresses[0]);
-          setSelectedAddressId(validAddresses[0].id.toString());
-          onPickupAddressSelect(validAddresses[0]);
+        } else if (addresses.length > 0) {
+          console.log('Using first available address:', addresses[0]);
+          setSelectedAddressId(addresses[0].id.toString());
+          onPickupAddressSelect(addresses[0]);
         } else {
           console.log('No addresses available');
           toast.error('No pickup addresses found. Please add a pickup address in Settings first.');
@@ -82,31 +70,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
     loadAddresses();
   }, [onPickupAddressSelect]);
-
-  const parseCSVHeaders = (csvContent: string): string[] => {
-    const lines = csvContent.split('\n').filter(line => line.trim() !== '');
-    if (lines.length === 0) return [];
-    
-    const headerLine = lines[0];
-    const headers: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < headerLine.length; i++) {
-      const char = headerLine[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        headers.push(current.trim().replace(/^"|"$/g, ''));
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    headers.push(current.trim().replace(/^"|"$/g, ''));
-    
-    return headers.filter(h => h.length > 0);
-  };
 
   const handleAddressChange = (addressId: string) => {
     console.log('Address changed to:', addressId);
@@ -164,11 +127,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
       console.log('CSV validation passed, lines:', lines.length);
       setCsvContent(text);
-      
-      // Parse headers for the mapper
-      const headers = parseCSVHeaders(text);
-      setCsvHeaders(headers);
-      
       setCurrentStep('mapping');
       toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
       return true;
@@ -205,36 +163,17 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
-  const handleMappingComplete = async (mapping: { [key: string]: string }) => {
-    console.log('Header mapping completed, converting CSV...', mapping);
+  const handleMappingComplete = async (convertedCsv: string) => {
+    console.log('Header mapping completed, processing CSV...');
     setCurrentStep('processing');
     
     try {
-      // Use the AI function to convert the CSV with the provided mapping
-      const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
-        body: { 
-          csvContent,
-          action: 'convert',
-          mappings: mapping
-        }
-      });
-
-      if (error) {
-        console.error('CSV conversion error:', error);
-        throw new Error('Failed to convert CSV with mapping');
-      }
-
-      if (data && data.convertedCSV) {
-        // Create a new file with the converted CSV
-        const blob = new Blob([data.convertedCSV], { type: 'text/csv' });
-        const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
-        
-        if (handleUpload) {
-          await handleUpload(convertedFile);
-          onUploadSuccess({});
-        }
-      } else {
-        throw new Error('No converted CSV received from conversion service');
+      const blob = new Blob([convertedCsv], { type: 'text/csv' });
+      const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
+      
+      if (handleUpload) {
+        await handleUpload(convertedFile);
+        onUploadSuccess({});
       }
     } catch (error) {
       console.error('Upload failed:', error);
@@ -249,7 +188,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('select');
     setSelectedFile(null);
     setCsvContent('');
-    setCsvHeaders([]);
     toast.info('CSV upload cancelled. You can select a new file.');
   };
 
@@ -258,11 +196,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   // Enhanced header mapping step - only show the mapper, no upload UI
-  if (currentStep === 'mapping' && csvContent && csvHeaders.length > 0) {
+  if (currentStep === 'mapping' && csvContent) {
     return (
       <div className="space-y-6">
         <CsvHeaderMapper
-          headers={csvHeaders}
+          csvContent={csvContent}
           onMappingComplete={handleMappingComplete}
           onCancel={handleMappingCancel}
         />
@@ -334,24 +272,16 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                     <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableAddresses.map((address) => {
-                      const addressId = address.id?.toString();
-                      // Only render items with valid IDs
-                      if (!addressId || addressId.trim() === '') {
-                        return null;
-                      }
-                      
-                      return (
-                        <SelectItem key={address.id} value={addressId}>
-                          <div className="flex flex-col py-1">
-                            <span className="font-semibold text-gray-900">{address.name}</span>
-                            <span className="text-sm text-gray-500">
-                              {address.street1}, {address.city}, {address.state} {address.zip}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
+                    {availableAddresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id.toString()}>
+                        <div className="flex flex-col py-1">
+                          <span className="font-semibold text-gray-900">{address.name}</span>
+                          <span className="text-sm text-gray-500">
+                            {address.street1}, {address.city}, {address.state} {address.zip}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (
