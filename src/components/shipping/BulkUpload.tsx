@@ -1,328 +1,368 @@
-
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Package, Upload, DollarSign, Download } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
+import { useBulkUpload } from './bulk-upload/useBulkUpload';
+import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
-import BulkResults from './bulk-upload/BulkResults';
-import OrderSummary from './bulk-upload/OrderSummary';
-import AdvancedProgressTracker from './bulk-upload/AdvancedProgressTracker';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
-import { supabase } from '@/integrations/supabase/client';
+import SuccessNotification from './bulk-upload/SuccessNotification';
+import UploadError from './bulk-upload/UploadError';
+import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
+import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
+import BulkUploadProgressBar, { BulkUploadStep } from './bulk-upload/BulkUploadProgressBar';
+import LabelCreationOverlay from './LabelCreationOverlay';
+import PaymentDropdown from '../payment/PaymentDropdown';
+import BulkAIOverviewPanel from './bulk-upload/BulkAIOverviewPanel';
+import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
-
+import { toast } from '@/components/ui/sonner';
+import { BulkShipment } from '@/types/shipping';
+import PrintPreview from '@/components/shipping/PrintPreview';
 const BulkUpload: React.FC = () => {
-  const [uploadResults, setUploadResults] = useState<BulkUploadResult | null>(null);
-  const [shipments, setShipments] = useState<BulkShipment[]>([]);
-  const [selectedPickupAddress, setSelectedPickupAddress] = useState<SavedAddress | null>(null);
-  const [isPaying, setIsPaying] = useState(false);
-  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'upload' | 'review' | 'payment' | 'labels'>('upload');
+  const lastToastRef = useRef<number>(0);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
+  const [labelProgress, setLabelProgress] = useState({
+    isCreating: false,
+    progress: 0,
+    currentStep: '',
+    completed: 0,
+    failed: 0
+  });
+  const {
+    file,
+    isUploading,
+    isPaying,
+    isCreatingLabels,
+    isFetchingRates,
+    uploadStatus,
+    results,
+    progress,
+    searchTerm,
+    sortField,
+    sortDirection,
+    selectedCarrierFilter,
+    filteredShipments,
+    pickupAddress,
+    setPickupAddress,
+    handleUpload,
+    handleCreateLabels,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
+    handleDownloadTemplate,
+    handleSelectRate,
+    handleRemoveShipment,
+    handleEditShipment,
+    handleRefreshRates,
+    handleBulkApplyCarrier,
+    setSearchTerm,
+    setSortField,
+    setSortDirection,
+    setSelectedCarrierFilter
+  } = useBulkUpload();
 
-  // Calculate totals with proper insurance handling
-  const { totalCost, totalInsurance, successfulCount } = useMemo(() => {
-    if (!uploadResults?.processedShipments) {
-      return { totalCost: 0, totalInsurance: 0, successfulCount: 0 };
-    }
+  // Determine current step and completed steps
+  const getCurrentStep = (): BulkUploadStep => {
+    if (uploadStatus === 'success') return 'labels';
+    if (uploadStatus === 'editing') return 'rates';
+    if (uploadStatus === 'uploading') return 'mapping';
+    return 'upload';
+  };
+  const getCompletedSteps = (): BulkUploadStep[] => {
+    const completed: BulkUploadStep[] = [];
+    if (uploadStatus !== 'idle') completed.push('upload');
+    if (uploadStatus === 'editing' || uploadStatus === 'success') completed.push('mapping');
+    if (uploadStatus === 'success') completed.push('rates');
+    return completed;
+  };
 
-    let totalShippingCost = 0;
-    let totalInsuranceCost = 0;
-    let successful = 0;
-
-    uploadResults.processedShipments.forEach(shipment => {
-      if (shipment.status === 'completed' && shipment.selectedRateId) {
-        successful++;
-        
-        // Get the selected rate cost
-        const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
+  // Handle AI panel events
+  const handleAIAnalysis = (shipment?: any) => {
+    setSelectedShipmentForAI(shipment || null);
+    setAiPanelOpen(true);
+  };
+  const handleAIOptimizationChange = (filter: string, shipmentId?: string) => {
+    if (shipmentId) {
+      // Apply optimization to specific shipment
+      const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+      if (shipment && shipment.availableRates) {
+        let selectedRate = null;
+        switch (filter) {
+          case 'cheapest':
+            selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
+            break;
+          case 'fastest':
+            selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
+            break;
+          case 'balanced':
+            selectedRate = shipment.availableRates.reduce((best, rate) => {
+              const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
+              const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
+              return rateScore > bestScore ? rate : best;
+            });
+            break;
+          default:
+            selectedRate = shipment.availableRates[0];
+        }
         if (selectedRate) {
-          totalShippingCost += parseFloat(selectedRate.rate.toString());
-        }
-        
-        // Calculate insurance cost if enabled
-        if (shipment.details?.insurance_enabled) {
-          const declaredValue = shipment.details.declared_value || 200;
-          // Insurance cost is typically 1% of declared value with minimum
-          const insuranceCost = Math.max(declaredValue * 0.01, 2.50);
-          totalInsuranceCost += insuranceCost;
+          handleSelectRate(shipmentId, selectedRate.id);
         }
       }
-    });
+    } else {
+      // Apply to all shipments
+      handleBulkApplyCarrier(filter);
+    }
+  };
 
-    return {
-      totalCost: totalShippingCost,
-      totalInsurance: totalInsuranceCost,
-      successfulCount: successful
+  // Listen for payment events to auto-close AI panel
+  useEffect(() => {
+    const handlePaymentStart = () => setAiPanelOpen(false);
+    const handlePaymentSuccess = () => setAiPanelOpen(false);
+    const handlePaymentCancel = () => setAiPanelOpen(false);
+    document.addEventListener('payment-start', handlePaymentStart);
+    document.addEventListener('payment-success', handlePaymentSuccess);
+    document.addEventListener('payment-cancel', handlePaymentCancel);
+    return () => {
+      document.removeEventListener('payment-start', handlePaymentStart);
+      document.removeEventListener('payment-success', handlePaymentSuccess);
+      document.removeEventListener('payment-cancel', handlePaymentCancel);
     };
-  }, [uploadResults]);
-
-  const handleUploadSuccess = useCallback((results: BulkUploadResult) => {
-    console.log('Upload results received:', results);
-    setUploadResults(results);
-    setShipments(results.processedShipments || []);
-    setCurrentStep('review');
-    
-    toast.success(`Successfully processed ${results.successful} shipments!`);
   }, []);
-
-  const handleUploadFail = useCallback((error: string) => {
-    console.error('Upload failed:', error);
-    toast.error(error);
-  }, []);
-
-  const handlePickupAddressSelect = useCallback((address: SavedAddress) => {
-    setSelectedPickupAddress(address);
-  }, []);
-
-  const handleSelectRate = useCallback((shipmentId: string, rateId: string) => {
-    setShipments(prevShipments =>
-      prevShipments.map(shipment =>
-        shipment.id === shipmentId
-          ? { ...shipment, selectedRateId: rateId }
-          : shipment
-      )
-    );
-
-    // Update the results as well
-    if (uploadResults?.processedShipments) {
-      const updatedResults = {
-        ...uploadResults,
-        processedShipments: uploadResults.processedShipments.map(shipment =>
-          shipment.id === shipmentId
-            ? { ...shipment, selectedRateId: rateId }
-            : shipment
-        )
-      };
-      setUploadResults(updatedResults);
-    }
-  }, [uploadResults]);
-
-  const handleRemoveShipment = useCallback((shipmentId: string) => {
-    setShipments(prevShipments => prevShipments.filter(s => s.id !== shipmentId));
-    
-    if (uploadResults?.processedShipments) {
-      const updatedResults = {
-        ...uploadResults,
-        processedShipments: uploadResults.processedShipments.filter(s => s.id !== shipmentId),
-        successful: uploadResults.processedShipments.filter(s => s.id !== shipmentId && s.status === 'completed').length
-      };
-      setUploadResults(updatedResults);
-    }
-  }, [uploadResults]);
-
-  const handleEditShipment = useCallback((shipmentId: string, updates: Partial<BulkShipment>) => {
-    console.log('Editing shipment:', shipmentId, updates);
-    
-    setShipments(prevShipments =>
-      prevShipments.map(shipment =>
-        shipment.id === shipmentId
-          ? { ...shipment, ...updates }
-          : shipment
-      )
-    );
-
-    // Update the results as well
-    if (uploadResults?.processedShipments) {
-      const updatedResults = {
-        ...uploadResults,
-        processedShipments: uploadResults.processedShipments.map(shipment =>
-          shipment.id === shipmentId
-            ? { ...shipment, ...updates }
-            : shipment
-        )
-      };
-      setUploadResults(updatedResults);
-    }
-  }, [uploadResults]);
-
-  const handleProceedToPayment = async () => {
-    console.log('Proceeding to payment with costs:', { totalCost, totalInsurance });
-    setIsPaying(true);
-    setCurrentStep('payment');
-    
-    try {
-      const finalTotal = totalCost + totalInsurance;
-      const amountInCents = Math.round(finalTotal * 100);
-      
-      console.log('Creating bulk checkout session for amount:', amountInCents);
-      
-      const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
-        body: {
-          amount: amountInCents,
-          shipments: uploadResults?.processedShipments?.filter(s => s.status === 'completed') || [],
-          description: `Bulk shipping labels (${successfulCount} labels)`
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
+  useEffect(() => {
+    console.log("Current pickup address in BulkUpload:", pickupAddress);
+  }, [pickupAddress?.id]);
+  const handlePickupAddressSelect = (address: SavedAddress | null) => {
+    if (address && address.id !== pickupAddress?.id) {
+      console.log("Selected pickup address in BulkUpload:", address);
+      setPickupAddress(address);
+      const now = Date.now();
+      if (now - lastToastRef.current > 2000) {
+        toast.success(`Selected pickup address: ${address.name || address.street1}`);
+        lastToastRef.current = now;
       }
-
-      if (data?.url) {
-        // Redirect to Stripe checkout
-        window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL received');
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Failed to process payment. Please try again.');
-      setCurrentStep('review');
-    } finally {
-      setIsPaying(false);
     }
   };
-
-  const handleDownloadAllLabels = async () => {
-    setIsCreatingLabels(true);
-    setCurrentStep('labels');
-    
+  const handleUploadSuccess = (uploadResults: any) => {
+    console.log("Upload success in BulkUpload component:", uploadResults);
+  };
+  const handleUploadFail = (error: string) => {
+    console.error("Upload failed in BulkUpload component:", error);
+  };
+  const processedShipmentsCount = results?.processedShipments?.length || 0;
+  const handleDownloadLabelsClick = async () => {
+    if (!results?.processedShipments?.length) {
+      toast.error('No shipments available for label creation');
+      return;
+    }
+    setLabelProgress({
+      isCreating: true,
+      progress: 0,
+      currentStep: 'Initializing label creation...',
+      completed: 0,
+      failed: 0
+    });
     try {
-      const validShipments = uploadResults?.processedShipments?.filter(
-        s => s.status === 'completed' && s.selectedRateId
-      ) || [];
-
-      if (validShipments.length === 0) {
-        toast.error('No valid shipments found for label creation');
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
-        body: {
-          shipments: validShipments,
-          pickupAddress: selectedPickupAddress
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data?.labelUrls && data.labelUrls.length > 0) {
-        // Download each label
-        data.labelUrls.forEach((labelData: any, index: number) => {
-          const link = document.createElement('a');
-          link.href = labelData.url;
-          link.download = `label_${index + 1}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+      const totalShipments = results.processedShipments.length;
+      const updateProgress = (step: string, progress: number, completed: number, failed: number = 0) => {
+        setLabelProgress({
+          isCreating: true,
+          progress,
+          currentStep: step,
+          completed,
+          failed
         });
-        
-        toast.success(`Successfully created and downloaded ${data.labelUrls.length} labels!`);
-      }
+      };
+      updateProgress('Creating shipments...', 20, 0);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateProgress('Generating labels...', 40, 0);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      updateProgress('Converting to PDF...', 60, Math.floor(totalShipments * 0.6));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateProgress('Creating batch files...', 80, Math.floor(totalShipments * 0.8));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateProgress('Finalizing downloads...', 95, totalShipments - 1);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await handleCreateLabels();
+      updateProgress('Download complete!', 100, totalShipments, 0);
+      setTimeout(() => {
+        setLabelProgress(prev => ({
+          ...prev,
+          isCreating: false
+        }));
+        toast.success('All labels downloaded successfully!');
+      }, 2000);
     } catch (error) {
-      console.error('Label creation error:', error);
-      toast.error('Failed to create labels. Please try again.');
-      setCurrentStep('review');
-    } finally {
-      setIsCreatingLabels(false);
+      console.error('Error creating labels:', error);
+      setLabelProgress(prev => ({
+        ...prev,
+        isCreating: false,
+        currentStep: 'Error occurred during label creation',
+        failed: prev.failed + 1
+      }));
+      toast.error('Failed to create labels');
     }
   };
-
-  const handleStartOver = () => {
-    setUploadResults(null);
-    setShipments([]);
-    setCurrentStep('upload');
+  const handlePaymentSuccess = () => {
+    toast.success('Payment successful! Labels are now available for download.');
   };
-
-  if (!uploadResults) {
-    return (
-      <div className="space-y-6">
-        <AdvancedProgressTracker 
-          uploadStatus="idle"
-          isUploading={false}
-          isFetchingRates={false}
-          isCreatingLabels={false}
-          progress={0}
-          totalShipments={0}
-          processedShipments={0}
-        />
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Bulk Upload Shipments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BulkUploadForm 
-              onUploadSuccess={handleUploadSuccess}
-              onUploadFail={handleUploadFail}
-              onPickupAddressSelect={handlePickupAddressSelect}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <AdvancedProgressTracker 
-        uploadStatus="editing"
-        isUploading={false}
-        isFetchingRates={false}
-        isCreatingLabels={isCreatingLabels}
-        progress={100}
-        totalShipments={uploadResults.total}
-        processedShipments={uploadResults.successful}
-      />
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <BulkResults
-            results={{
-              total: uploadResults.total,
-              successful: uploadResults.successful,
-              failed: uploadResults.failed,
-              totalCost: totalCost,
-              success: uploadResults.successful > 0,
-              message: `Successfully processed ${uploadResults.successful} out of ${uploadResults.total} shipments`,
-              processedShipments: uploadResults.processedShipments.map(shipment => ({
-                id: shipment.id,
-                status: shipment.status === 'completed' ? 'rates_fetched' : 'error',
-                shipment_data: shipment.details?.to_address ? {
-                  to_name: shipment.details.to_address.name || '',
-                  to_city: shipment.details.to_address.city,
-                  to_state: shipment.details.to_address.state
-                } : undefined,
-                rates: shipment.availableRates?.map(rate => ({
-                  id: rate.id,
-                  carrier: rate.carrier,
-                  service: rate.service,
-                  rate: rate.rate.toString(),
-                  total_cost: rate.rate,
-                  delivery_days: rate.delivery_days?.toString() || '0'
-                })) || [],
-                selected_rate_id: shipment.selectedRateId || '',
-                total_cost: shipment.rate || 0,
-                error_message: shipment.error || '',
-                insurance_amount: shipment.details?.declared_value || 0,
-                insurance_cost: shipment.details?.insurance_enabled ? 
-                  Math.max((shipment.details.declared_value || 200) * 0.01, 2.50) : 0
-              }))
-            }}
-            onRateChange={handleSelectRate}
-          />
+  return <>
+      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-96' : ''}`}>
+        {/* Progress Bar */}
+        <div className="bg-white shadow-sm border-b rounded-3xl">
+          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
         </div>
-        
-        <div className="lg:col-span-1">
-          <OrderSummary
-            successfulCount={successfulCount}
-            totalCost={totalCost}
-            totalInsurance={totalInsurance}
-            onProceedToPayment={handleProceedToPayment}
-            onDownloadAllLabels={handleDownloadAllLabels}
-            isPaying={isPaying}
-            isCreatingLabels={isCreatingLabels}
-          />
+
+        <div className="container mx-auto px-4 py-8">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-8 rounded-xl">
+              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <div className="space-y-6">
+                  {uploadStatus === 'idle' && <div className="text-center py-0">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                        <UploadCloud className="w-8 h-8 text-blue-600" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                        Upload Your CSV File
+                      </h2>
+                      <p className="text-gray-600 mb-6">
+                        Get started by uploading your CSV file. Our AI will handle the rest!
+                      </p>
+                    </div>}
+                  
+                  <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />
+                </div>}
+              
+              {uploadStatus === 'editing' && results && <div className="space-y-8">
+                  <div className="text-center py-0">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                      <Sparkles className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      Review Your Shipments
+                    </h2>
+                    <p className="text-gray-600">
+                      Select carrier and service options for each shipment before generating labels
+                    </p>
+                  </div>
+                  
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertTitle className="text-blue-800">Review Required</AlertTitle>
+                    <AlertDescription className="text-blue-700">
+                      Please review carrier selections and rates below. You can edit addresses or remove shipments if needed.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="bg-white rounded-xl border shadow-sm">
+                    <div className="p-6 border-b">
+                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
+                    setSortField(field as any);
+                    setSortDirection(direction as any);
+                  }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
+                    </div>
+                    
+                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
+                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                  if (shipment) {
+                    handleEditShipment(shipment);
+                  }
+                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
+                  </div>
+                  
+                  {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                        <div className="space-y-2">
+                          <h3 className="text-xl font-bold text-gray-900">Order Summary</h3>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <span className="flex items-center">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                              {processedShipmentsCount} shipments
+                            </span>
+                            <span className="flex items-center">
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                              ${results.totalCost?.toFixed(2) || '0.00'} total
+                            </span>
+                          </div>
+                          {pickupAddress && <p className="text-sm text-blue-600 font-medium">
+                              📍 From: {pickupAddress.name || pickupAddress.street1}
+                            </p>}
+                        </div>
+                        
+                        <div className="flex flex-col gap-4 w-full lg:w-auto">
+                          <Button onClick={handleDownloadLabelsClick} disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} className="w-full lg:w-64 h-12 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
+                            <Download className="mr-2 h-5 w-5" />
+                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
+                          </Button>
+                          
+                          <PaymentDropdown amount={results.totalCost || 0} description={`Bulk Shipping (${processedShipmentsCount} shipments)`} shippingDetails={{
+                      shipmentCount: processedShipmentsCount,
+                      pickupAddress: pickupAddress,
+                      shipments: results.processedShipments
+                    }} onPaymentSuccess={handlePaymentSuccess} disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress} className="w-full lg:w-64" />
+                        </div>
+                      </div>
+                    </div>}
+                </div>}
+              
+              {uploadStatus === 'success' && results && <div className="space-y-6">
+                  {results.bulk_label_pdf_url && <div className="flex justify-center mb-6">
+                      <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
+                        <PrinterIcon className="mr-2 h-4 w-4" />
+                        Preview All Labels
+                      </Button>
+                    </div>}
+                  
+                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
+                </div>}
+              
+              {uploadStatus === 'error' && <div className="space-y-6">
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+                      <AlertCircle className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      Upload Failed
+                    </h2>
+                    <p className="text-gray-600">
+                      There was an issue with your file. Please try again.
+                    </p>
+                  </div>
+                  
+                  <UploadError onRetry={() => window.location.reload()} onSelectNewFile={() => {
+                const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                if (fileInput) {
+                  fileInput.click();
+                }
+              }} errorMessage="Upload failed. Please check your file format and try again." />
+                </div>}
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Chatbot Toggle Button */}
+        {uploadStatus === 'editing'}
       </div>
-    </div>
-  );
+
+      {/* AI Overview Panel */}
+      <BulkAIOverviewPanel selectedShipment={selectedShipmentForAI} allShipments={filteredShipments || []} isOpen={aiPanelOpen} onClose={() => {
+      setAiPanelOpen(false);
+      setSelectedShipmentForAI(null);
+    }} onRateChange={handleSelectRate} onOptimizationChange={handleAIOptimizationChange} />
+
+      {/* Bulk Shipping Chatbot */}
+      <BulkShippingChatbot isOpen={chatbotOpen} onClose={() => setChatbotOpen(false)} shipments={filteredShipments || []} />
+
+      {/* Modals and Overlays */}
+      <LabelCreationOverlay isVisible={labelProgress.isCreating} progress={labelProgress.progress} currentStep={labelProgress.currentStep} totalLabels={processedShipmentsCount} completedLabels={labelProgress.completed} failedLabels={labelProgress.failed} onClose={() => setLabelProgress(prev => ({
+      ...prev,
+      isCreating: false
+    }))} />
+
+      {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
+    </>;
 };
-
 export default BulkUpload;
