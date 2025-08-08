@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, F
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { COUNTRIES_LIST } from '@/lib/countries';
+import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
 
 // Changed insurance cost to $2 as requested
