@@ -16,7 +16,6 @@ import { Search, Package, MapPin, FileText, Shield, AlertTriangle } from 'lucide
 import CustomsDocumentationModal from './CustomsDocumentationModal';
 import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
-import InsuranceCalculator from './InsuranceCalculator';
 import HazmatSelector from './HazmatSelector';
 
 const shippingFormSchema = z.object({
@@ -70,7 +69,18 @@ const EnhancedShippingForm: React.FC = () => {
   const watchHazmat = form.watch("hazmat");
 
   const insuranceCost = watchInsurance && watchDeclaredValue ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
-  const showDimensions = ['box', 'envelope'].includes(watchPackageType);
+  
+  // Updated logic for showing dimensions based on package type
+  const predefinedPackages = [
+    'usps_medium_flat_rate_box', 'usps_small_flat_rate_box', 'usps_flat_rate_envelope', 
+    'usps_priority_mail_express_envelope', 'fedex_envelope', 'fedex_box', 'fedex_small_box', 
+    'fedex_medium_box', 'ups_letter', 'ups_box', 'ups_small_express_box', 'dhl_flyer', 
+    'dhl_express_envelope', 'canada_post_box', 'uk_post_box'
+  ];
+  
+  const showDimensions = watchPackageType === 'box';
+  const showEnvelopeDimensions = watchPackageType === 'envelope';
+  const isPredefinedPackage = predefinedPackages.includes(watchPackageType);
   const isInternational = fromAddress && toAddress && fromAddress.country !== toAddress.country;
 
   // Auto-trigger customs modal when international shipping is detected
@@ -115,6 +125,26 @@ const EnhancedShippingForm: React.FC = () => {
         weightOz = weightOz * 16;
       }
       
+      // CORRECTED LOGIC: Conditionally set parcel data based on package type
+      let parcelData: any = { weight: weightOz };
+      
+      // Check if the selected package type is a predefined package
+      if (predefinedPackages.includes(values.packageType)) {
+        parcelData.predefined_package = values.packageType;
+        // Set dimensions to 0 for predefined packages
+        parcelData.length = 0;
+        parcelData.width = 0;
+        parcelData.height = 0;
+      } else if (values.packageType === 'envelope') {
+        parcelData.length = values.length || 8;
+        parcelData.width = values.width || 8;
+        // No height for envelopes
+      } else { // Defaults to 'box' and any other custom box
+        parcelData.length = values.length || 8;
+        parcelData.width = values.width || 8;
+        parcelData.height = values.height || 2;
+      }
+
       // Prepare the request payload for EasyPost API - same format for both domestic and international
       const payload = {
         fromAddress: {
@@ -139,12 +169,7 @@ const EnhancedShippingForm: React.FC = () => {
           country: toAddress.country || 'US',
           phone: toAddress.phone || '',
         },
-        parcel: {
-          length: values.length || 8,
-          width: values.width || 8,
-          height: values.height || 2,
-          weight: weightOz,
-        },
+        parcel: parcelData, // Use the dynamically created object
         options: {
           hazmat: values.hazmat ? values.hazmatType : undefined,
         },
@@ -272,7 +297,8 @@ const EnhancedShippingForm: React.FC = () => {
                 />
               </div>
 
-              {showDimensions && (
+              {/* Show dimensions only for box and envelope, hide for predefined packages */}
+              {(showDimensions || showEnvelopeDimensions) && !isPredefinedPackage && (
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <FormField
                     control={form.control}
@@ -318,7 +344,8 @@ const EnhancedShippingForm: React.FC = () => {
                       </FormItem>
                     )}
                   />
-                  {watchPackageType === 'box' && (
+                  {/* Only show height for box, not envelope */}
+                  {showDimensions && (
                     <FormField
                       control={form.control}
                       name="height"
@@ -428,11 +455,62 @@ const EnhancedShippingForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Insurance */}
+            {/* Insurance Section - Simplified without InsuranceCalculator */}
             <div className="p-6">
-              <InsuranceCalculator
-                onInsuranceChange={handleInsuranceChange}
-              />
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Insurance
+              </h3>
+              
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="insurance"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-2">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={field.onChange}
+                          className="rounded border-gray-300"
+                        />
+                      </FormControl>
+                      <FormLabel className="text-sm font-medium">Add Insurance Coverage</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                
+                {watchInsurance && (
+                  <FormField
+                    control={form.control}
+                    name="declaredValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Declared Value ($)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            className="bg-white"
+                            placeholder="Package value"
+                          />
+                        </FormControl>
+                        {watchDeclaredValue && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            Insurance cost: ${insuranceCost.toFixed(2)}
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
             </div>
 
             {/* HAZMAT */}

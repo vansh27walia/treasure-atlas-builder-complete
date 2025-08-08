@@ -24,6 +24,8 @@ const packageTypes = [
   { value: 'ups_small_express_box', label: '🚛 UPS Small Express Box' },
   { value: 'dhl_flyer', label: '✈️ DHL Flyer' },
   { value: 'dhl_express_envelope', label: '✈️ DHL Express Envelope' },
+  { value: 'canada_post_box', label: '🍁 Canada Post Box' },
+  { value: 'uk_post_box', label: '🇬🇧 UK Post Box' },
 ];
 
 const PackageTypeSelector: React.FC<PackageTypeSelectorProps> = ({
