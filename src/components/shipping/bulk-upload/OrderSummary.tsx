@@ -2,11 +2,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Download, Loader, Shield, Calculator, DollarSign } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping';
 
 interface OrderSummaryProps {
-  shipments: BulkShipment[];
   successfulCount: number;
+  totalCost: number;
+  totalInsurance: number;
   onDownloadAllLabels: () => void;
   onProceedToPayment: () => void;
   isPaying: boolean;
@@ -14,33 +14,19 @@ interface OrderSummaryProps {
 }
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({
-  shipments,
   successfulCount,
+  totalCost,
+  totalInsurance = 0,
   onDownloadAllLabels,
   onProceedToPayment,
   isPaying,
   isCreatingLabels
 }) => {
-  // Calculate totals from individual shipments
-  const calculateTotals = () => {
-    let shippingTotal = 0;
-    let insuranceTotal = 0;
-    
-    shipments.forEach(shipment => {
-      // Add shipping cost (rate)
-      shippingTotal += shipment.rate || 0;
-      
-      // Add insurance cost if enabled
-      if (shipment.details?.insurance_enabled !== false) {
-        const insuranceCost = (shipment.details?.declared_value || 0) * 0.01; // 1% insurance rate
-        insuranceTotal += insuranceCost;
-      }
-    });
-    
-    return { shippingTotal, insuranceTotal, finalTotal: shippingTotal + insuranceTotal };
-  };
-
-  const { shippingTotal, insuranceTotal, finalTotal } = calculateTotals();
+  // Calculate the final total: shipping cost + insurance cost
+  const shippingTotal = totalCost;
+  const insuranceTotal = totalInsurance;
+  const finalTotal = shippingTotal + insuranceTotal;
+  
   const averageCostPerLabel = successfulCount > 0 ? finalTotal / successfulCount : 0;
 
   return (

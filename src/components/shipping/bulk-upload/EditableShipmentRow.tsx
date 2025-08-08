@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableRow, TableCell } from '@/components/ui/table';
@@ -35,14 +35,26 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     declared_value: shipment.details?.declared_value || 200
   });
 
+  // Update editData when shipment changes
+  useEffect(() => {
+    setEditData({
+      customer_name: shipment.customer_name || shipment.recipient,
+      weight: shipment.details?.weight || 1,
+      length: shipment.details?.length || 1,
+      width: shipment.details?.width || 1,
+      height: shipment.details?.height || 1,
+      declared_value: shipment.details?.declared_value || 200
+    });
+  }, [shipment]);
+
   const handleEdit = () => {
     setIsEditing(true);
   };
 
   const handleSave = async () => {
     try {
-      // Apply the changes to the shipment
-      const updates = {
+      // Create updates object with proper structure
+      const updates: Partial<BulkShipment> = {
         customer_name: editData.customer_name,
         recipient: editData.customer_name,
         details: {
@@ -55,22 +67,28 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         }
       };
       
-      // Update the shipment data
+      console.log('Saving shipment updates:', updates);
+      
+      // Apply the changes to the shipment
       onEditShipment(shipment.id, updates);
       
+      // Exit edit mode
       setIsEditing(false);
       
-      // Refresh rates after saving changes to get updated pricing
+      // Refresh rates after saving changes if function is provided
       if (onRefreshRates) {
-        await onRefreshRates(shipment.id);
+        console.log('Refreshing rates for shipment:', shipment.id);
+        setTimeout(() => {
+          onRefreshRates(shipment.id);
+        }, 500); // Small delay to ensure state updates are processed
       }
-      
     } catch (error) {
       console.error('Error saving shipment changes:', error);
     }
   };
 
   const handleCancel = () => {
+    // Reset editData to original shipment values
     setEditData({
       customer_name: shipment.customer_name || shipment.recipient,
       weight: shipment.details?.weight || 1,
@@ -80,6 +98,10 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
       declared_value: shipment.details?.declared_value || 200
     });
     setIsEditing(false);
+  };
+
+  const handleInputChange = (field: string, value: number | string) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
   };
 
   // Get street address safely
@@ -93,22 +115,13 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     return '';
   };
 
-  // Calculate the total amount for this row (label + insurance)
-  const calculateRowTotal = () => {
-    const baseRate = shipment.rate || 0;
-    const insuranceCost = shipment.details?.insurance_enabled !== false 
-      ? (shipment.details?.declared_value || 0) * 0.01 // Assuming 1% insurance rate
-      : 0;
-    return baseRate + insuranceCost;
-  };
-
   return (
     <TableRow>
       <TableCell>
         {isEditing ? (
           <Input
             value={editData.customer_name}
-            onChange={(e) => setEditData(prev => ({ ...prev, customer_name: e.target.value }))}
+            onChange={(e) => handleInputChange('customer_name', e.target.value)}
             className="w-full"
           />
         ) : (
@@ -125,7 +138,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
             <Input
               type="number"
               value={editData.weight}
-              onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+              onChange={(e) => handleInputChange('weight', Number(e.target.value))}
               placeholder="Weight (lb)"
               step="0.1"
             />
@@ -133,21 +146,21 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
               <Input
                 type="number"
                 value={editData.length}
-                onChange={(e) => setEditData(prev => ({ ...prev, length: Number(e.target.value) }))}
+                onChange={(e) => handleInputChange('length', Number(e.target.value))}
                 placeholder="L"
                 step="0.1"
               />
               <Input
                 type="number"
                 value={editData.width}
-                onChange={(e) => setEditData(prev => ({ ...prev, width: Number(e.target.value) }))}
+                onChange={(e) => handleInputChange('width', Number(e.target.value))}
                 placeholder="W"
                 step="0.1"
               />
               <Input
                 type="number"
                 value={editData.height}
-                onChange={(e) => setEditData(prev => ({ ...prev, height: Number(e.target.value) }))}
+                onChange={(e) => handleInputChange('height', Number(e.target.value))}
                 placeholder="H"
                 step="0.1"
               />
@@ -169,19 +182,13 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
             {shipment.selectedRateId ? (
               (() => {
                 const selectedRate = shipment.availableRates.find(r => r.id === shipment.selectedRateId);
-                const rowTotal = calculateRowTotal();
                 return selectedRate ? (
-                  <div>
-                    <RateDisplay
-                      actualRate={selectedRate.rate}
-                      carrier={selectedRate.carrier}
-                      service={selectedRate.service}
-                      deliveryDays={selectedRate.delivery_days}
-                    />
-                    <div className="mt-1 text-sm font-semibold text-green-600">
-                      Total: ${rowTotal.toFixed(2)}
-                    </div>
-                  </div>
+                  <RateDisplay
+                    actualRate={selectedRate.rate}
+                    carrier={selectedRate.carrier}
+                    service={selectedRate.service}
+                    deliveryDays={selectedRate.delivery_days}
+                  />
                 ) : (
                   <Badge variant="outline">No rate selected</Badge>
                 );
@@ -199,14 +206,16 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         <InsuranceOptions
           shipmentId={shipment.id}
           insuranceEnabled={shipment.details?.insurance_enabled !== false}
-          declaredValue={editData.declared_value}
+          declaredValue={isEditing ? editData.declared_value : (shipment.details?.declared_value || 200)}
           onInsuranceToggle={(id, enabled) => {
             onEditShipment(id, {
               details: { ...shipment.details, insurance_enabled: enabled }
             });
           }}
           onDeclaredValueChange={(id, value) => {
-            setEditData(prev => ({ ...prev, declared_value: value }));
+            if (isEditing) {
+              handleInputChange('declared_value', value);
+            }
             onEditShipment(id, {
               details: { ...shipment.details, declared_value: value }
             });

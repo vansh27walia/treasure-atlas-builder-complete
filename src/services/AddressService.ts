@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -15,10 +16,6 @@ export interface SavedAddress {
   is_default_from: boolean;
   is_default_to: boolean;
   created_at?: string;
-  // Add new fields for quick save
-  label?: string;
-  firstName?: string;
-  lastName?: string;
 }
 
 export class AddressService {
