@@ -72,10 +72,27 @@ const EnhancedShippingForm: React.FC = () => {
   
   // Updated logic for showing dimensions based on package type
   const predefinedPackages = [
-    'usps_medium_flat_rate_box', 'usps_small_flat_rate_box', 'usps_flat_rate_envelope', 
-    'usps_priority_mail_express_envelope', 'fedex_envelope', 'fedex_box', 'fedex_small_box', 
-    'fedex_medium_box', 'ups_letter', 'ups_box', 'ups_small_express_box', 'dhl_flyer', 
-    'dhl_express_envelope', 'canada_post_box', 'uk_post_box'
+    // USPS Predefined Packages
+    'Card', 'Letter', 'Flat', 'FlatRateEnvelope', 'FlatRateLegalEnvelope', 'FlatRatePaddedEnvelope',
+    'FlatRateWindowEnvelope', 'FlatRateCardboardEnvelope', 'SmallFlatRateEnvelope', 'Parcel', 'SoftPack',
+    'SmallFlatRateBox', 'MediumFlatRateBox', 'LargeFlatRateBox', 'LargeFlatRateBoxAPOFPO', 
+    'FlatTubTrayBox', 'EMMTrayBox', 'FullTrayBox', 'HalfTrayBox', 'PMODSack',
+    
+    // FedEx Predefined Packages
+    'FedExEnvelope', 'FedExBox', 'FedExPak', 'FedExTube', 'FedEx10kgBox', 'FedEx25kgBox',
+    'FedExSmallBox', 'FedExMediumBox', 'FedExLargeBox', 'FedExExtraLargeBox',
+    
+    // DHL Predefined Packages
+    'JumboDocument', 'JumboParcel', 'Document', 'DHLFlyer', 'Domestic', 'ExpressDocument',
+    'DHLExpressEnvelope', 'JumboBox', 'JumboJuniorDocument', 'JuniorJumboBox', 'JumboJuniorParcel',
+    'OtherDHLPackaging', 'YourPackaging',
+    
+    // UPS Predefined Packages
+    'UPSLetter', 'UPSExpressBox', 'UPS25kgBox', 'UPS10kgBox', 'Tube', 'Pak',
+    'SmallExpressBox', 'MediumExpressBox', 'LargeExpressBox',
+    
+    // Legacy packages for backward compatibility
+    'canada_post_box', 'uk_post_box'
   ];
   
   const showDimensions = watchPackageType === 'box';
