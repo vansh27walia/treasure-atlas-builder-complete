@@ -1,18 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles } from 'lucide-react';
+import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles, Brain } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
+import PackageTypeSelector from './PackageTypeSelector';
 
 // Changed insurance cost to $2 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -52,55 +51,7 @@ const IndependentRateCalculator: React.FC = () => {
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(DEFAULT_INSURANCE_AMOUNT);
 
-  const packageTypes = [{
-    value: 'box',
-    label: '📦 Custom Box',
-    requiresHeight: true
-  }, {
-    value: 'envelope',
-    label: '📮 Custom Envelope',
-    requiresHeight: false
-  }, {
-    value: 'FlatRateEnvelope',
-    label: '📮 USPS Flat Rate Envelope',
-    requiresHeight: false
-  }, {
-    value: 'SmallFlatRateBox',
-    label: '📦 USPS Small Flat Rate Box',
-    requiresHeight: false
-  }, {
-    value: 'MediumFlatRateBox',
-    label: '📦 USPS Medium Flat Rate Box',
-    requiresHeight: false
-  }, {
-    value: 'LargeFlatRateBox',
-    label: '📦 USPS Large Flat Rate Box',
-    requiresHeight: false
-  }, {
-    value: 'UPSLetter',
-    label: '📮 UPS Letter',
-    requiresHeight: false
-  }, {
-    value: 'UPSExpressBox',
-    label: '📦 UPS Express Box',
-    requiresHeight: false
-  }, {
-    value: 'FedExEnvelope',
-    label: '📮 FedEx Envelope',
-    requiresHeight: false
-  }, {
-    value: 'FedExBox',
-    label: '📦 FedEx Box',
-    requiresHeight: false
-  }, {
-    value: 'DHLExpressEnvelope',
-    label: '📮 DHL Express Envelope',
-    requiresHeight: false
-  }];
-
   const isInternational = originCountry !== destCountry;
-  const selectedPackage = packageTypes.find(p => p.value === packageType);
-  const showHeight = selectedPackage?.requiresHeight || false;
   const isCustomPackage = ['box', 'envelope'].includes(packageType);
   const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
 
@@ -163,15 +114,20 @@ const IndependentRateCalculator: React.FC = () => {
       let parcel: any = {
         weight: convertWeight(parseFloat(dimensions.weight) || 1, weightUnit)
       };
+      
       if (isCustomPackage) {
         parcel.length = parseFloat(dimensions.length) || 10;
         parcel.width = parseFloat(dimensions.width) || 10;
-        if (showHeight && dimensions.height) {
+        // For envelopes, set height to 0 automatically
+        if (packageType === 'envelope') {
+          parcel.height = 0;
+        } else {
           parcel.height = parseFloat(dimensions.height) || 5;
         }
       } else {
         parcel.predefined_package = packageType;
       }
+
       const payload = {
         fromAddress,
         toAddress,
@@ -180,10 +136,12 @@ const IndependentRateCalculator: React.FC = () => {
         options: {},
         insurance_info: insuranceEnabled ? {
           amount: insuranceAmount,
-          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) // $2 for $100 coverage
+          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)
         } : null
       };
+
       console.log('Fetching rates with payload:', payload);
+
       const {
         data,
         error
@@ -248,6 +206,7 @@ const IndependentRateCalculator: React.FC = () => {
     window.location.href = '/create-label';
   };
 
+  // Sort rates by price (cheapest first) as default
   const filteredRates = rates.filter(rate => carrierFilter === 'all' || rate.carrier.toUpperCase() === carrierFilter.toUpperCase());
   const sortedRates = [...filteredRates].sort((a, b) => {
     if (sortOrder === 'price') {
@@ -340,7 +299,7 @@ const IndependentRateCalculator: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Address Input Section - Top */}
+        {/* Address Input Section */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
@@ -413,7 +372,7 @@ const IndependentRateCalculator: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Package Details Section - Bottom */}
+        {/* Package Details Section */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
@@ -422,24 +381,13 @@ const IndependentRateCalculator: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Package Type */}
-            <div>
-              <Label className="text-base font-semibold text-gray-800 mb-3 block">Package Type</Label>
-              <Select value={packageType} onValueChange={setPackageType}>
-                <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {packageTypes.map(pkg => (
-                    <SelectItem key={pkg.value} value={pkg.value}>
-                      {pkg.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Use the same PackageTypeSelector as in normal shipping */}
+            <PackageTypeSelector
+              value={packageType}
+              onChange={setPackageType}
+            />
 
-            {/* Dimensions */}
+            {/* Dimensions - automatically handle envelope height */}
             {isCustomPackage && (
               <div>
                 <Label className="text-base font-semibold text-gray-800 mb-3 block">Dimensions (inches)</Label>
@@ -464,7 +412,8 @@ const IndependentRateCalculator: React.FC = () => {
                     }))} 
                     className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                   />
-                  {showHeight && (
+                  {/* Only show height for box, not envelope */}
+                  {packageType === 'box' && (
                     <Input 
                       type="number" 
                       placeholder="Height" 
@@ -477,6 +426,11 @@ const IndependentRateCalculator: React.FC = () => {
                     />
                   )}
                 </div>
+                {packageType === 'envelope' && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    Height is automatically set to 0 for envelopes
+                  </p>
+                )}
               </div>
             )}
 
@@ -562,15 +516,15 @@ const IndependentRateCalculator: React.FC = () => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
-                        Sort: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
+                        Sort: {sortOrder === 'price' ? 'Cheapest First' : sortOrder === 'speed' ? 'Fastest First' : 'Carrier'}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                       <DropdownMenuItem onClick={() => setSortOrder('price')}>
-                        Price (Lowest First)
+                        Cheapest First
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setSortOrder('speed')}>
-                        Speed (Fastest First)
+                        Fastest First
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
                         Carrier (A-Z)
@@ -589,11 +543,14 @@ const IndependentRateCalculator: React.FC = () => {
                   
                   return (
                     <div key={rate.id} className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
-                      {/* Carrier Header */}
+                      {/* Carrier Header with proper carrier name display */}
                       <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
+                          <div className="flex items-center gap-3">
+                            <CarrierLogo carrier={rate.carrier} className="h-8 w-8" />
+                            <div className="text-center">
+                              <div className="text-lg font-bold">{rate.carrier.toUpperCase()}</div>
+                            </div>
                             {discountPercentage > 0 && (
                               <Badge className="bg-green-500 text-white text-xs">
                                 {Math.round(discountPercentage)}% OFF
@@ -601,7 +558,7 @@ const IndependentRateCalculator: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className="text-sm opacity-90 mt-1">{rate.service}</div>
+                        <div className="text-sm opacity-90 mt-1 text-center">{rate.service}</div>
                       </div>
 
                       {/* Rate Details */}
@@ -650,6 +607,19 @@ const IndependentRateCalculator: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+              
+              {/* AI Powered Analysis Button - Better positioned at bottom */}
+              <div className="text-center mt-8 pt-6 border-t border-gray-200">
+                <Button
+                  onClick={() => {}}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 flex items-center gap-2 mx-auto"
+                  disabled={rates.length === 0}
+                >
+                  <Brain className="w-5 h-5" />
+                  AI Powered Analysis
+                </Button>
+                <p className="text-sm text-gray-500 mt-2">Get intelligent recommendations based on your shipping needs</p>
               </div>
               
               {sortedRates.length === 0 && filteredRates.length === 0 && rates.length > 0 && (
