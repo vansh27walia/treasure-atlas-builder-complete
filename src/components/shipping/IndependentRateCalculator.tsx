@@ -355,17 +355,31 @@ const IndependentRateCalculator: React.FC = () => {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
                     <Input value={destZip} onChange={e => setDestZip(e.target.value)} placeholder="Enter ZIP code" className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" />
-                  </div>
-                  <Select value={destCountry} onValueChange={setDestCountry}>
-                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map(country => <SelectItem key={country.code} value={country.code}>
-                          {country.code}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Country</FormLabel>
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[200px] bg-white z-50">
+                            {COUNTRIES_LIST.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
             </div>
