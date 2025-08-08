@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles, FileText } from 'lucide-react';
@@ -13,6 +12,7 @@ import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
+import PackageTypeSelector from './PackageTypeSelector';
 
 // Insurance always $100 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -31,6 +31,14 @@ interface RateResult {
   original_rate?: string;
   discount_percentage?: number;
   isAIRecommended?: boolean;
+}
+
+interface AIRecommendation {
+  bestOverall: string | null;
+  bestValue: string | null;
+  fastest: string | null;
+  mostReliable: string | null;
+  analysisText: string;
 }
 
 const IndependentRateCalculator: React.FC = () => {
@@ -58,60 +66,14 @@ const IndependentRateCalculator: React.FC = () => {
     value: '',
     description: ''
   });
-
-  const packageTypes = [{
-    value: 'box',
-    label: '📦 Custom Box',
-    requiresHeight: true
-  }, {
-    value: 'envelope',
-    label: '📮 Custom Envelope',
-    requiresHeight: false
-  }, {
-    value: 'FlatRateEnvelope',
-    label: '📮 USPS Flat Rate Envelope',
-    requiresHeight: false
-  }, {
-    value: 'SmallFlatRateBox',
-    label: '📦 USPS Small Flat Rate Box',
-    requiresHeight: false
-  }, {
-    value: 'MediumFlatRateBox',
-    label: '📦 USPS Medium Flat Rate Box',
-    requiresHeight: false
-  }, {
-    value: 'LargeFlatRateBox',
-    label: '📦 USPS Large Flat Rate Box',
-    requiresHeight: false
-  }, {
-    value: 'UPSLetter',
-    label: '📮 UPS Letter',
-    requiresHeight: false
-  }, {
-    value: 'UPSExpressBox',
-    label: '📦 UPS Express Box',
-    requiresHeight: false
-  }, {
-    value: 'FedExEnvelope',
-    label: '📮 FedEx Envelope',
-    requiresHeight: false
-  }, {
-    value: 'FedExBox',
-    label: '📦 FedEx Box',
-    requiresHeight: false
-  }, {
-    value: 'DHLExpressEnvelope',
-    label: '📮 DHL Express Envelope',
-    requiresHeight: false
-  }];
+  const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const isInternational = originCountry !== destCountry;
-  const selectedPackage = packageTypes.find(p => p.value === packageType);
-  const showHeight = selectedPackage?.requiresHeight || false;
   const isCustomPackage = ['box', 'envelope'].includes(packageType);
   const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
 
-  // Auto-set height to 0 for envelopes
+  // Auto-set height to 0 for envelopes and hide height field
   useEffect(() => {
     if (packageType === 'envelope') {
       setDimensions(prev => ({ ...prev, height: '0' }));
@@ -142,16 +104,45 @@ const IndependentRateCalculator: React.FC = () => {
     }
   };
 
-  const getAIRecommendation = (rates: RateResult[]) => {
-    if (rates.length === 0) return null;
+  // Standardize carrier names to show clean names
+  const standardizeCarrierName = (carrier: string) => {
+    const name = carrier.toUpperCase().trim();
+    if (name.includes('UPS')) return 'UPS';
+    if (name.includes('FEDEX') || name.includes('FEDERAL EXPRESS')) return 'FedEx';
+    if (name.includes('USPS') || name.includes('US POSTAL')) return 'USPS';
+    if (name.includes('DHL')) return 'DHL';
+    return carrier;
+  };
+
+  const fetchAiRecommendations = async (rates: RateResult[]) => {
+    if (rates.length === 0) return;
     
-    // AI logic: best balance of price and speed
-    const sortedByValue = rates.map(rate => ({
-      ...rate,
-      score: (100 - parseFloat(rate.rate)) + (10 - rate.delivery_days) * 5
-    })).sort((a, b) => b.score - a.score);
+    setIsAiLoading(true);
     
-    return sortedByValue[0]?.id;
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-shipping-rates', {
+        body: { rates }
+      });
+      
+      if (error) {
+        console.error('Error getting AI recommendations:', error);
+        return;
+      }
+      
+      if (data) {
+        setAiRecommendation({
+          bestOverall: data.bestOverallRateId || null,
+          bestValue: data.bestValueRateId || null,
+          fastest: data.fastestRateId || null,
+          mostReliable: data.mostReliableRateId || null,
+          analysisText: data.analysis || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error in AI recommendation:', error);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const fetchRates = async () => {
@@ -169,6 +160,8 @@ const IndependentRateCalculator: React.FC = () => {
     }
     
     setIsLoading(true);
+    setAiRecommendation(null);
+    
     try {
       const { data: googleApiData } = await supabase.functions.invoke('get-google-api-key');
       if (!googleApiData?.apiKey) {
@@ -213,10 +206,10 @@ const IndependentRateCalculator: React.FC = () => {
       if (isCustomPackage) {
         parcel.length = parseFloat(dimensions.length) || 10;
         parcel.width = parseFloat(dimensions.width) || 10;
-        // Force height to 0 for envelopes
+        // For envelopes, always set height to 0 in backend
         if (packageType === 'envelope') {
           parcel.height = 0;
-        } else if (showHeight && dimensions.height) {
+        } else if (dimensions.height) {
           parcel.height = parseFloat(dimensions.height) || 5;
         }
       } else {
@@ -247,16 +240,20 @@ const IndependentRateCalculator: React.FC = () => {
       }
       
       if (data.rates && Array.isArray(data.rates)) {
-        const aiRecommendedId = getAIRecommendation(data.rates);
-        
         const processedRates = data.rates.map(rate => ({
           ...rate,
+          carrier: standardizeCarrierName(rate.carrier),
           insurance_cost: insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0,
           total_cost: parseFloat(rate.rate) + (insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0),
-          isAIRecommended: rate.id === aiRecommendedId
         }));
         
         setRates(processedRates);
+        
+        // Get AI recommendations after rates are fetched
+        if (processedRates.length > 0) {
+          fetchAiRecommendations(processedRates);
+        }
+        
         toast.success(`Found ${processedRates.length} ${isInternational ? 'international' : 'domestic'} shipping rates`);
       } else {
         setRates([]);
@@ -455,18 +452,17 @@ const IndependentRateCalculator: React.FC = () => {
                       className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
                     />
                   </div>
-                  <Select value={originCountry} onValueChange={setOriginCountry}>
-                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COUNTRIES_LIST.map(country => (
-                        <SelectItem key={country.code} value={country.code}>
-                          {country.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={originCountry}
+                    onChange={e => setOriginCountry(e.target.value)}
+                    className="h-12 border-2 border-gray-200 focus:border-blue-500 rounded-md px-3"
+                  >
+                    {COUNTRIES_LIST.map(country => (
+                      <option key={country.code} value={country.code}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               
@@ -485,18 +481,17 @@ const IndependentRateCalculator: React.FC = () => {
                       className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
                     />
                   </div>
-                  <Select value={destCountry} onValueChange={setDestCountry}>
-                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COUNTRIES_LIST.map(country => (
-                        <SelectItem key={country.code} value={country.code}>
-                          {country.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={destCountry}
+                    onChange={e => setDestCountry(e.target.value)}
+                    className="h-12 border-2 border-gray-200 focus:border-blue-500 rounded-md px-3"
+                  >
+                    {COUNTRIES_LIST.map(country => (
+                      <option key={country.code} value={country.code}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -512,28 +507,19 @@ const IndependentRateCalculator: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Package Type */}
-            <div>
-              <Label className="text-base font-semibold text-gray-800 mb-3 block">Package Type</Label>
-              <Select value={packageType} onValueChange={setPackageType}>
-                <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {packageTypes.map(pkg => (
-                    <SelectItem key={pkg.value} value={pkg.value}>
-                      {pkg.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Package Type Selector - Using the same component from normal shipping */}
+            <PackageTypeSelector value={packageType} onChange={setPackageType} />
 
-            {/* Dimensions */}
+            {/* Dimensions - For envelopes, don't show height field */}
             {isCustomPackage && (
               <div>
-                <Label className="text-base font-semibold text-gray-800 mb-3 block">Dimensions (inches)</Label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <Label className="text-base font-semibold text-gray-800 mb-3 block">
+                  Dimensions (inches)
+                  {packageType === 'envelope' && (
+                    <span className="text-sm text-gray-500 ml-2">(Height automatically set to 0 for envelopes)</span>
+                  )}
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
                   <Input 
                     type="number" 
                     placeholder="Length" 
@@ -548,7 +534,8 @@ const IndependentRateCalculator: React.FC = () => {
                     onChange={e => setDimensions(prev => ({ ...prev, width: e.target.value }))} 
                     className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                   />
-                  {showHeight && (
+                  {/* Only show height field for boxes, not envelopes */}
+                  {packageType === 'box' && (
                     <Input 
                       type="number" 
                       placeholder="Height" 
@@ -556,11 +543,6 @@ const IndependentRateCalculator: React.FC = () => {
                       onChange={e => setDimensions(prev => ({ ...prev, height: e.target.value }))} 
                       className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                     />
-                  )}
-                  {packageType === 'envelope' && (
-                    <div className="text-xs text-gray-500 col-span-full">
-                      * Height is automatically set to 0 for envelopes
-                    </div>
                   )}
                 </div>
               </div>
@@ -577,16 +559,15 @@ const IndependentRateCalculator: React.FC = () => {
                   onChange={e => setDimensions(prev => ({ ...prev, weight: e.target.value }))} 
                   className="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
                 />
-                <Select value={weightUnit} onValueChange={setWeightUnit}>
-                  <SelectTrigger className="w-32 h-12 border-2 border-gray-200 focus:border-blue-500">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lbs">Pounds</SelectItem>
-                    <SelectItem value="kg">Kilograms</SelectItem>
-                    <SelectItem value="oz">Ounces</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={weightUnit}
+                  onChange={e => setWeightUnit(e.target.value)}
+                  className="w-32 h-12 border-2 border-gray-200 focus:border-blue-500 rounded-md px-3"
+                >
+                  <option value="lbs">Pounds</option>
+                  <option value="kg">Kilograms</option>
+                  <option value="oz">Ounces</option>
+                </select>
               </div>
             </div>
 
@@ -612,6 +593,43 @@ const IndependentRateCalculator: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI Analysis Panel */}
+        {aiRecommendation && (
+          <Card className="mb-8 shadow-xl border-0 bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                AI Recommendation
+                {isAiLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {aiRecommendation.analysisText && (
+                <div className="bg-white/70 p-4 rounded-lg mb-4">
+                  <p className="text-gray-700 text-sm leading-relaxed">{aiRecommendation.analysisText}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {aiRecommendation.bestValue && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 p-2 justify-center">
+                    Best Value Choice
+                  </Badge>
+                )}
+                {aiRecommendation.fastest && (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 p-2 justify-center">
+                    Fastest Option
+                  </Badge>
+                )}
+                {aiRecommendation.bestOverall && (
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-800 p-2 justify-center">
+                    AI Recommended
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Results Section */}
         {rates.length > 0 && (
@@ -669,6 +687,9 @@ const IndependentRateCalculator: React.FC = () => {
                   const currentRate = parseFloat(rate.rate);
                   const originalRate = parseFloat(rate.original_rate || rate.rate);
                   const discountPercentage = rate.discount_percentage || 0;
+                  const isAIRecommended = aiRecommendation?.bestOverall === rate.id || 
+                                        aiRecommendation?.bestValue === rate.id || 
+                                        aiRecommendation?.fastest === rate.id;
                   
                   return (
                     <div key={rate.id} className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
@@ -678,10 +699,12 @@ const IndependentRateCalculator: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <CarrierLogo carrier={rate.carrier} className="h-8 bg-white/20 text-white" />
                             <div>
-                              <div className="font-bold text-lg">{rate.carrier.toUpperCase()}</div>
+                              <div className="font-bold text-lg">{rate.carrier}</div>
                               <div className="text-sm opacity-90">{rate.service}</div>
                             </div>
-                            {rate.isAIRecommended && (
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {isAIRecommended && (
                               <Badge className="bg-yellow-500 text-black text-xs font-bold">
                                 🤖 AI RECOMMENDED
                               </Badge>
