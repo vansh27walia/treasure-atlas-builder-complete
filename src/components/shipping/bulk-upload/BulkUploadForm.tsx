@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/sonner';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import CsvHeaderMapper from './CsvHeaderMapper';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -31,6 +31,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvContent, setCsvContent] = useState<string>('');
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -70,6 +71,31 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
     loadAddresses();
   }, [onPickupAddressSelect]);
+
+  const parseCSVHeaders = (csvContent: string): string[] => {
+    const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+    if (lines.length === 0) return [];
+    
+    const headerLine = lines[0];
+    const headers: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < headerLine.length; i++) {
+      const char = headerLine[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        headers.push(current.trim().replace(/^"|"$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    headers.push(current.trim().replace(/^"|"$/g, ''));
+    
+    return headers.filter(h => h.length > 0);
+  };
 
   const handleAddressChange = (addressId: string) => {
     console.log('Address changed to:', addressId);
@@ -127,6 +153,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
       console.log('CSV validation passed, lines:', lines.length);
       setCsvContent(text);
+      
+      // Parse headers for the mapper
+      const headers = parseCSVHeaders(text);
+      setCsvHeaders(headers);
+      
       setCurrentStep('mapping');
       toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
       return true;
@@ -163,17 +194,36 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
-  const handleMappingComplete = async (convertedCsv: string) => {
-    console.log('Header mapping completed, processing CSV...');
+  const handleMappingComplete = async (mapping: { [key: string]: string }) => {
+    console.log('Header mapping completed, converting CSV...', mapping);
     setCurrentStep('processing');
     
     try {
-      const blob = new Blob([convertedCsv], { type: 'text/csv' });
-      const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
-      
-      if (handleUpload) {
-        await handleUpload(convertedFile);
-        onUploadSuccess({});
+      // Use the AI function to convert the CSV with the provided mapping
+      const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
+        body: { 
+          csvContent,
+          action: 'convert',
+          mappings: mapping
+        }
+      });
+
+      if (error) {
+        console.error('CSV conversion error:', error);
+        throw new Error('Failed to convert CSV with mapping');
+      }
+
+      if (data && data.convertedCSV) {
+        // Create a new file with the converted CSV
+        const blob = new Blob([data.convertedCSV], { type: 'text/csv' });
+        const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
+        
+        if (handleUpload) {
+          await handleUpload(convertedFile);
+          onUploadSuccess({});
+        }
+      } else {
+        throw new Error('No converted CSV received from conversion service');
       }
     } catch (error) {
       console.error('Upload failed:', error);
@@ -188,6 +238,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('select');
     setSelectedFile(null);
     setCsvContent('');
+    setCsvHeaders([]);
     toast.info('CSV upload cancelled. You can select a new file.');
   };
 
@@ -196,11 +247,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   // Enhanced header mapping step - only show the mapper, no upload UI
-  if (currentStep === 'mapping' && csvContent) {
+  if (currentStep === 'mapping' && csvContent && csvHeaders.length > 0) {
     return (
       <div className="space-y-6">
         <CsvHeaderMapper
-          csvContent={csvContent}
+          headers={csvHeaders}
           onMappingComplete={handleMappingComplete}
           onCancel={handleMappingCancel}
         />
