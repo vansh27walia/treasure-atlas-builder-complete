@@ -1,62 +1,58 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Brain, ArrowRight, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
-interface CsvHeaderMapperProps {
-  headers: string[];
-  sampleData: Record<string, any>;
-  onMappingComplete: (mapping: Record<string, string>) => void;
-  isProcessing?: boolean;
+interface HeaderMapping {
+  [detectedHeader: string]: string;
 }
 
-const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({ 
-  headers, 
-  sampleData, 
-  onMappingComplete,
-  isProcessing = false
-}) => {
-  const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [isAIMapping, setIsAIMapping] = useState(false);
-  const [aiMappingFailed, setAiMappingFailed] = useState(false);
-  const [showManualMapping, setShowManualMapping] = useState(false);
+interface AnalysisResult {
+  detectedHeaders: string[];
+  suggestions: {
+    mappings: HeaderMapping;
+    unmapped: string[];
+    missing_required: string[];
+    confidence: string;
+  };
+  requiredHeaders: string[];
+  optionalHeaders: string[];
+}
 
-  const expectedFields = [
-    { key: 'recipient_name', label: 'Recipient Name', required: true },
-    { key: 'recipient_company', label: 'Recipient Company', required: false },
-    { key: 'recipient_street1', label: 'Street Address', required: true },
-    { key: 'recipient_street2', label: 'Address Line 2', required: false },
-    { key: 'recipient_city', label: 'City', required: true },
-    { key: 'recipient_state', label: 'State', required: true },
-    { key: 'recipient_zip', label: 'ZIP Code', required: true },
-    { key: 'recipient_phone', label: 'Phone', required: false },
-    { key: 'recipient_email', label: 'Email', required: false },
-    { key: 'weight', label: 'Weight (lbs)', required: true },
-  ];
+interface CsvHeaderMapperProps {
+  csvContent: string;
+  onMappingComplete: (convertedCsv: string) => void;
+  onCancel: () => void;
+}
+
+const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
+  csvContent,
+  onMappingComplete,
+  onCancel
+}) => {
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [userMappings, setUserMappings] = useState<HeaderMapping>({});
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const [isConverting, setIsConverting] = useState(false);
 
   useEffect(() => {
-    if (headers.length > 0 && !showManualMapping) {
-      performAIMapping();
-    }
-  }, [headers]);
+    analyzeHeaders();
+  }, [csvContent]);
 
-  const performAIMapping = async () => {
-    setIsAIMapping(true);
-    setAiMappingFailed(false);
-    
+  const analyzeHeaders = async () => {
     try {
-      console.log('Attempting AI header mapping...');
+      setIsAnalyzing(true);
+      console.log('Analyzing CSV headers...');
+
       const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
         body: {
-          csvHeaders: headers,
-          sampleData: sampleData,
-          expectedFields: expectedFields.map(f => ({ key: f.key, label: f.label, required: f.required }))
+          csvContent,
+          action: 'analyze'
         }
       });
 
@@ -64,227 +60,275 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
         throw new Error(error.message);
       }
 
-      if (data && data.mapping) {
-        console.log('AI mapping successful:', data.mapping);
-        setMapping(data.mapping);
-        toast.success('✨ AI successfully mapped CSV headers!');
-      } else {
-        throw new Error('AI mapping returned no results');
-      }
+      setAnalysis(data);
+      setUserMappings(data.suggestions.mappings);
+      console.log('Header analysis complete:', data);
+
     } catch (error) {
-      console.error('AI mapping failed:', error);
-      setAiMappingFailed(true);
-      setShowManualMapping(true);
-      toast.error('AI header mapping failed. Please map headers manually.');
+      console.error('Error analyzing headers:', error);
+      toast.error('Failed to analyze CSV headers: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
-      setIsAIMapping(false);
+      setIsAnalyzing(false);
     }
   };
 
-  const handleManualMapping = (csvHeader: string, expectedField: string) => {
-    setMapping(prev => ({
+  const handleMappingChange = (detectedHeader: string, templateHeader: string) => {
+    setUserMappings(prev => ({
       ...prev,
-      [csvHeader]: expectedField
+      [detectedHeader]: templateHeader
     }));
   };
 
-  const handleRetryAI = () => {
-    setShowManualMapping(false);
-    setAiMappingFailed(false);
-    performAIMapping();
+  const removeMappingForTemplate = (templateHeader: string) => {
+    setUserMappings(prev => {
+      const newMappings = { ...prev };
+      Object.keys(newMappings).forEach(key => {
+        if (newMappings[key] === templateHeader) {
+          delete newMappings[key];
+        }
+      });
+      return newMappings;
+    });
   };
 
-  const handleSwitchToManual = () => {
-    setShowManualMapping(true);
-    setIsAIMapping(false);
-  };
+  const convertCsv = async () => {
+    if (!analysis) return;
 
-  const validateMapping = () => {
-    const requiredFields = expectedFields.filter(f => f.required).map(f => f.key);
-    const mappedFields = Object.values(mapping);
-    const missingRequired = requiredFields.filter(field => !mappedFields.includes(field));
-    
-    return missingRequired;
-  };
+    // Validate required mappings
+    const mappedTemplateHeaders = Object.values(userMappings);
+    const missingRequired = analysis.requiredHeaders.filter(
+      header => !mappedTemplateHeaders.includes(header)
+    );
 
-  const handleProceed = () => {
-    const missingFields = validateMapping();
-    if (missingFields.length > 0) {
-      toast.error(`Please map all required fields: ${missingFields.join(', ')}`);
+    if (missingRequired.length > 0) {
+      toast.error(`Missing required mappings: ${missingRequired.join(', ')}`);
       return;
     }
-    
-    onMappingComplete(mapping);
+
+    try {
+      setIsConverting(true);
+      console.log('Converting CSV with mappings:', userMappings);
+
+      const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
+        body: {
+          csvContent,
+          action: 'convert',
+          mappings: userMappings
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      console.log('CSV conversion complete');
+      toast.success(`CSV converted successfully! ${data.convertedRowCount} rows processed.`);
+      onMappingComplete(data.convertedCSV);
+
+    } catch (error) {
+      console.error('Error converting CSV:', error);
+      toast.error('Failed to convert CSV: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsConverting(false);
+    }
   };
 
-  if (isAIMapping) {
+  if (isAnalyzing) {
     return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-blue-600 animate-pulse" />
-            AI Header Mapping
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-          <p className="text-lg font-medium text-gray-900 mb-2">AI is analyzing your CSV headers...</p>
-          <p className="text-sm text-gray-600 text-center max-w-md">
-            Our AI is intelligently mapping your CSV columns to the required shipping fields. This usually takes a few seconds.
-          </p>
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardContent className="p-8">
+          <div className="text-center">
+            <RefreshCw className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">🧠 AI is Analyzing Your CSV Headers</h3>
+            <p className="text-gray-600">Our AI is analyzing your CSV structure and suggesting the best mappings to our shipping template...</p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
+  if (!analysis) {
+    return (
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardContent className="p-8">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Analysis Failed</h3>
+            <p className="text-gray-600 mb-4">Could not analyze the CSV file. Please try again.</p>
+            <Button onClick={onCancel} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const mappedTemplateHeaders = Object.values(userMappings);
+  const availableTemplateHeaders = [...analysis.requiredHeaders, ...analysis.optionalHeaders]
+    .filter(header => !mappedTemplateHeaders.includes(header));
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {aiMappingFailed ? (
-            <AlertCircle className="h-5 w-5 text-orange-600" />
-          ) : (
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          )}
-          CSV Header Mapping
-          {!showManualMapping && Object.keys(mapping).length > 0 && (
-            <Badge className="bg-green-100 text-green-800">
-              ✨ AI Mapped
+    <div className="w-full max-w-6xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRight className="h-5 w-5 text-blue-600" />
+            🎯 Map Your CSV Headers to EasyPost Template
+          </CardTitle>
+          <div className="flex gap-2 flex-wrap">
+            <Badge variant={analysis.suggestions.confidence === 'high' ? 'default' : 'secondary'}>
+              🧠 AI Confidence: {analysis.suggestions.confidence}
             </Badge>
-          )}
-          {showManualMapping && (
-            <Badge className="bg-blue-100 text-blue-800">
-              Manual Mode
+            <Badge variant="outline">
+              📊 {analysis.detectedHeaders.length} headers detected
             </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {aiMappingFailed && (
-          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-4 w-4 text-orange-600" />
-              <p className="font-medium text-orange-800">AI Mapping Failed</p>
-            </div>
-            <p className="text-sm text-orange-700 mb-3">
-              The AI couldn't automatically map your CSV headers. Please use manual mapping below or retry AI mapping.
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleRetryAI}>
-                <Brain className="h-4 w-4 mr-1" />
-                Retry AI Mapping
-              </Button>
-            </div>
+            <Badge variant="outline">
+              ✅ {Object.keys(userMappings).length} mapped
+            </Badge>
           </div>
-        )}
-
-        {!showManualMapping && Object.keys(mapping).length > 0 && (
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <p className="font-medium text-green-800">AI Mapping Complete!</p>
-              </div>
-              <p className="text-sm text-green-700 mb-3">
-                AI has successfully mapped your CSV headers. Review the mapping below and proceed, or switch to manual mapping if needed.
-              </p>
-              <Button variant="outline" size="sm" onClick={handleSwitchToManual}>
-                Switch to Manual Mapping
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(mapping).map(([csvHeader, expectedField]) => {
-                const field = expectedFields.find(f => f.key === expectedField);
-                return (
-                  <div key={csvHeader} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{csvHeader}</p>
-                      <p className="text-xs text-gray-600">{sampleData[csvHeader]}</p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm text-green-700">{field?.label}</p>
-                      {field?.required && (
-                        <Badge className="bg-red-100 text-red-800">Required</Badge>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-medium text-blue-800 mb-2">📋 How this works:</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Review the AI-suggested mappings below</li>
+              <li>• Adjust any mappings that don't look correct</li>
+              <li>• All <span className="font-semibold text-red-600">REQUIRED</span> fields must be mapped</li>
+              <li>• Click "Convert & Proceed" when ready</li>
+            </ul>
           </div>
-        )}
 
-        {showManualMapping && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Map each CSV column to the corresponding shipping field. Required fields must be mapped.
-            </p>
-            
-            <div className="grid grid-cols-1 gap-4">
-              {headers.map((header) => (
-                <div key={header} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <Label className="font-medium">{header}</Label>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Sample: {sampleData[header] || 'No data'}
-                    </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {analysis.detectedHeaders.map((detectedHeader) => (
+              <Card key={detectedHeader} className="p-4 border-l-4 border-l-blue-500">
+                <div className="space-y-3">
+                  <div className="font-medium text-sm">
+                    📝 Your Header: <span className="text-blue-600 font-mono">{detectedHeader}</span>
                   </div>
                   
-                  <ArrowRight className="h-4 w-4 text-gray-400" />
-                  
-                  <div className="flex-1">
-                    <Select
-                      value={mapping[header] || ''}
-                      onValueChange={(value) => handleManualMapping(header, value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select field" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">-- Skip this column --</SelectItem>
-                        {expectedFields.map((field) => (
-                          <SelectItem key={field.key} value={field.key}>
-                            {field.label} {field.required && '(Required)'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select
+                    value={userMappings[detectedHeader] || ''}
+                    onValueChange={(value) => {
+                      if (value === 'unmapped') {
+                        const newMappings = { ...userMappings };
+                        delete newMappings[detectedHeader];
+                        setUserMappings(newMappings);
+                      } else {
+                        removeMappingForTemplate(value);
+                        handleMappingChange(detectedHeader, value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="🎯 Select mapping..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unmapped">
+                        <span className="text-gray-500">🚫 Don't map</span>
+                      </SelectItem>
+                      {analysis.requiredHeaders.map((header) => (
+                        <SelectItem 
+                          key={header} 
+                          value={header}
+                          disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-600 text-xs font-bold">🔴 REQUIRED</span>
+                            <span className="font-mono">{header}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      {analysis.optionalHeaders.map((header) => (
+                        <SelectItem 
+                          key={header} 
+                          value={header}
+                          disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-blue-600 text-xs font-bold">🔵 OPTIONAL</span>
+                            <span className="font-mono">{header}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {userMappings[detectedHeader] && (
+                    <div className="flex items-center gap-1 text-green-600 text-xs">
+                      <CheckCircle className="h-3 w-3" />
+                      ✅ Maps to <span className="font-mono">{userMappings[detectedHeader]}</span>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </Card>
+            ))}
           </div>
-        )}
 
-        <div className="flex justify-between">
-          <div className="text-sm text-gray-600">
-            {validateMapping().length === 0 ? (
-              <span className="text-green-600">✅ All required fields mapped</span>
-            ) : (
-              <span className="text-red-600">
-                Missing required fields: {validateMapping().join(', ')}
-              </span>
-            )}
+          {/* Missing Required Fields Warning */}
+          {analysis.requiredHeaders.some(header => !mappedTemplateHeaders.includes(header)) && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+                <AlertCircle className="h-4 w-4" />
+                🚨 Missing Required Mappings
+              </div>
+              <div className="text-red-700 text-sm">
+                The following required fields need to be mapped: {' '}
+                <span className="font-mono font-semibold">
+                  {analysis.requiredHeaders
+                    .filter(header => !mappedTemplateHeaders.includes(header))
+                    .join(', ')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Unmapped Headers Info */}
+          {analysis.detectedHeaders.filter(h => !userMappings[h]).length > 0 && (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-800 font-medium mb-2">
+                <AlertCircle className="h-4 w-4" />
+                ⚠️ Unmapped Headers
+              </div>
+              <div className="text-yellow-700 text-sm">
+                These headers will be ignored: {' '}
+                <span className="font-mono">
+                  {analysis.detectedHeaders.filter(h => !userMappings[h]).join(', ')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              onClick={convertCsv}
+              disabled={
+                isConverting || 
+                analysis.requiredHeaders.some(header => !mappedTemplateHeaders.includes(header))
+              }
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              {isConverting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  🔄 Converting...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  ✅ Convert & Proceed
+                </>
+              )}
+            </Button>
+            <Button variant="outline" onClick={onCancel}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
           </div>
-          
-          <Button 
-            onClick={handleProceed} 
-            disabled={validateMapping().length > 0 || isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              'Proceed with Mapping'
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
