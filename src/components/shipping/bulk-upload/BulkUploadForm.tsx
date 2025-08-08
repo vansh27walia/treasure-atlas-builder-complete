@@ -135,7 +135,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ onUploadComplete }) => 
         headers={csvHeaders}
         sampleData={csvData[0] || {}}
         onMappingComplete={handleMappingComplete}
-        onCancel={() => setShowMapper(false)}
         isProcessing={isUploading}
       />
     );
