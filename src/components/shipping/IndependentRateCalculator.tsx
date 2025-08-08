@@ -7,13 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles, Bot } from 'lucide-react';
+import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
-import PackageTypeSelector from './PackageTypeSelector';
 
 // Changed insurance cost to $2 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -53,13 +52,57 @@ const IndependentRateCalculator: React.FC = () => {
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(DEFAULT_INSURANCE_AMOUNT);
 
-  const isInternational = originCountry !== destCountry;
-  const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
+  const packageTypes = [{
+    value: 'box',
+    label: '📦 Custom Box',
+    requiresHeight: true
+  }, {
+    value: 'envelope',
+    label: '📮 Custom Envelope',
+    requiresHeight: false
+  }, {
+    value: 'FlatRateEnvelope',
+    label: '📮 USPS Flat Rate Envelope',
+    requiresHeight: false
+  }, {
+    value: 'SmallFlatRateBox',
+    label: '📦 USPS Small Flat Rate Box',
+    requiresHeight: false
+  }, {
+    value: 'MediumFlatRateBox',
+    label: '📦 USPS Medium Flat Rate Box',
+    requiresHeight: false
+  }, {
+    value: 'LargeFlatRateBox',
+    label: '📦 USPS Large Flat Rate Box',
+    requiresHeight: false
+  }, {
+    value: 'UPSLetter',
+    label: '📮 UPS Letter',
+    requiresHeight: false
+  }, {
+    value: 'UPSExpressBox',
+    label: '📦 UPS Express Box',
+    requiresHeight: false
+  }, {
+    value: 'FedExEnvelope',
+    label: '📮 FedEx Envelope',
+    requiresHeight: false
+  }, {
+    value: 'FedExBox',
+    label: '📦 FedEx Box',
+    requiresHeight: false
+  }, {
+    value: 'DHLExpressEnvelope',
+    label: '📮 DHL Express Envelope',
+    requiresHeight: false
+  }];
 
-  // Check if package type requires dimensions
-  const isPredefinedPackage = !['box', 'envelope'].includes(packageType);
-  const isEnvelope = packageType === 'envelope';
-  const showDimensions = !isPredefinedPackage;
+  const isInternational = originCountry !== destCountry;
+  const selectedPackage = packageTypes.find(p => p.value === packageType);
+  const showHeight = selectedPackage?.requiresHeight || false;
+  const isCustomPackage = ['box', 'envelope'].includes(packageType);
+  const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
 
   const convertWeight = (weight: number, fromUnit: string, toUnit: string = 'oz') => {
     const conversions = {
@@ -71,40 +114,37 @@ const IndependentRateCalculator: React.FC = () => {
   };
 
   const fetchRates = async () => {
-    if (!originZip || !destZip || !dimensions.weight) {
-      toast.error('Please fill in origin, destination, and weight');
+    if (!originZip || !destZip || !packageType) {
+      toast.error('Please fill in all required fields');
       return;
     }
-    if (showDimensions && packageType === 'box' && (!dimensions.length || !dimensions.width || !dimensions.height)) {
-      toast.error('Please fill in all dimensions for custom box');
+    if (isCustomPackage && (!dimensions.length || !dimensions.width || !dimensions.weight)) {
+      toast.error('Please fill in all package dimensions and weight');
       return;
     }
-    if (showDimensions && packageType === 'envelope' && (!dimensions.length || !dimensions.width)) {
-      toast.error('Please fill in length and width for envelope');
+    if (!isCustomPackage && !dimensions.weight) {
+      toast.error('Please enter package weight');
       return;
     }
-    
     setIsLoading(true);
     try {
-      const { data: googleApiData } = await supabase.functions.invoke('get-google-api-key');
+      const {
+        data: googleApiData
+      } = await supabase.functions.invoke('get-google-api-key');
       if (!googleApiData?.apiKey) {
         toast.error('Google Maps API not configured');
         return;
       }
-
       const originQuery = `${originZip}, ${countries.find(c => c.code === originCountry)?.name || originCountry}`;
       const originResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(originQuery)}&key=${googleApiData.apiKey}`);
       const originData = await originResponse.json();
-      
       const destQuery = `${destZip}, ${countries.find(c => c.code === destCountry)?.name || destCountry}`;
       const destResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destQuery)}&key=${googleApiData.apiKey}`);
       const destData = await destResponse.json();
-
       if (!originData.results[0] || !destData.results[0]) {
         toast.error('Invalid zip codes or addresses');
         return;
       }
-
       const parseGoogleAddress = (result: any, country: string) => {
         const components = result.address_components;
         return {
@@ -118,26 +158,20 @@ const IndependentRateCalculator: React.FC = () => {
           phone: ''
         };
       };
-
       const fromAddress = parseGoogleAddress(originData.results[0], originCountry);
       const toAddress = parseGoogleAddress(destData.results[0], destCountry);
-
       let parcel: any = {
         weight: convertWeight(parseFloat(dimensions.weight) || 1, weightUnit)
       };
-
-      if (isPredefinedPackage) {
-        parcel.predefined_package = packageType;
-      } else if (isEnvelope) {
-        parcel.length = parseFloat(dimensions.length) || 0;
-        parcel.width = parseFloat(dimensions.width) || 0;
-        // Height is 0 for envelopes
-      } else {
+      if (isCustomPackage) {
         parcel.length = parseFloat(dimensions.length) || 10;
         parcel.width = parseFloat(dimensions.width) || 10;
-        parcel.height = parseFloat(dimensions.height) || 5;
+        if (showHeight && dimensions.height) {
+          parcel.height = parseFloat(dimensions.height) || 5;
+        }
+      } else {
+        parcel.predefined_package = packageType;
       }
-
       const payload = {
         fromAddress,
         toAddress,
@@ -146,19 +180,19 @@ const IndependentRateCalculator: React.FC = () => {
         options: {},
         insurance_info: insuranceEnabled ? {
           amount: insuranceAmount,
-          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)
+          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) // $2 for $100 coverage
         } : null
       };
-
       console.log('Fetching rates with payload:', payload);
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload
       });
-
       if (error) {
         throw new Error(error.message);
       }
-
       if (data.rates && Array.isArray(data.rates)) {
         const processedRates = data.rates.map(rate => ({
           ...rate,
@@ -306,7 +340,7 @@ const IndependentRateCalculator: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Address Input Section */}
+        {/* Address Input Section - Top */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
@@ -379,7 +413,7 @@ const IndependentRateCalculator: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Package Details Section */}
+        {/* Package Details Section - Bottom */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
@@ -388,41 +422,57 @@ const IndependentRateCalculator: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Package Type using the same selector */}
+            {/* Package Type */}
             <div>
-              <PackageTypeSelector 
-                value={packageType} 
-                onChange={setPackageType} 
-              />
+              <Label className="text-base font-semibold text-gray-800 mb-3 block">Package Type</Label>
+              <Select value={packageType} onValueChange={setPackageType}>
+                <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {packageTypes.map(pkg => (
+                    <SelectItem key={pkg.value} value={pkg.value}>
+                      {pkg.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Dimensions - only show for custom packages */}
-            {showDimensions && (
+            {/* Dimensions */}
+            {isCustomPackage && (
               <div>
-                <Label className="text-base font-semibold text-gray-800 mb-3 block">
-                  Dimensions (inches)
-                </Label>
+                <Label className="text-base font-semibold text-gray-800 mb-3 block">Dimensions (inches)</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <Input 
                     type="number" 
                     placeholder="Length" 
                     value={dimensions.length} 
-                    onChange={e => setDimensions(prev => ({...prev, length: e.target.value}))} 
+                    onChange={e => setDimensions(prev => ({
+                      ...prev,
+                      length: e.target.value
+                    }))} 
                     className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                   />
                   <Input 
                     type="number" 
                     placeholder="Width" 
                     value={dimensions.width} 
-                    onChange={e => setDimensions(prev => ({...prev, width: e.target.value}))} 
+                    onChange={e => setDimensions(prev => ({
+                      ...prev,
+                      width: e.target.value
+                    }))} 
                     className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                   />
-                  {!isEnvelope && (
+                  {showHeight && (
                     <Input 
                       type="number" 
                       placeholder="Height" 
                       value={dimensions.height} 
-                      onChange={e => setDimensions(prev => ({...prev, height: e.target.value}))} 
+                      onChange={e => setDimensions(prev => ({
+                        ...prev,
+                        height: e.target.value
+                      }))} 
                       className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                     />
                   )}
@@ -438,7 +488,10 @@ const IndependentRateCalculator: React.FC = () => {
                   type="number" 
                   placeholder="0.0" 
                   value={dimensions.weight} 
-                  onChange={e => setDimensions(prev => ({...prev, weight: e.target.value}))} 
+                  onChange={e => setDimensions(prev => ({
+                    ...prev,
+                    weight: e.target.value
+                  }))} 
                   className="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
                 />
                 <Select value={weightUnit} onValueChange={setWeightUnit}>
@@ -541,9 +594,6 @@ const IndependentRateCalculator: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
-                            <div className="text-lg font-bold">
-                              {rate.carrier.toUpperCase()}
-                            </div>
                             {discountPercentage > 0 && (
                               <Badge className="bg-green-500 text-white text-xs">
                                 {Math.round(discountPercentage)}% OFF
@@ -600,17 +650,6 @@ const IndependentRateCalculator: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
-              
-              {/* AI Button positioned at the bottom */}
-              <div className="mt-8 text-center">
-                <Button 
-                  variant="outline" 
-                  className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-300 text-purple-700 hover:bg-purple-100"
-                >
-                  <Bot className="h-5 w-5 mr-2" />
-                  AI Rate Assistant
-                </Button>
               </div>
               
               {sortedRates.length === 0 && filteredRates.length === 0 && rates.length > 0 && (
