@@ -7,14 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles } from 'lucide-react';
+import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, Filter, Sparkles, FileText } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
 
-// Changed insurance cost to $2 as requested
+// Insurance always $100 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
 const DEFAULT_INSURANCE_AMOUNT = 100;
 
@@ -30,6 +30,7 @@ interface RateResult {
   total_cost?: number;
   original_rate?: string;
   discount_percentage?: number;
+  isAIRecommended?: boolean;
 }
 
 const IndependentRateCalculator: React.FC = () => {
@@ -51,6 +52,12 @@ const IndependentRateCalculator: React.FC = () => {
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(DEFAULT_INSURANCE_AMOUNT);
+  const [customsClearance, setCustomsClearance] = useState(false);
+  const [customsInfo, setCustomsInfo] = useState({
+    contents: '',
+    value: '',
+    description: ''
+  });
 
   const packageTypes = [{
     value: 'box',
@@ -104,6 +111,13 @@ const IndependentRateCalculator: React.FC = () => {
   const isCustomPackage = ['box', 'envelope'].includes(packageType);
   const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
 
+  // Auto-set height to 0 for envelopes
+  useEffect(() => {
+    if (packageType === 'envelope') {
+      setDimensions(prev => ({ ...prev, height: '0' }));
+    }
+  }, [packageType]);
+
   const convertWeight = (weight: number, fromUnit: string, toUnit: string = 'oz') => {
     const conversions = {
       'lbs': 16,
@@ -111,106 +125,6 @@ const IndependentRateCalculator: React.FC = () => {
       'oz': 1
     };
     return weight * conversions[fromUnit as keyof typeof conversions];
-  };
-
-  const fetchRates = async () => {
-    if (!originZip || !destZip || !packageType) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    if (isCustomPackage && (!dimensions.length || !dimensions.width || !dimensions.weight)) {
-      toast.error('Please fill in all package dimensions and weight');
-      return;
-    }
-    if (!isCustomPackage && !dimensions.weight) {
-      toast.error('Please enter package weight');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const {
-        data: googleApiData
-      } = await supabase.functions.invoke('get-google-api-key');
-      if (!googleApiData?.apiKey) {
-        toast.error('Google Maps API not configured');
-        return;
-      }
-      const originQuery = `${originZip}, ${countries.find(c => c.code === originCountry)?.name || originCountry}`;
-      const originResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(originQuery)}&key=${googleApiData.apiKey}`);
-      const originData = await originResponse.json();
-      const destQuery = `${destZip}, ${countries.find(c => c.code === destCountry)?.name || destCountry}`;
-      const destResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destQuery)}&key=${googleApiData.apiKey}`);
-      const destData = await destResponse.json();
-      if (!originData.results[0] || !destData.results[0]) {
-        toast.error('Invalid zip codes or addresses');
-        return;
-      }
-      const parseGoogleAddress = (result: any, country: string) => {
-        const components = result.address_components;
-        return {
-          name: 'Rate Calculator',
-          street1: `${result.formatted_address.split(',')[0]}`,
-          street2: '',
-          city: components.find((c: any) => c.types.includes('locality'))?.long_name || 'Unknown',
-          state: components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name || '',
-          zip: components.find((c: any) => c.types.includes('postal_code'))?.long_name || '',
-          country: country,
-          phone: ''
-        };
-      };
-      const fromAddress = parseGoogleAddress(originData.results[0], originCountry);
-      const toAddress = parseGoogleAddress(destData.results[0], destCountry);
-      let parcel: any = {
-        weight: convertWeight(parseFloat(dimensions.weight) || 1, weightUnit)
-      };
-      if (isCustomPackage) {
-        parcel.length = parseFloat(dimensions.length) || 10;
-        parcel.width = parseFloat(dimensions.width) || 10;
-        if (showHeight && dimensions.height) {
-          parcel.height = parseFloat(dimensions.height) || 5;
-        }
-      } else {
-        parcel.predefined_package = packageType;
-      }
-      const payload = {
-        fromAddress,
-        toAddress,
-        parcel,
-        carriers: ['usps', 'ups', 'fedex', 'dhl'],
-        options: {},
-        insurance_info: insuranceEnabled ? {
-          amount: insuranceAmount,
-          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) // $2 for $100 coverage
-        } : null
-      };
-      console.log('Fetching rates with payload:', payload);
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('get-shipping-rates', {
-        body: payload
-      });
-      if (error) {
-        throw new Error(error.message);
-      }
-      if (data.rates && Array.isArray(data.rates)) {
-        const processedRates = data.rates.map(rate => ({
-          ...rate,
-          insurance_cost: insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0,
-          total_cost: parseFloat(rate.rate) + (insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0)
-        }));
-        setRates(processedRates);
-        toast.success(`Found ${processedRates.length} ${isInternational ? 'international' : 'domestic'} shipping rates`);
-      } else {
-        setRates([]);
-        toast.warning('No rates found for the specified route');
-      }
-    } catch (error) {
-      console.error('Error fetching rates:', error);
-      toast.error('Failed to fetch rates');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const getCarrierGradient = (carrier: string) => {
@@ -228,6 +142,134 @@ const IndependentRateCalculator: React.FC = () => {
     }
   };
 
+  const getAIRecommendation = (rates: RateResult[]) => {
+    if (rates.length === 0) return null;
+    
+    // AI logic: best balance of price and speed
+    const sortedByValue = rates.map(rate => ({
+      ...rate,
+      score: (100 - parseFloat(rate.rate)) + (10 - rate.delivery_days) * 5
+    })).sort((a, b) => b.score - a.score);
+    
+    return sortedByValue[0]?.id;
+  };
+
+  const fetchRates = async () => {
+    if (!originZip || !destZip || !packageType) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    if (isCustomPackage && (!dimensions.length || !dimensions.width || !dimensions.weight)) {
+      toast.error('Please fill in all package dimensions and weight');
+      return;
+    }
+    if (!isCustomPackage && !dimensions.weight) {
+      toast.error('Please enter package weight');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const { data: googleApiData } = await supabase.functions.invoke('get-google-api-key');
+      if (!googleApiData?.apiKey) {
+        toast.error('Google Maps API not configured');
+        return;
+      }
+      
+      const originQuery = `${originZip}, ${countries.find(c => c.code === originCountry)?.name || originCountry}`;
+      const originResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(originQuery)}&key=${googleApiData.apiKey}`);
+      const originData = await originResponse.json();
+      
+      const destQuery = `${destZip}, ${countries.find(c => c.code === destCountry)?.name || destCountry}`;
+      const destResponse = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destQuery)}&key=${googleApiData.apiKey}`);
+      const destData = await destResponse.json();
+      
+      if (!originData.results[0] || !destData.results[0]) {
+        toast.error('Invalid zip codes or addresses');
+        return;
+      }
+      
+      const parseGoogleAddress = (result: any, country: string) => {
+        const components = result.address_components;
+        return {
+          name: 'Rate Calculator',
+          street1: `${result.formatted_address.split(',')[0]}`,
+          street2: '',
+          city: components.find((c: any) => c.types.includes('locality'))?.long_name || 'Unknown',
+          state: components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name || '',
+          zip: components.find((c: any) => c.types.includes('postal_code'))?.long_name || '',
+          country: country,
+          phone: ''
+        };
+      };
+      
+      const fromAddress = parseGoogleAddress(originData.results[0], originCountry);
+      const toAddress = parseGoogleAddress(destData.results[0], destCountry);
+      
+      let parcel: any = {
+        weight: convertWeight(parseFloat(dimensions.weight) || 1, weightUnit)
+      };
+      
+      if (isCustomPackage) {
+        parcel.length = parseFloat(dimensions.length) || 10;
+        parcel.width = parseFloat(dimensions.width) || 10;
+        // Force height to 0 for envelopes
+        if (packageType === 'envelope') {
+          parcel.height = 0;
+        } else if (showHeight && dimensions.height) {
+          parcel.height = parseFloat(dimensions.height) || 5;
+        }
+      } else {
+        parcel.predefined_package = packageType;
+      }
+      
+      const payload = {
+        fromAddress,
+        toAddress,
+        parcel,
+        carriers: ['usps', 'ups', 'fedex', 'dhl'],
+        options: {},
+        insurance_info: insuranceEnabled ? {
+          amount: insuranceAmount,
+          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)
+        } : null,
+        customs_info: customsClearance ? customsInfo : null
+      };
+      
+      console.log('Fetching rates with payload:', payload);
+      
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: payload
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data.rates && Array.isArray(data.rates)) {
+        const aiRecommendedId = getAIRecommendation(data.rates);
+        
+        const processedRates = data.rates.map(rate => ({
+          ...rate,
+          insurance_cost: insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0,
+          total_cost: parseFloat(rate.rate) + (insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0),
+          isAIRecommended: rate.id === aiRecommendedId
+        }));
+        
+        setRates(processedRates);
+        toast.success(`Found ${processedRates.length} ${isInternational ? 'international' : 'domestic'} shipping rates`);
+      } else {
+        setRates([]);
+        toast.warning('No rates found for the specified route');
+      }
+    } catch (error) {
+      console.error('Error fetching rates:', error);
+      toast.error('Failed to fetch rates');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleShipThis = (rate: RateResult) => {
     const calculatorData = {
       originZip,
@@ -240,6 +282,8 @@ const IndependentRateCalculator: React.FC = () => {
       isInternational,
       insuranceEnabled,
       insuranceAmount,
+      customsClearance,
+      customsInfo,
       timestamp: new Date().toISOString()
     };
     sessionStorage.setItem('calculatorData', JSON.stringify(calculatorData));
@@ -280,11 +324,9 @@ const IndependentRateCalculator: React.FC = () => {
               <CarrierLogo carrier="fedex" className="h-8" />
               <CarrierLogo carrier="dhl" className="h-8" />
             </div>
-            {insuranceEnabled && (
-              <Badge variant="secondary" className="bg-green-100 text-green-700">
-                ${insuranceAmount} Insurance Included
-              </Badge>
-            )}
+            <Badge variant="secondary" className="bg-green-100 text-green-700">
+              $100 Insurance Always Included
+            </Badge>
           </div>
           {isInternational && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
@@ -294,12 +336,12 @@ const IndependentRateCalculator: React.FC = () => {
           )}
         </div>
 
-        {/* Insurance Toggle Section */}
+        {/* Insurance Section - Always $100 */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
               <Shield className="h-5 w-5 text-green-600" />
-              Insurance Options
+              Insurance Coverage - Always $100
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -311,36 +353,84 @@ const IndependentRateCalculator: React.FC = () => {
                   onCheckedChange={setInsuranceEnabled}
                 />
                 <Label htmlFor="insurance-toggle" className="text-base font-medium">
-                  Include insurance coverage
+                  Include $100 insurance coverage (Recommended)
                 </Label>
               </div>
-              {insuranceEnabled && (
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="insurance-amount" className="text-sm">Coverage amount:</Label>
-                  <div className="flex items-center">
-                    <span className="text-sm mr-1">$</span>
-                    <Input
-                      id="insurance-amount"
-                      type="number"
-                      value={insuranceAmount}
-                      onChange={(e) => setInsuranceAmount(Number(e.target.value))}
-                      className="w-24 h-8 text-sm"
-                      min="1"
-                      max="10000"
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="text-right">
+                <div className="text-lg font-bold text-green-600">$100</div>
+                <div className="text-xs text-gray-500">Coverage Amount</div>
+              </div>
             </div>
             {insuranceEnabled && (
               <p className="text-xs text-gray-500 mt-2">
-                Insurance cost: ${Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)} (2% of coverage amount)
+                Insurance cost: $2 (2% of $100 coverage)
               </p>
             )}
           </CardContent>
         </Card>
 
-        {/* Address Input Section - Top */}
+        {/* Customs Clearance Section */}
+        {isInternational && (
+          <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <FileText className="h-5 w-5 text-orange-600" />
+                Customs Clearance Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="customs-toggle"
+                    checked={customsClearance}
+                    onCheckedChange={setCustomsClearance}
+                  />
+                  <Label htmlFor="customs-toggle" className="text-base font-medium">
+                    Include customs clearance documents
+                  </Label>
+                </div>
+                
+                {customsClearance && (
+                  <div className="space-y-3 mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div>
+                      <Label className="text-sm font-medium">Contents Description</Label>
+                      <Input
+                        value={customsInfo.contents}
+                        onChange={(e) => setCustomsInfo(prev => ({ ...prev, contents: e.target.value }))}
+                        placeholder="e.g., Electronics, Clothing, Documents"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium">Declared Value ($)</Label>
+                        <Input
+                          type="number"
+                          value={customsInfo.value}
+                          onChange={(e) => setCustomsInfo(prev => ({ ...prev, value: e.target.value }))}
+                          placeholder="100.00"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Additional Description</Label>
+                        <Input
+                          value={customsInfo.description}
+                          onChange={(e) => setCustomsInfo(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Optional details"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Address Input Section */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
@@ -413,7 +503,7 @@ const IndependentRateCalculator: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Package Details Section - Bottom */}
+        {/* Package Details Section */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-xl">
@@ -448,20 +538,14 @@ const IndependentRateCalculator: React.FC = () => {
                     type="number" 
                     placeholder="Length" 
                     value={dimensions.length} 
-                    onChange={e => setDimensions(prev => ({
-                      ...prev,
-                      length: e.target.value
-                    }))} 
+                    onChange={e => setDimensions(prev => ({ ...prev, length: e.target.value }))} 
                     className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                   />
                   <Input 
                     type="number" 
                     placeholder="Width" 
                     value={dimensions.width} 
-                    onChange={e => setDimensions(prev => ({
-                      ...prev,
-                      width: e.target.value
-                    }))} 
+                    onChange={e => setDimensions(prev => ({ ...prev, width: e.target.value }))} 
                     className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                   />
                   {showHeight && (
@@ -469,12 +553,14 @@ const IndependentRateCalculator: React.FC = () => {
                       type="number" 
                       placeholder="Height" 
                       value={dimensions.height} 
-                      onChange={e => setDimensions(prev => ({
-                        ...prev,
-                        height: e.target.value
-                      }))} 
+                      onChange={e => setDimensions(prev => ({ ...prev, height: e.target.value }))} 
                       className="h-12 border-2 border-gray-200 focus:border-blue-500" 
                     />
+                  )}
+                  {packageType === 'envelope' && (
+                    <div className="text-xs text-gray-500 col-span-full">
+                      * Height is automatically set to 0 for envelopes
+                    </div>
                   )}
                 </div>
               </div>
@@ -488,10 +574,7 @@ const IndependentRateCalculator: React.FC = () => {
                   type="number" 
                   placeholder="0.0" 
                   value={dimensions.weight} 
-                  onChange={e => setDimensions(prev => ({
-                    ...prev,
-                    weight: e.target.value
-                  }))} 
+                  onChange={e => setDimensions(prev => ({ ...prev, weight: e.target.value }))} 
                   className="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
                 />
                 <Select value={weightUnit} onValueChange={setWeightUnit}>
@@ -589,11 +672,20 @@ const IndependentRateCalculator: React.FC = () => {
                   
                   return (
                     <div key={rate.id} className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
-                      {/* Carrier Header */}
-                      <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
+                      {/* Carrier Header with proper colors */}
+                      <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-4 text-white relative`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
+                          <div className="flex items-center gap-3">
+                            <CarrierLogo carrier={rate.carrier} className="h-8 bg-white/20 text-white" />
+                            <div>
+                              <div className="font-bold text-lg">{rate.carrier.toUpperCase()}</div>
+                              <div className="text-sm opacity-90">{rate.service}</div>
+                            </div>
+                            {rate.isAIRecommended && (
+                              <Badge className="bg-yellow-500 text-black text-xs font-bold">
+                                🤖 AI RECOMMENDED
+                              </Badge>
+                            )}
                             {discountPercentage > 0 && (
                               <Badge className="bg-green-500 text-white text-xs">
                                 {Math.round(discountPercentage)}% OFF
@@ -601,7 +693,6 @@ const IndependentRateCalculator: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className="text-sm opacity-90 mt-1">{rate.service}</div>
                       </div>
 
                       {/* Rate Details */}
@@ -622,7 +713,7 @@ const IndependentRateCalculator: React.FC = () => {
                         {insuranceEnabled && (
                           <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
                             <Shield className="w-4 h-4" />
-                            ${insuranceAmount} insurance coverage included (${Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)})
+                            $100 insurance coverage included ($2)
                           </div>
                         )}
 

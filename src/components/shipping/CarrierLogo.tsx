@@ -36,7 +36,7 @@ const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8
       case 'DHL':
         return {
           name: 'DHL',
-          logo: '/carriers/dhl-logo.png',
+          logo: '/lovable-uploads/e850cf45-5d99-4764-9203-fd08677fd1e6.png',
           color: 'bg-red-600',
           textColor: 'text-white'
         };
