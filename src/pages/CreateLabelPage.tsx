@@ -192,6 +192,33 @@ const CreateLabelPage = () => {
     return parseFloat(a.rate) - parseFloat(b.rate);
   }) : [];
 
+  // Default filter state for RateFilter component
+  const [filters, setFilters] = useState({
+    search: '',
+    carriers: [],
+    maxPrice: undefined,
+    maxDays: undefined,
+    features: [],
+    sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
+    sortOrder: 'asc' as 'asc' | 'desc'
+  });
+
+  const handleFiltersChange = (newFilters: any) => {
+    setFilters(newFilters);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      search: '',
+      carriers: [],
+      maxPrice: undefined,
+      maxDays: undefined,
+      features: [],
+      sortBy: 'price',
+      sortOrder: 'asc'
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background relative">
       {/* Sticky Workflow Tracker */}
@@ -219,8 +246,11 @@ const CreateLabelPage = () => {
             {/* Rate Filter with AI Powered Analysis Button */}
             <div className="mb-6 flex gap-4">
               <RateFilter 
-                activeFilter={activeFilter} 
-                onFilterChange={handleFilterChange} 
+                filters={filters}
+                availableCarriers={uniqueCarriers}
+                onFiltersChange={handleFiltersChange}
+                onClearFilters={handleClearFilters}
+                rateCount={sortedRates.length}
               />
               <Button
                 onClick={handleAIPoweredAnalysis}
