@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Filter, Zap, DollarSign, Clock, Shield, Star, Search, SortAsc, SortDesc } from 'lucide-react';
 
 interface RateFilterProps {
@@ -67,45 +68,6 @@ const RateFilter: React.FC<RateFilterProps> = ({ activeFilter, onFilterChange })
             Active Filter
           </Badge>
         )}
-        <div className="flex gap-3 mt-4 lg:mt-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
-                        <Filter className="h-4 w-4 mr-2" />
-                        {carrierFilter === 'all' ? 'All Carriers' : carrierFilter.toUpperCase()}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => setCarrierFilter('all')}>
-                        All Carriers
-                      </DropdownMenuItem>
-                      {uniqueCarriers.map(carrier => (
-                        <DropdownMenuItem key={carrier} onClick={() => setCarrierFilter(carrier)}>
-                          {carrier}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
-                        Sort: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => setSortOrder('price')}>
-                        Price (Lowest First)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortOrder('speed')}>
-                        Speed (Fastest First)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
-                        Carrier (A-Z)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
       </div>
     </div>
   );
