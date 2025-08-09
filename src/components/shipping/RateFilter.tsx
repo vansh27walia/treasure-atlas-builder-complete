@@ -67,6 +67,45 @@ const RateFilter: React.FC<RateFilterProps> = ({ activeFilter, onFilterChange })
             Active Filter
           </Badge>
         )}
+        <div className="flex gap-3 mt-4 lg:mt-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
+                        <Filter className="h-4 w-4 mr-2" />
+                        {carrierFilter === 'all' ? 'All Carriers' : carrierFilter.toUpperCase()}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setCarrierFilter('all')}>
+                        All Carriers
+                      </DropdownMenuItem>
+                      {uniqueCarriers.map(carrier => (
+                        <DropdownMenuItem key={carrier} onClick={() => setCarrierFilter(carrier)}>
+                          {carrier}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
+                        Sort: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setSortOrder('price')}>
+                        Price (Lowest First)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortOrder('speed')}>
+                        Speed (Fastest First)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
+                        Carrier (A-Z)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
       </div>
     </div>
   );
