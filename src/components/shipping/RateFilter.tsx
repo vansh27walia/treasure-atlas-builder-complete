@@ -1,323 +1,268 @@
 
-import React, { useState, useEffect } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Filter, Zap, DollarSign, Clock, Shield, Star, Search, SortAsc, SortDesc } from 'lucide-react';
+import { Filter, Zap, DollarSign, Clock, Shield, Star, Search, SortAsc, SortDesc, ChevronDown } from 'lucide-react';
 
 interface RateFilterProps {
-  activeFilter: string;
-  onFilterChange: (filter: string) => void;
+  filters: {
+    search: string;
+    carriers: string[];
+    maxPrice?: number;
+    maxDays?: number;
+    features: string[];
+    sortBy: 'price' | 'speed' | 'carrier' | 'reliability';
+    sortOrder: 'asc' | 'desc';
+  };
+  availableCarriers: string[];
+  onFiltersChange: (filters: any) => void;
+  onClearFilters: () => void;
+  rateCount: number;
 }
 
-const RateFilter: React.FC<RateFilterProps> = ({ activeFilter, onFilterChange }) => {
-  const filters = [
-    { id: 'all', label: 'All Rates', icon: Filter },
-    { id: 'cheapest', label: 'Cheapest', icon: DollarSign },
-    { id: 'fastest', label: 'Fastest', icon: Zap },
-    { id: 'balanced', label: 'Most Efficient', icon: Clock },
-    { id: 'most-reliable', label: 'Most Reliable', icon: Shield },
-    { id: 'ai-recommended', label: 'AI Recommended', icon: Star }
-  ];
-
-  const selectedFilter = filters.find(f => f.id === activeFilter);
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Filter className="w-4 h-4 text-gray-600" />
-        <h3 className="font-semibold text-gray-900">Filter Rates</h3>
-      </div>
-      
-      <div className="flex items-center gap-3">
-        <Select value={activeFilter} onValueChange={onFilterChange}>
-          <SelectTrigger className="w-64 bg-white">
-            <SelectValue>
-              <div className="flex items-center gap-2">
-                {selectedFilter && (
-                  <>
-                    <selectedFilter.icon className="w-4 h-4" />
-                    {selectedFilter.label}
-                  </>
-                )}
-              </div>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="bg-white z-50">
-            {filters.map((filter) => {
-              const Icon = filter.icon;
-              return (
-                <SelectItem key={filter.id} value={filter.id} className="hover:bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4" />
-                    {filter.label}
-                  </div>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-        
-        {activeFilter !== 'all' && (
-          <Badge className="bg-blue-500 text-white">
-            Active Filter
-          </Badge>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Extended carrier options with additional carriers
-const EXTENDED_CARRIER_OPTIONS = [
-  {
-    id: 'usps',
-    name: 'USPS',
-    services: [
-      { id: 'first_class', name: 'First Class' },
-      { id: 'priority', name: 'Priority Mail' },
-      { id: 'priority_express', name: 'Priority Express' },
-      { id: 'ground_advantage', name: 'Ground Advantage' },
-      { id: 'media_mail', name: 'Media Mail' }
-    ]
-  },
-  {
-    id: 'ups',
-    name: 'UPS',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'next_day_air', name: 'Next Day Air' },
-      { id: 'next_day_air_saver', name: 'Next Day Air Saver' },
-      { id: '2nd_day_air', name: '2nd Day Air' },
-      { id: '3_day_select', name: '3 Day Select' }
-    ]
-  },
-  {
-    id: 'fedex',
-    name: 'FedEx',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'express_saver', name: 'Express Saver' },
-      { id: '2day', name: '2Day' },
-      { id: 'standard_overnight', name: 'Standard Overnight' },
-      { id: 'priority_overnight', name: 'Priority Overnight' }
-    ]
-  },
-  {
-    id: 'dhl',
-    name: 'DHL',
-    services: [
-      { id: 'express', name: 'Express' },
-      { id: 'express_worldwide', name: 'Express Worldwide' },
-      { id: 'economy_select', name: 'Economy Select' }
-    ]
-  },
-  {
-    id: 'canada_post',
-    name: 'Canada Post',
-    services: [
-      { id: 'regular_parcel', name: 'Regular Parcel' },
-      { id: 'expedited_parcel', name: 'Expedited Parcel' },
-      { id: 'xpresspost', name: 'Xpresspost' },
-      { id: 'priority', name: 'Priority' }
-    ]
-  },
-  {
-    id: 'purolator',
-    name: 'Purolator',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'express', name: 'Express' },
-      { id: 'express_9am', name: 'Express 9AM' },
-      { id: 'express_1030am', name: 'Express 10:30AM' }
-    ]
-  }
-];
-
-interface BulkShipmentFiltersProps {
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
-  sortField: 'recipient' | 'rate' | 'carrier';
-  sortDirection: 'asc' | 'desc';
-  onSortChange: (field: 'recipient' | 'rate' | 'carrier', direction: 'asc' | 'desc') => void;
-  selectedCarrier: string | null;
-  onCarrierFilterChange: (carrier: string | null) => void;
-  onApplyCarrierToAll: (carrier: string, service: string) => void;
-}
-
-export const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
-  searchTerm,
-  onSearchChange,
-  sortField,
-  sortDirection,
-  onSortChange,
-  selectedCarrier,
-  onCarrierFilterChange,
-  onApplyCarrierToAll
+const RateFilter: React.FC<RateFilterProps> = ({
+  filters,
+  availableCarriers,
+  onFiltersChange,
+  onClearFilters,
+  rateCount
 }) => {
-  const [selectedCarrierService, setSelectedCarrierService] = useState<{carrierId: string, serviceId: string} | null>(null);
-  const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([]);
-  
-  // Update available services when carrier changes
-  useEffect(() => {
-    if (selectedCarrierService?.carrierId) {
-      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
-      if (carrier) {
-        setAvailableServices(carrier.services);
-        // Auto select first service if current service doesn't exist in this carrier
-        if (!carrier.services.some(s => s.id === selectedCarrierService.serviceId)) {
-          setSelectedCarrierService({
-            carrierId: selectedCarrierService.carrierId,
-            serviceId: carrier.services[0]?.id || ''
-          });
-        }
-      }
-    } else {
-      setAvailableServices([]);
-    }
-  }, [selectedCarrierService?.carrierId]);
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Handle apply to all button click - Fixed functionality
-  const handleApplyToAll = () => {
-    if (selectedCarrierService?.carrierId && selectedCarrierService?.serviceId) {
-      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
-      const service = availableServices.find(s => s.id === selectedCarrierService.serviceId);
-      
-      if (carrier && service) {
-        onApplyCarrierToAll(carrier.name, service.name);
-      }
-    }
+  const handleSearchChange = (value: string) => {
+    onFiltersChange({ ...filters, search: value });
   };
 
+  const handleCarrierToggle = (carrier: string) => {
+    const newCarriers = filters.carriers.includes(carrier)
+      ? filters.carriers.filter(c => c !== carrier)
+      : [...filters.carriers, carrier];
+    onFiltersChange({ ...filters, carriers: newCarriers });
+  };
+
+  const handleFeatureToggle = (feature: string) => {
+    const newFeatures = filters.features.includes(feature)
+      ? filters.features.filter(f => f !== feature)
+      : [...filters.features, feature];
+    onFiltersChange({ ...filters, features: newFeatures });
+  };
+
+  const handleSortChange = (sortBy: string) => {
+    onFiltersChange({ ...filters, sortBy });
+  };
+
+  const handleSortOrderToggle = () => {
+    onFiltersChange({ 
+      ...filters, 
+      sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' 
+    });
+  };
+
+  const activeFiltersCount = 
+    filters.carriers.length + 
+    filters.features.length + 
+    (filters.maxPrice ? 1 : 0) + 
+    (filters.maxDays ? 1 : 0) +
+    (filters.search ? 1 : 0);
+
   return (
-    <div className="flex flex-col md:flex-row gap-3 mb-4">
-      <div className="relative flex-grow">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-        <Input
-          type="text"
-          placeholder="Search by recipient, address, carrier..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-      
-      <div className="flex gap-2">
-        <Select
-          value={sortField}
-          onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
-        >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectLabel>Sort by</SelectLabel>
-              <SelectItem value="recipient">Recipient</SelectItem>
-              <SelectItem value="rate">Price</SelectItem>
-              <SelectItem value="carrier">Carrier</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        
-        <Button
-          variant="ghost"
+    <div className="space-y-4">
+      {/* Quick Search and Sort Controls */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
+            placeholder="Search carriers or services..."
+            value={filters.search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-10 bg-white border-2 border-gray-200 focus:border-blue-500"
+          />
+        </div>
+
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="min-w-[140px] justify-between">
+              Sort: {filters.sortBy === 'price' ? 'Price' : 
+                    filters.sortBy === 'speed' ? 'Speed' : 
+                    filters.sortBy === 'carrier' ? 'Carrier' : 'Reliability'}
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
+            <DropdownMenuItem onClick={() => handleSortChange('price')}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Price
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSortChange('speed')}>
+              <Clock className="h-4 w-4 mr-2" />
+              Speed
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSortChange('carrier')}>
+              <Filter className="h-4 w-4 mr-2" />
+              Carrier
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSortChange('reliability')}>
+              <Star className="h-4 w-4 mr-2" />
+              Reliability
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Sort Order Toggle */}
+        <Button 
+          variant="outline" 
           size="icon"
-          onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
-          className="border"
+          onClick={handleSortOrderToggle}
+          className="shrink-0"
         >
-          {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+          {filters.sortOrder === 'asc' ? 
+            <SortAsc className="h-4 w-4" /> : 
+            <SortDesc className="h-4 w-4" />
+          }
         </Button>
-        
-        <Popover>
+
+        {/* Advanced Filters Toggle */}
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              <span className="hidden sm:inline">Filter</span>
+            <Button variant="outline" className="min-w-[120px] justify-between">
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+                  {activeFiltersCount}
+                </Badge>
+              )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80">
+          <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg" align="end">
             <div className="space-y-4">
-              <h4 className="font-medium">Filter by carrier</h4>
-              
-              <RadioGroup 
-                value={selectedCarrier || ''} 
-                onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="" id="all" />
-                  <Label htmlFor="all">All carriers</Label>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Filter Options</h3>
+                {activeFiltersCount > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={onClearFilters}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+
+              {/* Carrier Selection */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Carriers
+                </Label>
+                <div className="space-y-2">
+                  {availableCarriers.map(carrier => (
+                    <div key={carrier} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`carrier-${carrier}`}
+                        checked={filters.carriers.includes(carrier)}
+                        onCheckedChange={() => handleCarrierToggle(carrier)}
+                      />
+                      <Label 
+                        htmlFor={`carrier-${carrier}`} 
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        {carrier.toUpperCase()}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-                
-                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
-                  <div className="flex items-center space-x-2" key={carrier.id}>
-                    <RadioGroupItem value={carrier.id} id={carrier.id} />
-                    <Label htmlFor={carrier.id}>{carrier.name}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              </div>
+
+              {/* Price Range */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Max Price ($)
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="Enter max price"
+                  value={filters.maxPrice || ''}
+                  onChange={(e) => onFiltersChange({ 
+                    ...filters, 
+                    maxPrice: e.target.value ? parseFloat(e.target.value) : undefined 
+                  })}
+                  className="bg-white"
+                />
+              </div>
+
+              {/* Delivery Time */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Max Delivery Days
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="Enter max days"
+                  value={filters.maxDays || ''}
+                  onChange={(e) => onFiltersChange({ 
+                    ...filters, 
+                    maxDays: e.target.value ? parseInt(e.target.value) : undefined 
+                  })}
+                  className="bg-white"
+                />
+              </div>
+
+              {/* Service Features */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Service Features
+                </Label>
+                <div className="space-y-2">
+                  {[
+                    { id: 'express', label: 'Express Service', icon: Zap },
+                    { id: 'insured', label: 'Insurance Available', icon: Shield },
+                    { id: 'tracking', label: 'Tracking Included', icon: Search },
+                    { id: 'premium', label: 'Premium Service', icon: Star }
+                  ].map(feature => {
+                    const Icon = feature.icon;
+                    return (
+                      <div key={feature.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`feature-${feature.id}`}
+                          checked={filters.features.includes(feature.id)}
+                          onCheckedChange={() => handleFeatureToggle(feature.id)}
+                        />
+                        <Label 
+                          htmlFor={`feature-${feature.id}`} 
+                          className="text-sm font-medium cursor-pointer flex items-center gap-1"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {feature.label}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
       </div>
-      
-      <div className="mt-3 md:mt-0 border-t pt-3 md:border-t-0 md:pt-0">
-        <div className="flex flex-wrap gap-2 items-center">
-          <Select
-            value={selectedCarrierService?.carrierId || ''}
-            onValueChange={(value) => setSelectedCarrierService({
-              carrierId: value,
-              serviceId: ''
-            })}
-          >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Choose All Carriers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Carriers</SelectLabel>
-                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
-                  <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          
-          <Select
-            value={selectedCarrierService?.serviceId || ''}
-            onValueChange={(value) => setSelectedCarrierService({
-              ...selectedCarrierService!,
-              serviceId: value
-            })}
-            disabled={!selectedCarrierService?.carrierId || availableServices.length === 0}
-          >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Select service" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Services</SelectLabel>
-                {availableServices.map((service) => (
-                  <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            onClick={handleApplyToAll}
-            disabled={!selectedCarrierService?.carrierId || !selectedCarrierService?.serviceId}
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Apply to All
-          </Button>
-        </div>
+
+      {/* Active Filters Display */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-600">
+          Showing {rateCount} rate{rateCount !== 1 ? 's' : ''}
+        </span>
+        {activeFiltersCount > 0 && (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} active
+          </Badge>
+        )}
       </div>
     </div>
   );

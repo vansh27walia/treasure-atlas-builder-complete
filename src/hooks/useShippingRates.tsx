@@ -27,6 +27,13 @@ export interface ShippingRate {
 interface LabelOptions {
   label_format?: string;
   label_size?: string;
+  insurance?: {
+    enabled: boolean;
+    amount: number;
+  };
+  hazmat?: {
+    enabled: boolean;
+  };
   [key: string]: any;
 }
 
@@ -48,6 +55,15 @@ export const useShippingRates = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
+  
+  // Insurance and Hazmat state - only used during label creation
+  const [insuranceSettings, setInsuranceSettings] = useState({
+    enabled: true,
+    amount: 100
+  });
+  const [hazmatSettings, setHazmatSettings] = useState({
+    enabled: false
+  });
   
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
@@ -207,8 +223,19 @@ export const useShippingRates = () => {
     setActiveCarrierFilter(carrier);
   };
 
+  // Update insurance settings
+  const handleInsuranceChange = (enabled: boolean, amount: number) => {
+    setInsuranceSettings({ enabled, amount });
+  };
+
+  // Update hazmat settings
+  const handleHazmatChange = (enabled: boolean) => {
+    setHazmatSettings({ enabled });
+  };
+
   // Modified to accept rateId and shipmentId params for automatic calling
   // Added labelOptions parameter to support different label formats
+  // NOW INCLUDES insurance and hazmat data during label creation
   const handleCreateLabel = async (
     rateIdParam?: string, 
     shipmentIdParam?: string, 
@@ -226,7 +253,6 @@ export const useShippingRates = () => {
     
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
-      console.log("Label options:", labelOptions);
       
       // Get the selected rate to determine if it's international
       const selectedRate = rates.find(rate => rate.id === effectiveRateId);
@@ -235,14 +261,16 @@ export const useShippingRates = () => {
       // Choose the appropriate endpoint based on whether it's international
       const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
-      console.log(`Using ${endpoint} endpoint for label creation with options:`, labelOptions);
-      
-      // Add default label format and size if not provided
+      // Merge label options with insurance and hazmat settings
       const options = {
         label_format: "PDF",
         label_size: "4x6",
-        ...labelOptions
+        ...labelOptions,
+        insurance: insuranceSettings,
+        hazmat: hazmatSettings
       };
+      
+      console.log(`Using ${endpoint} endpoint for label creation with options:`, options);
       
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
@@ -361,9 +389,13 @@ export const useShippingRates = () => {
     fastestRateId,
     uniqueCarriers,
     activeCarrierFilter,
+    insuranceSettings,
+    hazmatSettings,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,
-    handleFilterByCarrier
+    handleFilterByCarrier,
+    handleInsuranceChange,
+    handleHazmatChange
   };
 };

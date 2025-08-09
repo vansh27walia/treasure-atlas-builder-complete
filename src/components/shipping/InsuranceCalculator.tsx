@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -8,10 +9,12 @@ import { Shield, DollarSign, Info } from 'lucide-react';
 
 interface InsuranceCalculatorProps {
   onInsuranceChange: (enabled: boolean, amount: number) => void;
+  hideFromRates?: boolean; // New prop to hide during rate fetching
 }
 
 const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
-  onInsuranceChange
+  onInsuranceChange,
+  hideFromRates = false
 }) => {
   const [isEnabled, setIsEnabled] = useState(true);
   const [declaredValue, setDeclaredValue] = useState(100); // Default to $100
@@ -33,6 +36,11 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
     const numValue = parseFloat(value) || 0;
     setDeclaredValue(numValue);
   };
+
+  // Don't render during rate fetching if hideFromRates is true
+  if (hideFromRates) {
+    return null;
+  }
 
   return (
     <Card className="p-4 border border-blue-200">

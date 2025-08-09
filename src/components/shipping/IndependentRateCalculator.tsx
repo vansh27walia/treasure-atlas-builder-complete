@@ -13,6 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
 import PackageTypeSelector from './PackageTypeSelector';
+import InsuranceCalculator from './InsuranceCalculator';
+import HazmatCalculator from './HazmatCalculator';
 
 // Insurance always $100 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -58,8 +60,16 @@ const IndependentRateCalculator: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
-  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
-  const [insuranceAmount, setInsuranceAmount] = useState(DEFAULT_INSURANCE_AMOUNT);
+  
+  // Insurance and Hazmat settings - not used during rate fetching
+  const [insuranceSettings, setInsuranceSettings] = useState({
+    enabled: true,
+    amount: DEFAULT_INSURANCE_AMOUNT
+  });
+  const [hazmatSettings, setHazmatSettings] = useState({
+    enabled: false
+  });
+  
   const [customsClearance, setCustomsClearance] = useState(false);
   const [customsInfo, setCustomsInfo] = useState({
     contents: '',
@@ -216,20 +226,18 @@ const IndependentRateCalculator: React.FC = () => {
         parcel.predefined_package = packageType;
       }
       
+      // IMPORTANT: Do NOT include insurance or hazmat in rate fetching
       const payload = {
         fromAddress,
         toAddress,
         parcel,
         carriers: ['usps', 'ups', 'fedex', 'dhl'],
         options: {},
-        insurance_info: insuranceEnabled ? {
-          amount: insuranceAmount,
-          cost: Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE)
-        } : null,
         customs_info: customsClearance ? customsInfo : null
+        // insurance_info and hazmat_info are excluded from rate fetching
       };
       
-      console.log('Fetching rates with payload:', payload);
+      console.log('Fetching rates with payload (excluding insurance/hazmat):', payload);
       
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload
@@ -242,9 +250,9 @@ const IndependentRateCalculator: React.FC = () => {
       if (data.rates && Array.isArray(data.rates)) {
         const processedRates = data.rates.map(rate => ({
           ...rate,
-          carrier: standardizeCarrierName(rate.carrier),
-          insurance_cost: insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0,
-          total_cost: parseFloat(rate.rate) + (insuranceEnabled ? Math.round(insuranceAmount * INSURANCE_COST_PERCENTAGE) : 0),
+          carrier: standardizeCarrierName(rate.carrier)
+          // Note: insurance_cost and total_cost are NOT calculated here
+          // They will be handled during label creation
         }));
         
         setRates(processedRates);
@@ -277,8 +285,8 @@ const IndependentRateCalculator: React.FC = () => {
       dimensions,
       selectedRate: rate,
       isInternational,
-      insuranceEnabled,
-      insuranceAmount,
+      insuranceSettings,
+      hazmatSettings,
       customsClearance,
       customsInfo,
       timestamp: new Date().toISOString()
@@ -321,9 +329,6 @@ const IndependentRateCalculator: React.FC = () => {
               <CarrierLogo carrier="fedex" className="h-8" />
               <CarrierLogo carrier="dhl" className="h-8" />
             </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-700">
-              $100 Insurance Always Included
-            </Badge>
           </div>
           {isInternational && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
@@ -332,100 +337,6 @@ const IndependentRateCalculator: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Insurance Section - Always $100 */}
-        <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <Shield className="h-5 w-5 text-green-600" />
-              Insurance Coverage - Always $100
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="insurance-toggle"
-                  checked={insuranceEnabled}
-                  onCheckedChange={setInsuranceEnabled}
-                />
-                <Label htmlFor="insurance-toggle" className="text-base font-medium">
-                  Include $100 insurance coverage (Recommended)
-                </Label>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-green-600">$100</div>
-                <div className="text-xs text-gray-500">Coverage Amount</div>
-              </div>
-            </div>
-            {insuranceEnabled && (
-              <p className="text-xs text-gray-500 mt-2">
-                Insurance cost: $2 (2% of $100 coverage)
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Customs Clearance Section */}
-        {isInternational && (
-          <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <FileText className="h-5 w-5 text-orange-600" />
-                Customs Clearance Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="customs-toggle"
-                    checked={customsClearance}
-                    onCheckedChange={setCustomsClearance}
-                  />
-                  <Label htmlFor="customs-toggle" className="text-base font-medium">
-                    Include customs clearance documents
-                  </Label>
-                </div>
-                
-                {customsClearance && (
-                  <div className="space-y-3 mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <div>
-                      <Label className="text-sm font-medium">Contents Description</Label>
-                      <Input
-                        value={customsInfo.contents}
-                        onChange={(e) => setCustomsInfo(prev => ({ ...prev, contents: e.target.value }))}
-                        placeholder="e.g., Electronics, Clothing, Documents"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-sm font-medium">Declared Value ($)</Label>
-                        <Input
-                          type="number"
-                          value={customsInfo.value}
-                          onChange={(e) => setCustomsInfo(prev => ({ ...prev, value: e.target.value }))}
-                          placeholder="100.00"
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium">Additional Description</Label>
-                        <Input
-                          value={customsInfo.description}
-                          onChange={(e) => setCustomsInfo(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Optional details"
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Address Input Section */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
@@ -507,7 +418,7 @@ const IndependentRateCalculator: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Package Type Selector - Using the same component from normal shipping */}
+            {/* Package Type Selector */}
             <PackageTypeSelector value={packageType} onChange={setPackageType} />
 
             {/* Dimensions - For envelopes, don't show height field */}
@@ -594,13 +505,96 @@ const IndependentRateCalculator: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Insurance Section - Only shown after rates are fetched */}
+        {rates.length > 0 && (
+          <div className="mb-8">
+            <InsuranceCalculator
+              onInsuranceChange={(enabled, amount) => 
+                setInsuranceSettings({ enabled, amount })
+              }
+            />
+          </div>
+        )}
+
+        {/* Hazmat Section - Only shown after rates are fetched */}
+        {rates.length > 0 && (
+          <div className="mb-8">
+            <HazmatCalculator
+              onHazmatChange={(enabled) => 
+                setHazmatSettings({ enabled })
+              }
+            />
+          </div>
+        )}
+
+        {/* Customs Clearance Section */}
+        {isInternational && rates.length > 0 && (
+          <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <FileText className="h-5 w-5 text-orange-600" />
+                Customs Clearance Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="customs-toggle"
+                    checked={customsClearance}
+                    onCheckedChange={setCustomsClearance}
+                  />
+                  <Label htmlFor="customs-toggle" className="text-base font-medium">
+                    Include customs clearance documents
+                  </Label>
+                </div>
+                
+                {customsClearance && (
+                  <div className="space-y-3 mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div>
+                      <Label className="text-sm font-medium">Contents Description</Label>
+                      <Input
+                        value={customsInfo.contents}
+                        onChange={(e) => setCustomsInfo(prev => ({ ...prev, contents: e.target.value }))}
+                        placeholder="e.g., Electronics, Clothing, Documents"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium">Declared Value ($)</Label>
+                        <Input
+                          type="number"
+                          value={customsInfo.value}
+                          onChange={(e) => setCustomsInfo(prev => ({ ...prev, value: e.target.value }))}
+                          placeholder="100.00"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Additional Description</Label>
+                        <Input
+                          value={customsInfo.description}
+                          onChange={(e) => setCustomsInfo(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Optional details"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* AI Analysis Panel */}
         {aiRecommendation && (
           <Card className="mb-8 shadow-xl border-0 bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-xl">
                 <Sparkles className="h-5 w-5 text-blue-600" />
-                AI Recommendation
+                AI Rate Analysis
                 {isAiLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>}
               </CardTitle>
             </CardHeader>
@@ -648,7 +642,7 @@ const IndependentRateCalculator: React.FC = () => {
                         {carrierFilter === 'all' ? 'All Carriers' : carrierFilter.toUpperCase()}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent>
+                    <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
                       <DropdownMenuItem onClick={() => setCarrierFilter('all')}>
                         All Carriers
                       </DropdownMenuItem>
@@ -666,7 +660,7 @@ const IndependentRateCalculator: React.FC = () => {
                         Sort: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent>
+                    <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
                       <DropdownMenuItem onClick={() => setSortOrder('price')}>
                         Price (Lowest First)
                       </DropdownMenuItem>
@@ -733,23 +727,12 @@ const IndependentRateCalculator: React.FC = () => {
                           </div>
                         </div>
 
-                        {insuranceEnabled && (
-                          <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
-                            <Shield className="w-4 h-4" />
-                            $100 insurance coverage included ($2)
-                          </div>
-                        )}
-
                         <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
                             <span>
                               {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
                             </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Shield className="w-4 h-4 text-green-500" />
-                            <span>Protected</span>
                           </div>
                         </div>
 
