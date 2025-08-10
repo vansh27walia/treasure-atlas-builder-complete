@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ import CustomsDocumentationModal from './CustomsDocumentationModal';
 import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import HazmatSelector from './HazmatSelector';
-import CarrierSelector from './CarrierSelector';
+import { Switch } from '@/components/ui/switch';
 
 const shippingFormSchema = z.object({
   packageType: z.string().min(1, "Please select a package type"),
@@ -29,8 +30,7 @@ const shippingFormSchema = z.object({
   height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
   insurance: z.boolean().default(true),
   hazmat: z.boolean().default(false),
-  hazmatType: z.string().optional(),
-  carriers: z.array(z.string()).default(['usps', 'ups', 'fedex', 'dhl'])
+  hazmatType: z.string().optional()
 });
 
 type ShippingFormValues = z.infer<typeof shippingFormSchema>;
@@ -53,14 +53,13 @@ const EnhancedShippingForm: React.FC = () => {
       packageType: 'box',
       weightValue: undefined,
       weightUnit: 'lb',
-      declaredValue: undefined,
+      declaredValue: 100, // Default to $100
       length: undefined,
       width: undefined,
       height: undefined,
-      insurance: true,
+      insurance: true, // Default insurance to true
       hazmat: false,
-      hazmatType: '',
-      carriers: ['usps', 'ups', 'fedex', 'dhl']
+      hazmatType: ''
     }
   });
 
@@ -99,11 +98,6 @@ const EnhancedShippingForm: React.FC = () => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
     toast.success("Customs documentation saved successfully");
-  };
-
-  const handleInsuranceChange = (enabled: boolean, amount: number) => {
-    form.setValue('insurance', enabled);
-    form.setValue('declaredValue', amount);
   };
 
   const handleGetRates = async (values: ShippingFormValues) => {
@@ -152,7 +146,7 @@ const EnhancedShippingForm: React.FC = () => {
         parcelData.height = values.height || 2;
       }
 
-      // Prepare the request payload for EasyPost API - same format for both domestic and international
+      // Prepare the request payload for EasyPost API - DO NOT include insurance or hazmat during rate fetching
       const payload = {
         fromAddress: {
           name: fromAddress.name,
@@ -177,18 +171,12 @@ const EnhancedShippingForm: React.FC = () => {
           phone: toAddress.phone || ''
         },
         parcel: parcelData,
-        // Use the dynamically created object
-        options: {
-          hazmat: values.hazmat ? values.hazmatType : undefined
-        },
-        carriers: values.carriers,
-        customs_info: customsInfo,
-        insurance_info: values.insurance ? {
-          amount: values.declaredValue,
-          cost: insuranceCost
-        } : null
+        options: {},
+        carriers: ['usps', 'ups', 'fedex', 'dhl'], // Default to all carriers
+        customs_info: customsInfo
+        // NOTE: insurance_info is NOT included during rate fetching
       };
-      console.log('Submitting payload:', payload);
+      console.log('Submitting payload for rate fetching (without insurance/hazmat):', payload);
 
       // Use the same endpoint for both domestic and international
       const {
@@ -201,17 +189,25 @@ const EnhancedShippingForm: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
       if (data.rates && Array.isArray(data.rates)) {
-        // Process rates with insurance cost and apply same formatting as domestic
-        const ratesWithInsurance = data.rates.map(rate => ({
+        // Process rates without insurance cost during rate fetching
+        const processedRates = data.rates.map(rate => ({
           ...rate,
-          insurance_cost: insuranceCost,
-          total_cost: parseFloat(rate.rate) + insuranceCost
+          // Store insurance and hazmat settings for later use during label creation
+          _insuranceSettings: values.insurance ? {
+            enabled: values.insurance,
+            amount: values.declaredValue,
+            cost: insuranceCost
+          } : null,
+          _hazmatSettings: values.hazmat ? {
+            enabled: values.hazmat,
+            type: values.hazmatType
+          } : null
         }));
 
-        // Dispatch the same event format for both domestic and international
+        // Dispatch the event with rates
         document.dispatchEvent(new CustomEvent('easypost-rates-received', {
           detail: {
-            rates: ratesWithInsurance,
+            rates: processedRates,
             shipmentId: data.shipmentId,
             isInternational: isInternational
           }
@@ -347,26 +343,9 @@ const EnhancedShippingForm: React.FC = () => {
                       <FormMessage />
                     </FormItem>} />
               </div>
-
-              <div className="mb-4">
-                <FormField control={form.control} name="carriers" render={({
-                field
-              }) => (
-                <FormItem>
-                  <FormLabel className="text-sm">Carriers</FormLabel>
-                  <FormControl>
-                    <CarrierSelector 
-                      selectedCarriers={field.value || []} 
-                      onCarriersChange={field.onChange} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              </div>
             </div>
 
-            {/* Insurance Section - Simplified without InsuranceCalculator */}
+            {/* Insurance Section - Toggle with fixed $100 value */}
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Shield className="w-5 h-5" />
@@ -374,27 +353,34 @@ const EnhancedShippingForm: React.FC = () => {
               </h3>
               
               <div className="space-y-4">
-                <FormField control={form.control} name="insurance" render={({
-                field
-              }) => <FormItem className="flex items-center space-x-2">
-                      <FormControl>
-                        <input type="checkbox" checked={field.value} onChange={field.onChange} className="rounded border-gray-300" />
-                      </FormControl>
-                      <FormLabel className="text-sm font-medium">Add Insurance Coverage</FormLabel>
-                    </FormItem>} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <FormField control={form.control} name="insurance" render={({
+                    field
+                  }) => <FormItem className="flex items-center space-x-2">
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <FormLabel className="text-sm font-medium">Add Insurance Coverage</FormLabel>
+                        </FormItem>} />
+                  </div>
+                  
+                  {watchInsurance && (
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-green-600">$100</div>
+                      <div className="text-xs text-gray-500">Insurance cost: ${insuranceCost.toFixed(2)}</div>
+                    </div>
+                  )}
+                </div>
                 
-                {watchInsurance && <FormField control={form.control} name="declaredValue" render={({
-                field
-              }) => <FormItem>
-                        <FormLabel className="text-sm">Declared Value ($)</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" step="0.01" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} className="bg-white" placeholder="Package value" />
-                        </FormControl>
-                        {watchDeclaredValue && <p className="text-sm text-gray-600 mt-1">
-                            Insurance cost: ${insuranceCost.toFixed(2)}
-                          </p>}
-                        <FormMessage />
-                      </FormItem>} />}
+                {watchInsurance && (
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      Package value automatically set to $100 with ${insuranceCost.toFixed(2)} insurance cost.
+                      This will be applied during label creation.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

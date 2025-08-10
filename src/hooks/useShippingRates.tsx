@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -22,6 +23,8 @@ export interface ShippingRate {
   total_cost?: number;
   discount_percentage?: number;
   isAIRecommended?: boolean;
+  _insuranceSettings?: any;
+  _hazmatSettings?: any;
 }
 
 interface LabelOptions {
@@ -54,15 +57,16 @@ export const useShippingRates = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
-  const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
   
-  // Insurance and Hazmat state - only used during label creation
-  const [insuranceSettings, setInsuranceSettings] = useState({
-    enabled: true,
-    amount: 100
-  });
-  const [hazmatSettings, setHazmatSettings] = useState({
-    enabled: false
+  // Filter state
+  const [filters, setFilters] = useState({
+    search: '',
+    carriers: [] as string[],
+    maxPrice: undefined as number | undefined,
+    maxDays: undefined as number | undefined,
+    features: [] as string[],
+    sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
+    sortOrder: 'asc' as 'asc' | 'desc'
   });
   
   // Carrier filters
@@ -70,13 +74,12 @@ export const useShippingRates = () => {
 
   // Process and enhance rates with discount percentages and AI recommendations
   const processRates = (incomingRates: ShippingRate[]) => {
-    return incomingRates.map((rate, index) => {
+    const processedRates = incomingRates.map((rate, index) => {
       // Standardize carrier and service names
       const standardizedCarrier = standardizeCarrierName(rate.carrier);
       const standardizedService = standardizeServiceName(rate.service, standardizedCarrier);
       
       // The discount percentage should already come from the backend
-      // If not present, calculate it from original_rate and rate
       let discountPercentage = rate.discount_percentage || 0;
       
       if (!discountPercentage && rate.original_rate) {
@@ -87,7 +90,7 @@ export const useShippingRates = () => {
         }
       }
       
-      // Generate premium flag - typically express, overnight, or most expensive services
+      // Generate premium flag - typically express, overnight, or expensive services
       const isPremium = 
         standardizedService.toLowerCase().includes('express') || 
         standardizedService.toLowerCase().includes('priority') || 
@@ -95,10 +98,10 @@ export const useShippingRates = () => {
         standardizedService.toLowerCase().includes('next day') ||
         standardizedService.toLowerCase().includes('same day') ||
         (rate.delivery_days === 1) ||
-        parseFloat(rate.rate) > 20; // If rate is above $20, consider it a premium service
+        parseFloat(rate.rate) > 20;
       
-      // AI recommendation logic - recommend the best balance of price and speed
-      const isAIRecommended = index === 0 || (
+      // AI recommendation logic - recommend premium services or best value
+      const isAIRecommended = isPremium || (
         rate.delivery_days <= 3 && 
         parseFloat(rate.rate) < 25 && 
         !standardizedService.toLowerCase().includes('ground')
@@ -108,13 +111,108 @@ export const useShippingRates = () => {
         ...rate,
         carrier: standardizedCarrier,
         service: standardizedService,
-        original_carrier: rate.carrier, // Keep original for API calls
-        original_service: rate.service, // Keep original for API calls
+        original_carrier: rate.carrier,
+        original_service: rate.service,
         discount_percentage: discountPercentage,
         isPremium,
         isAIRecommended
       };
     });
+
+    // Sort rates: Premium/Recommended first, then by price (cheapest to most expensive)
+    return processedRates.sort((a, b) => {
+      // First priority: Premium rates
+      if (a.isPremium && !b.isPremium) return -1;
+      if (!a.isPremium && b.isPremium) return 1;
+      
+      // Second priority: AI Recommended rates
+      if (a.isAIRecommended && !b.isAIRecommended) return -1;
+      if (!a.isAIRecommended && b.isAIRecommended) return 1;
+      
+      // Finally: Sort by price (cheapest to most expensive)
+      return parseFloat(a.rate) - parseFloat(b.rate);
+    });
+  };
+
+  // Apply filters to rates
+  const applyFilters = (ratesToFilter: ShippingRate[]) => {
+    let filtered = [...ratesToFilter];
+
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter(rate => 
+        rate.carrier.toLowerCase().includes(searchTerm) ||
+        rate.service.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Carrier filter
+    if (filters.carriers.length > 0) {
+      filtered = filtered.filter(rate => 
+        filters.carriers.some(carrier => 
+          rate.carrier.toLowerCase().includes(carrier.toLowerCase())
+        )
+      );
+    }
+
+    // Price filter
+    if (filters.maxPrice) {
+      filtered = filtered.filter(rate => parseFloat(rate.rate) <= filters.maxPrice!);
+    }
+
+    // Days filter
+    if (filters.maxDays) {
+      filtered = filtered.filter(rate => rate.delivery_days <= filters.maxDays!);
+    }
+
+    // Features filter
+    if (filters.features.length > 0) {
+      filtered = filtered.filter(rate => {
+        const hasExpress = filters.features.includes('express') && 
+          (rate.isPremium || rate.delivery_days <= 2);
+        const hasInsured = filters.features.includes('insured') && true; // All rates can be insured
+        const hasTracking = filters.features.includes('tracking') && true; // All rates have tracking
+        const hasPremium = filters.features.includes('premium') && rate.isPremium;
+        
+        return filters.features.every(feature => {
+          switch (feature) {
+            case 'express': return hasExpress;
+            case 'insured': return hasInsured;
+            case 'tracking': return hasTracking;
+            case 'premium': return hasPremium;
+            default: return true;
+          }
+        });
+      });
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filters.sortBy) {
+        case 'price':
+          comparison = parseFloat(a.rate) - parseFloat(b.rate);
+          break;
+        case 'speed':
+          comparison = a.delivery_days - b.delivery_days;
+          break;
+        case 'carrier':
+          comparison = a.carrier.localeCompare(b.carrier);
+          break;
+        case 'reliability':
+          // Sort by premium/recommended first, then by carrier reputation
+          if (a.isAIRecommended && !b.isAIRecommended) comparison = -1;
+          else if (!a.isAIRecommended && b.isAIRecommended) comparison = 1;
+          else comparison = a.carrier.localeCompare(b.carrier);
+          break;
+      }
+      
+      return filters.sortOrder === 'desc' ? -comparison : comparison;
+    });
+
+    return filtered;
   };
 
   // Listen for rates from the shipping form component
@@ -131,7 +229,6 @@ export const useShippingRates = () => {
         }));
         
         setRates(processedRates);
-        setFilteredRates(processedRates);
         setShipmentId(event.detail.shipmentId);
         setSelectedRateId(null);
         setLabelUrl(null);
@@ -142,7 +239,6 @@ export const useShippingRates = () => {
           rate.carrier.toUpperCase()
         ))];
         setUniqueCarriers(carriers);
-        setActiveCarrierFilter('all');
         
         // Update workflow step
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -153,7 +249,6 @@ export const useShippingRates = () => {
         setTimeout(() => {
           const ratesSection = document.getElementById('shipping-rates-section');
           if (ratesSection) {
-            // Use scrollIntoView with behavior smooth
             ratesSection.scrollIntoView({ 
               behavior: 'smooth', 
               block: 'start'
@@ -188,17 +283,11 @@ export const useShippingRates = () => {
     };
   }, []);
   
-  // Filter rates when carrier filter changes
+  // Apply filters whenever rates or filters change
   useEffect(() => {
-    if (activeCarrierFilter === 'all') {
-      setFilteredRates(rates);
-    } else {
-      const filtered = rates.filter(rate => 
-        rate.carrier.toUpperCase() === activeCarrierFilter.toUpperCase()
-      );
-      setFilteredRates(filtered);
-    }
-  }, [activeCarrierFilter, rates]);
+    const filtered = applyFilters(rates);
+    setFilteredRates(filtered);
+  }, [rates, filters]);
 
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
@@ -218,24 +307,24 @@ export const useShippingRates = () => {
       }, 100);
     }
   };
-  
-  const handleFilterByCarrier = (carrier: string | 'all') => {
-    setActiveCarrierFilter(carrier);
+
+  const handleFiltersChange = (newFilters: typeof filters) => {
+    setFilters(newFilters);
   };
 
-  // Update insurance settings
-  const handleInsuranceChange = (enabled: boolean, amount: number) => {
-    setInsuranceSettings({ enabled, amount });
+  const handleClearFilters = () => {
+    setFilters({
+      search: '',
+      carriers: [],
+      maxPrice: undefined,
+      maxDays: undefined,
+      features: [],
+      sortBy: 'price',
+      sortOrder: 'asc'
+    });
   };
 
-  // Update hazmat settings
-  const handleHazmatChange = (enabled: boolean) => {
-    setHazmatSettings({ enabled });
-  };
-
-  // Modified to accept rateId and shipmentId params for automatic calling
-  // Added labelOptions parameter to support different label formats
-  // NOW INCLUDES insurance and hazmat data during label creation
+  // Modified to include insurance and hazmat data during label creation
   const handleCreateLabel = async (
     rateIdParam?: string, 
     shipmentIdParam?: string, 
@@ -254,20 +343,20 @@ export const useShippingRates = () => {
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
-      // Get the selected rate to determine if it's international
+      // Get the selected rate to get insurance and hazmat settings
       const selectedRate = rates.find(rate => rate.id === effectiveRateId);
       const isInternational = selectedRate?.service?.toLowerCase().includes('international');
       
       // Choose the appropriate endpoint based on whether it's international
       const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
-      // Merge label options with insurance and hazmat settings
+      // Merge label options with insurance and hazmat settings from the rate
       const options = {
         label_format: "PDF",
         label_size: "4x6",
         ...labelOptions,
-        insurance: insuranceSettings,
-        hazmat: hazmatSettings
+        insurance: selectedRate?._insuranceSettings || { enabled: false, amount: 0 },
+        hazmat: selectedRate?._hazmatSettings || { enabled: false }
       };
       
       console.log(`Using ${endpoint} endpoint for label creation with options:`, options);
@@ -388,14 +477,11 @@ export const useShippingRates = () => {
     bestValueRateId,
     fastestRateId,
     uniqueCarriers,
-    activeCarrierFilter,
-    insuranceSettings,
-    hazmatSettings,
+    filters,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,
-    handleFilterByCarrier,
-    handleInsuranceChange,
-    handleHazmatChange
+    handleFiltersChange,
+    handleClearFilters
   };
 };
