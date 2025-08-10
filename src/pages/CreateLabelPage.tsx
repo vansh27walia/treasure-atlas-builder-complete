@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -19,9 +20,9 @@ const CreateLabelPage = () => {
     rates,
     handleSelectRate,
     uniqueCarriers,
-    filters,
-    handleFiltersChange,
-    handleClearFilters
+    filters: shippingFilters,
+    handleFiltersChange: handleShippingFiltersChange,
+    handleClearFilters: handleShippingClearFilters
   } = useShippingRates();
   
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
@@ -94,13 +95,13 @@ const CreateLabelPage = () => {
     setActiveFilter(filter);
     // Use the new filters system instead
     if (filter !== 'all') {
-      handleFiltersChange({
-        ...filters,
+      handleShippingFiltersChange({
+        ...shippingFilters,
         carriers: [filter]
       });
     } else {
-      handleFiltersChange({
-        ...filters,
+      handleShippingFiltersChange({
+        ...shippingFilters,
         carriers: []
       });
     }
@@ -203,8 +204,8 @@ const CreateLabelPage = () => {
     return parseFloat(a.rate) - parseFloat(b.rate);
   }) : [];
 
-  // Default filter state for RateFilter component
-  const [filters, setFilters] = useState({
+  // Local filter state for RateFilter component
+  const [localFilters, setLocalFilters] = useState({
     search: '',
     carriers: [],
     maxPrice: undefined,
@@ -214,12 +215,12 @@ const CreateLabelPage = () => {
     sortOrder: 'asc' as 'asc' | 'desc'
   });
 
-  const handleFiltersChange = (newFilters: any) => {
-    setFilters(newFilters);
+  const handleLocalFiltersChange = (newFilters: any) => {
+    setLocalFilters(newFilters);
   };
 
-  const handleClearFilters = () => {
-    setFilters({
+  const handleLocalClearFilters = () => {
+    setLocalFilters({
       search: '',
       carriers: [],
       maxPrice: undefined,
@@ -257,10 +258,10 @@ const CreateLabelPage = () => {
             {/* Rate Filter with AI Powered Analysis Button */}
             <div className="mb-6 flex gap-4">
               <RateFilter 
-                filters={filters}
+                filters={localFilters}
                 availableCarriers={uniqueCarriers}
-                onFiltersChange={handleFiltersChange}
-                onClearFilters={handleClearFilters}
+                onFiltersChange={handleLocalFiltersChange}
+                onClearFilters={handleLocalClearFilters}
                 rateCount={sortedRates.length}
               />
               <Button

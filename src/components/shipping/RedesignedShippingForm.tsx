@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { MapPin, Package, Scale, DollarSign, Shield, AlertTriangle } from 'lucide-react';
-import AddressForm from './AddressForm';
 import PackageTypeSelector from './PackageTypeSelector';
 import InsuranceCalculator from './InsuranceCalculator';
 import HazmatSelector from './HazmatSelector';
@@ -51,10 +51,116 @@ interface RedesignedShippingFormProps {
   onSubmit: (data: ShippingFormValues) => void;
 }
 
+// Simple AddressForm component for this specific use case
+const SimpleAddressForm: React.FC<{
+  addressType: 'recipientAddress' | 'originAddress';
+  errors: any;
+  register: any;
+  setValue: any;
+  onAddressChange: any;
+}> = ({ addressType, errors, register, setValue, onAddressChange }) => {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor={`${addressType}.street1`} className="block text-sm font-medium text-gray-700">
+          Street Address
+        </Label>
+        <Input
+          type="text"
+          id={`${addressType}.street1`}
+          placeholder="123 Main St"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          {...register(`${addressType}.street1`)}
+        />
+        {errors?.[addressType]?.street1 && (
+          <p className="text-red-500 text-sm mt-1">{errors[addressType].street1.message}</p>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor={`${addressType}.street2`} className="block text-sm font-medium text-gray-700">
+          Apartment, Suite, etc. (Optional)
+        </Label>
+        <Input
+          type="text"
+          id={`${addressType}.street2`}
+          placeholder="Apt 4B"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          {...register(`${addressType}.street2`)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label htmlFor={`${addressType}.city`} className="block text-sm font-medium text-gray-700">
+            City
+          </Label>
+          <Input
+            type="text"
+            id={`${addressType}.city`}
+            placeholder="New York"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            {...register(`${addressType}.city`)}
+          />
+          {errors?.[addressType]?.city && (
+            <p className="text-red-500 text-sm mt-1">{errors[addressType].city.message}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor={`${addressType}.state`} className="block text-sm font-medium text-gray-700">
+            State
+          </Label>
+          <Input
+            type="text"
+            id={`${addressType}.state`}
+            placeholder="NY"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            {...register(`${addressType}.state`)}
+          />
+          {errors?.[addressType]?.state && (
+            <p className="text-red-500 text-sm mt-1">{errors[addressType].state.message}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor={`${addressType}.zip`} className="block text-sm font-medium text-gray-700">
+            ZIP Code
+          </Label>
+          <Input
+            type="text"
+            id={`${addressType}.zip`}
+            placeholder="10001"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            {...register(`${addressType}.zip`)}
+          />
+          {errors?.[addressType]?.zip && (
+            <p className="text-red-500 text-sm mt-1">{errors[addressType].zip.message}</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor={`${addressType}.country`} className="block text-sm font-medium text-gray-700">
+          Country
+        </Label>
+        <Input
+          type="text"
+          id={`${addressType}.country`}
+          placeholder="US"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          {...register(`${addressType}.country`)}
+        />
+        {errors?.[addressType]?.country && (
+          <p className="text-red-500 text-sm mt-1">{errors[addressType].country.message}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmit }) => {
   const [isInsuranceEnabled, setIsInsuranceEnabled] = useState(false);
   const [isHazmatEnabled, setIsHazmatEnabled] = useState(false);
-  const [insuranceAmount, setInsuranceAmount] = useState<number | undefined>(undefined);
+  const [insuranceAmount, setInsuranceAmount] = useState<number | undefined>(100);
   const [hazmatDetails, setHazmatDetails] = useState<any>(null);
 
   const {
@@ -75,7 +181,7 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
       width: undefined,
       height: undefined,
       packageType: 'box',
-      insuranceAmount: undefined,
+      insuranceAmount: 100,
       isHazmat: false,
       recipientAddress: {
         street1: '',
@@ -114,6 +220,9 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
     if (!enabled) {
       setInsuranceAmount(undefined);
       setValue("insuranceAmount", undefined);
+    } else {
+      setInsuranceAmount(100);
+      setValue("insuranceAmount", 100);
     }
   };
 
@@ -188,7 +297,7 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
           </div>
 
           {/* Recipient Address Form */}
-          <AddressForm
+          <SimpleAddressForm
             addressType="recipientAddress"
             errors={errors}
             register={register}
@@ -230,7 +339,7 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
           </div>
 
           {/* Origin Address Form */}
-          <AddressForm
+          <SimpleAddressForm
             addressType="originAddress"
             errors={errors}
             register={register}
@@ -307,25 +416,43 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
             </div>
           </div>
 
-          {/* Package Type Selector */}
-          <PackageTypeSelector register={register} errors={errors} />
+          {/* Package Type Selector - Simple inline version */}
+          <div>
+            <Label htmlFor="packageType" className="block text-sm font-medium text-gray-700">
+              Package Type
+            </Label>
+            <Select defaultValue="box" onValueChange={(value) => setValue("packageType", value)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select package type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="box">Box</SelectItem>
+                <SelectItem value="envelope">Envelope</SelectItem>
+                <SelectItem value="tube">Tube</SelectItem>
+                <SelectItem value="pak">Pak</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.packageType && (
+              <p className="text-red-500 text-sm mt-1">{errors.packageType.message}</p>
+            )}
+          </div>
 
           <Separator className="my-4" />
 
           {/* Insurance Calculator */}
           <InsuranceCalculator
-            isEnabled={isInsuranceEnabled}
-            onToggle={handleInsuranceToggle}
-            setInsuranceAmount={setInsuranceAmount}
-            watchInsuranceAmount={watchInsuranceAmount}
+            insurance={isInsuranceEnabled}
+            insuranceAmount={insuranceAmount || 100}
+            onInsuranceChange={handleInsuranceToggle}
+            onInsuranceAmountChange={setInsuranceAmount}
           />
 
           {/* Hazmat Selector */}
           <HazmatSelector
-            isEnabled={isHazmatEnabled}
-            onToggle={handleHazmatToggle}
-            setHazmatDetails={setHazmatDetails}
-            watchIsHazmat={watchIsHazmat}
+            isHazmat={isHazmatEnabled}
+            hazmatType=""
+            onHazmatChange={handleHazmatToggle}
+            onHazmatTypeChange={(type) => setHazmatDetails({ type })}
           />
 
           {/* Submit Button */}

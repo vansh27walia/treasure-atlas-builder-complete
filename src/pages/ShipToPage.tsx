@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import { useShippingRates } from '@/hooks/useShippingRates';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Package, Truck, Clock, DollarSign } from 'lucide-react';
-import ShippingForm from '@/components/ShippingForm';
+import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
 
 const ShipToPage = () => {
   const {
@@ -58,7 +59,7 @@ const ShipToPage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ShippingForm onSubmit={handleFormSubmit} />
+              <RedesignedShippingForm onSubmit={handleFormSubmit} />
             </CardContent>
           </Card>
 
