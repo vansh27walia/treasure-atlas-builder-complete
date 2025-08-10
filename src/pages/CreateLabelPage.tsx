@@ -1,310 +1,221 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from '@/components/ui/sonner';
+import { useRouter } from 'next/router';
+import { ShippingRate } from '@/types/shipping';
+import { carrierService } from '@/services/CarrierService';
+import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
+import ShippingRateCard from '@/components/shipping/ShippingRateCard';
+import EmptyRatesState from '@/components/shipping/EmptyRatesState';
+import EnhancedLabelModal from '@/components/shipping/EnhancedLabelModal';
+import StripePaymentModal from '@/components/shipping/StripePaymentModal';
+import GlobalShipAIChatbot from '@/components/shipping/GlobalShipAIChatbot';
+import ImprovedRateFilter from '@/components/shipping/ImprovedRateFilter';
 
-import React, { useState, useEffect } from 'react';
-import ShippingRates from '@/components/ShippingRates';
-import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
-import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
-import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
-import RateFilter from '@/components/shipping/RateFilter';
-import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
-import { useShippingRates } from '@/hooks/useShippingRates';
-import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Brain } from 'lucide-react';
+interface Filters {
+  search: string;
+  carriers: string[];
+  maxPrice?: number;
+  maxDays?: number;
+  sortBy: 'price' | 'speed' | 'carrier';
+  sortOrder: 'asc' | 'desc';
+}
 
-const CreateLabelPage = () => {
-  // Move ALL hooks to the top before any conditional logic
-  const { user } = useAuth();
-  const {
-    rates,
-    handleSelectRate,
-    uniqueCarriers,
-    filters: shippingFilters,
-    handleFiltersChange: handleShippingFiltersChange,
-    handleClearFilters: handleShippingClearFilters
-  } = useShippingRates();
-  
-  const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [selectedRate, setSelectedRate] = useState<any>(null);
-  const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
-  const [aiPanelClosedManually, setAiPanelClosedManually] = useState(false);
+const CreateLabelPage: React.FC = () => {
+  const [rates, setRates] = useState<ShippingRate[]>([]);
+  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  const [formData, setFormData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [availableCarriers, setAvailableCarriers] = useState<string[]>([]);
+  const router = useRouter();
 
-  // Auto-show AI panel when rates are available (but only if not manually closed)
-  useEffect(() => {
-    if (rates && rates.length > 0 && !showAIPanel && !isPaymentInProgress && !aiPanelClosedManually) {
-      setShowAIPanel(true);
-      if (rates[0] && !selectedRate) {
-        setSelectedRate(rates[0]);
-      }
-    }
-  }, [rates, showAIPanel, selectedRate, isPaymentInProgress, aiPanelClosedManually]);
-
-  // Listen for payment events to close AI panel
-  useEffect(() => {
-    const handlePaymentStart = () => {
-      setIsPaymentInProgress(true);
-      setShowAIPanel(false);
-    };
-
-    const handlePaymentEnd = () => {
-      setIsPaymentInProgress(false);
-    };
-
-    // Listen for force show AI panel event (when rate is clicked)
-    const handleForceShowAIPanel = (event: CustomEvent) => {
-      console.log('Force show AI panel event received:', event.detail);
-      if (event.detail?.selectedRate) {
-        setSelectedRate(event.detail.selectedRate);
-        setShowAIPanel(true);
-        setAiPanelClosedManually(false); // Reset manual close flag
-      }
-    };
-
-    // Listen for payment-related events
-    document.addEventListener('payment-start', handlePaymentStart);
-    document.addEventListener('payment-complete', handlePaymentEnd);
-    document.addEventListener('payment-cancelled', handlePaymentEnd);
-    document.addEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
-
-    return () => {
-      document.removeEventListener('payment-start', handlePaymentStart);
-      document.removeEventListener('payment-complete', handlePaymentEnd);
-      document.removeEventListener('payment-cancelled', handlePaymentEnd);
-      document.removeEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
-    };
-  }, []);
-
-  // NOW we can do the conditional redirect after all hooks are called
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  const handleRateSelected = (rate: any) => {
-    console.log('Rate selected in CreateLabelPage:', rate);
-    setSelectedRate(rate);
-    if (!isPaymentInProgress && !aiPanelClosedManually) {
-      setShowAIPanel(true);
-    }
-    handleSelectRate(rate.id);
-  };
-
-  const handleFilterChange = (filter: string) => {
-    setActiveFilter(filter);
-    // Use the new filters system instead
-    if (filter !== 'all') {
-      handleShippingFiltersChange({
-        ...shippingFilters,
-        carriers: [filter]
-      });
-    } else {
-      handleShippingFiltersChange({
-        ...shippingFilters,
-        carriers: []
-      });
-    }
-  };
-
-  const handleOptimizationChange = (filter: string) => {
-    console.log('Optimization changed:', filter);
-    
-    // Apply optimization logic here
-    let sortedRates = [...(rates || [])];
-    
-    switch (filter) {
-      case 'cheapest':
-        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
-        break;
-      case 'fastest':
-        sortedRates.sort((a, b) => (a.delivery_days || 999) - (b.delivery_days || 999));
-        break;
-      case 'balanced':
-      case 'most-efficient':
-        // Balance between price and speed
-        sortedRates.sort((a, b) => {
-          const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 999);
-          const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 999);
-          return scoreA - scoreB;
-        });
-        break;
-      case 'most-reliable':
-        // Sort by carrier reliability (USPS first, then UPS, FedEx, DHL)
-        sortedRates.sort((a, b) => {
-          const reliabilityOrder = { 'USPS': 1, 'UPS': 2, 'FedEx': 3, 'DHL': 4 };
-          const scoreA = reliabilityOrder[a.carrier.toUpperCase()] || 999;
-          const scoreB = reliabilityOrder[b.carrier.toUpperCase()] || 999;
-          return scoreA - scoreB;
-        });
-        break;
-      default:
-        // Keep current order
-        break;
-    }
-    
-    // Update the rates order and select the first one
-    if (sortedRates.length > 0) {
-      setSelectedRate(sortedRates[0]);
-      handleSelectRate(sortedRates[0].id);
-      
-      // Trigger a re-render of the ShippingRates component with new order
-      document.dispatchEvent(new CustomEvent('rates-reordered', { 
-        detail: { rates: sortedRates } 
-      }));
-    }
-  };
-
-  const handleOpenRateCalculator = () => {
-    setIsRateCalculatorOpen(true);
-  };
-
-  const handleCloseSidebar = () => {
-    console.log('Closing AI sidebar manually');
-    setShowAIPanel(false);
-    setAiPanelClosedManually(true); // Mark as manually closed
-  };
-
-  const handleAIPoweredAnalysis = () => {
-    console.log('AI Powered Analysis button clicked');
-    if (rates && rates.length > 0) {
-      setSelectedRate(rates[0]);
-      setShowAIPanel(true);
-      setAiPanelClosedManually(false);
-    }
-  };
-
-  // Enhanced rate processing with proper carrier name standardization
-  const processRatesForDisplay = (ratesList: any[]) => {
-    return ratesList.map(rate => ({
-      ...rate,
-      // Standardize carrier names for display
-      displayCarrier: getStandardizedCarrierName(rate.carrier),
-      // Ensure we have the list rate for proper discount display
-      list_rate: rate.list_rate || rate.retail_rate
-    }));
-  };
-
-  const getStandardizedCarrierName = (carrierName: string) => {
-    const name = carrierName.toUpperCase();
-    if (name.includes('USPS')) return 'USPS';
-    if (name.includes('UPS')) return 'UPS';
-    if (name.includes('FEDEX')) return 'FedEx';
-    if (name.includes('DHL')) return 'DHL';
-    if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
-    return carrierName;
-  };
-
-  // Sort rates to ensure USPS is first, then by price
-  const sortedRates = rates ? processRatesForDisplay([...rates]).sort((a, b) => {
-    if (a.displayCarrier === 'USPS' && b.displayCarrier !== 'USPS') return -1;
-    if (a.displayCarrier !== 'USPS' && b.displayCarrier === 'USPS') return 1;
-    if (a.isAIRecommended && !b.isAIRecommended) return -1;
-    if (!a.isAIRecommended && b.isAIRecommended) return 1;
-    return parseFloat(a.rate) - parseFloat(b.rate);
-  }) : [];
-
-  // Local filter state for RateFilter component
-  const [localFilters, setLocalFilters] = useState({
+  const [pageFilters, setPageFilters] = useState<Filters>({
     search: '',
     carriers: [],
-    maxPrice: undefined,
-    maxDays: undefined,
-    features: [],
-    sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
-    sortOrder: 'asc' as 'asc' | 'desc'
+    sortBy: 'price',
+    sortOrder: 'asc',
   });
 
-  const handleLocalFiltersChange = (newFilters: any) => {
-    setLocalFilters(newFilters);
+  const handlePageFiltersChange = (newFilters: any) => {
+    setPageFilters(newFilters);
   };
 
-  const handleLocalClearFilters = () => {
-    setLocalFilters({
+  const handlePageClearFilters = () => {
+    setPageFilters({
       search: '',
       carriers: [],
       maxPrice: undefined,
       maxDays: undefined,
-      features: [],
       sortBy: 'price',
-      sortOrder: 'asc'
+      sortOrder: 'asc',
     });
   };
 
+  const handleShippingSubmit = async (data: any) => {
+    setFormData(data);
+    setIsLoading(true);
+    setRates([]);
+
+    try {
+      const shippingRates = await carrierService.getShippingRates(data);
+      setRates(shippingRates);
+
+      const carriers = [...new Set(shippingRates.map(rate => rate.carrier))];
+      setAvailableCarriers(carriers);
+    } catch (error: any) {
+      console.error("Error fetching shipping rates:", error);
+      toast.error(error?.message || 'Failed to fetch shipping rates');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRatesReceived = (rates: ShippingRate[]) => {
+    setRates(rates);
+  };
+
+  const handleRateSelect = (rate: ShippingRate) => {
+    setSelectedRate(rate);
+    setShowLabelModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    toast.success('Payment successful! Redirecting to label creation...');
+    setTimeout(() => {
+      router.push('/labels');
+    }, 2000);
+  };
+
+  const filteredRates = React.useMemo(() => {
+    let filtered = [...rates];
+
+    if (pageFilters.search) {
+      const searchTerm = pageFilters.search.toLowerCase();
+      filtered = filtered.filter(rate =>
+        rate.carrier.toLowerCase().includes(searchTerm) ||
+        rate.service.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (pageFilters.carriers.length > 0) {
+      filtered = filtered.filter(rate =>
+        pageFilters.carriers.includes(rate.carrier)
+      );
+    }
+
+    if (pageFilters.maxPrice) {
+      filtered = filtered.filter(rate => rate.rate <= pageFilters.maxPrice!);
+    }
+
+    if (pageFilters.maxDays) {
+      filtered = filtered.filter(rate => rate.delivery_days <= pageFilters.maxDays!);
+    }
+
+    if (pageFilters.sortBy === 'price') {
+      filtered.sort((a, b) => {
+        const priceA = parseFloat(a.rate);
+        const priceB = parseFloat(b.rate);
+        return pageFilters.sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+      });
+    }
+
+    if (pageFilters.sortBy === 'speed') {
+      filtered.sort((a, b) => {
+        const daysA = a.delivery_days;
+        const daysB = b.delivery_days;
+        return pageFilters.sortOrder === 'asc' ? daysA - daysB : daysB - daysA;
+      });
+    }
+
+    if (pageFilters.sortBy === 'carrier') {
+      filtered.sort((a, b) => {
+        const carrierA = a.carrier.toLowerCase();
+        const carrierB = b.carrier.toLowerCase();
+        return pageFilters.sortOrder === 'asc' ? carrierA.localeCompare(carrierB) : carrierB.localeCompare(carrierA);
+      });
+    }
+
+    return filtered;
+  }, [rates, pageFilters]);
+
   return (
-    <div className="min-h-screen bg-background relative">
-      {/* Sticky Workflow Tracker */}
-      <div className="sticky top-0 z-40 bg-transparent">
-        <EnhancedWorkflowTracker currentStep="package" />
-      </div>
-      
-      {/* Main Content - Adjust width when sidebar is open and not in payment */}
-      <div className={`transition-all duration-300 ${showAIPanel && !isPaymentInProgress ? 'pr-80' : ''}`}>
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Header Section */}
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
-              <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-                Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
-              </p>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Shipping Label</h1>
+          <p className="text-gray-600">Enter shipping details and get instant rates from multiple carriers</p>
+        </div>
 
-            {/* Main Form Section */}
-            <div className="bg-white rounded-xl shadow-lg border mb-8">
-              <EnhancedShippingForm />
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Shipping Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <RedesignedShippingForm 
+              onSubmit={handleShippingSubmit}
+              onRatesReceived={handleRatesReceived}
+              isLoading={isLoading}
+            />
+          </div>
 
-            {/* Rate Filter with AI Powered Analysis Button */}
-            <div className="mb-6 flex gap-4">
-              <RateFilter 
-                filters={localFilters}
-                availableCarriers={uniqueCarriers}
-                onFiltersChange={handleLocalFiltersChange}
-                onClearFilters={handleLocalClearFilters}
-                rateCount={sortedRates.length}
-              />
-              <Button
-                onClick={handleAIPoweredAnalysis}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 flex items-center gap-2"
-                disabled={!rates || rates.length === 0}
-              >
-                <Brain className="w-4 h-4" />
-                AI Powered Analysis
-              </Button>
-            </div>
-            
-            {/* Shipping Rates Section */}
-            <div id="shipping-rates-section">
-              <ShippingRates 
-                rates={sortedRates || []} 
-                onRateSelected={handleRateSelected} 
-                loading={false} 
-              />
-            </div>
+          {/* Rates Panel */}
+          <div className="space-y-6">
+            {rates.length > 0 && (
+              <>
+                <ImprovedRateFilter
+                  filters={pageFilters}
+                  availableCarriers={availableCarriers}
+                  onFiltersChange={handlePageFiltersChange}
+                  onClearFilters={handlePageClearFilters}
+                  rateCount={filteredRates.length}
+                />
+
+                <div className="bg-white rounded-lg shadow-sm border p-4">
+                  <h3 className="font-semibold text-gray-900 mb-4">Available Rates</h3>
+                  <div className="space-y-3">
+                    {filteredRates.map((rate) => (
+                      <ShippingRateCard
+                        key={rate.id}
+                        rate={rate}
+                        isSelected={selectedRate?.id === rate.id}
+                        onSelect={handleRateSelect}
+                        showCreateLabel={true}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {rates.length === 0 && !isLoading && (
+              <EmptyRatesState />
+            )}
           </div>
         </div>
+
+        {/* Modals */}
+        {showLabelModal && selectedRate && (
+          <EnhancedLabelModal
+            isOpen={showLabelModal}
+            onClose={() => setShowLabelModal(false)}
+            rate={selectedRate}
+            formData={formData}
+          />
+        )}
+
+        {showPaymentModal && selectedRate && (
+          <StripePaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
+            amount={parseFloat(selectedRate.rate)}
+            onSuccess={handlePaymentSuccess}
+            description={`Shipping label - ${selectedRate.carrier} ${selectedRate.service}`}
+          />
+        )}
+
+        {/* Global AI Chatbot */}
+        <GlobalShipAIChatbot context="label-creation" />
       </div>
-
-      {/* AI Analysis Panel - Only show when not in payment flow and not manually closed */}
-      {showAIPanel && selectedRate && !isPaymentInProgress && (
-        <AIRateAnalysisPanel
-          selectedRate={selectedRate}
-          allRates={sortedRates || []}
-          isOpen={showAIPanel}
-          onClose={handleCloseSidebar}
-          onOptimizationChange={handleOptimizationChange}
-        />
-      )}
-
-      {/* Rate Calculator Modal */}
-      <RateCalculatorModal 
-        isOpen={isRateCalculatorOpen} 
-        onClose={() => setIsRateCalculatorOpen(false)} 
-      />
-
-      {/* ShipAI Chatbot */}
-      <ShipAIChatbot onClose={() => {}} />
     </div>
   );
 };
