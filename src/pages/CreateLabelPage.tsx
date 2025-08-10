@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
@@ -163,7 +162,6 @@ const CreateLabelPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <RedesignedShippingForm 
               onSubmit={handleShippingSubmit}
-              isLoading={isLoading}
             />
           </div>
 
