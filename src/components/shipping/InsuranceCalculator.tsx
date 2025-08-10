@@ -9,7 +9,7 @@ import { Shield, DollarSign, Info } from 'lucide-react';
 
 interface InsuranceCalculatorProps {
   onInsuranceChange: (enabled: boolean, amount: number) => void;
-  hideFromRates?: boolean;
+  hideFromRates?: boolean; // New prop to hide during rate fetching
 }
 
 const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
@@ -37,10 +37,6 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
     setDeclaredValue(numValue);
   };
 
-  const handleToggle = (enabled: boolean) => {
-    setIsEnabled(enabled);
-  };
-
   // Don't render during rate fetching if hideFromRates is true
   if (hideFromRates) {
     return null;
@@ -60,7 +56,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
         </div>
         <Switch
           checked={isEnabled}
-          onCheckedChange={handleToggle}
+          onCheckedChange={setIsEnabled}
         />
       </div>
 
@@ -78,7 +74,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
                 value={declaredValue}
                 onChange={(e) => handleValueChange(e.target.value)}
                 className="pl-9 bg-white"
-                placeholder="100.00"
+                placeholder="0.00"
                 min="0"
                 step="0.01"
               />
