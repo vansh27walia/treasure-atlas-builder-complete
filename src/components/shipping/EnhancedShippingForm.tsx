@@ -346,43 +346,69 @@ const EnhancedShippingForm: React.FC = () => {
             </div>
 
             {/* Insurance Section - Toggle with fixed $100 value */}
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Insurance
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <FormField control={form.control} name="insurance" render={({
-                    field
-                  }) => <FormItem className="flex items-center space-x-2">
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <FormLabel className="text-sm font-medium">Add Insurance Coverage</FormLabel>
-                        </FormItem>} />
-                  </div>
-                  
-                  {watchInsurance && (
-                    <div className="text-right">
-                      <div className="text-lg font-semibold text-green-600">$100</div>
-                      <div className="text-xs text-gray-500">Insurance cost: ${insuranceCost.toFixed(2)}</div>
-                    </div>
-                  )}
-                </div>
-                
-                {watchInsurance && (
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      Package value automatically set to $100 with ${insuranceCost.toFixed(2)} insurance cost.
-                      This will be applied during label creation.
-                    </p>
-                  </div>
-                )}
+            <Card className="p-4 border border-blue-200">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Shield className="w-5 h-5 text-blue-600" />
+          <h3 className="font-semibold text-gray-900">Package Insurance</h3>
+          {isEnabled && (
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              +${insuranceCost.toFixed(2)}
+            </Badge>
+          )}
+        </div>
+        <Switch
+          checked={isEnabled}
+          onCheckedChange={handleToggle}
+        />
+      </div>
+
+      {isEnabled && (
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="declared-value" className="text-sm font-medium text-gray-700">
+              Declared Value ($100 - $10,000)
+            </Label>
+            <div className="mt-1 relative">
+              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                id="declared-value"
+                type="number"
+                value={declaredValue}
+                onChange={(e) => handleValueChange(e.target.value)}
+                className="pl-9 bg-white"
+                placeholder="100.00"
+                min="100"
+                max="10000"
+                step="50"
+              />
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Insurance Cost: +${insuranceCost.toFixed(2)}</p>
+                <p className="text-xs text-blue-600">
+                  $2.00 per $100 of declared value (minimum $2.00). 
+                  This will be added to your total shipping cost.
+                </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {!isEnabled && (
+        <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+          <p className="flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            Package insurance is disabled. Your shipment will not be covered for loss or damage.
+          </p>
+        </div>
+      )}
+    </Card>
 
             {/* HAZMAT */}
             <div className="p-6">
