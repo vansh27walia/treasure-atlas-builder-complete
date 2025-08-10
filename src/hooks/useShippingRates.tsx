@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -288,6 +287,31 @@ export const useShippingRates = () => {
     const filtered = applyFilters(rates);
     setFilteredRates(filtered);
   }, [rates, filters]);
+
+  // Listen for auto-fill from rate calculator
+  useEffect(() => {
+    const handleAutoFillFromCalculator = (event: CustomEvent) => {
+      const calculatorData = event.detail;
+      
+      if (calculatorData) {
+        // Auto-fill the shipping form with calculator data
+        console.log('Auto-filling from rate calculator:', calculatorData);
+        
+        // Dispatch event to fill the shipping form
+        setTimeout(() => {
+          document.dispatchEvent(new CustomEvent('prefill-shipping-form', {
+            detail: calculatorData
+          }));
+        }, 100);
+      }
+    };
+
+    document.addEventListener('auto-fill-from-calculator', handleAutoFillFromCalculator as EventListener);
+    
+    return () => {
+      document.removeEventListener('auto-fill-from-calculator', handleAutoFillFromCalculator as EventListener);
+    };
+  }, []);
 
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
