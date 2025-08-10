@@ -23,14 +23,14 @@ const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8
         return {
           name: 'UPS',
           logo: '/lovable-uploads/321101c1-be0c-4392-a060-180db437f38d.png',
-          color: 'bg-amber-800', // Brown color for UPS
+          color: 'bg-amber-900', // Brown color for UPS
           textColor: 'text-white'
         };
       case 'FedEx':
         return {
           name: 'FedEx',
           logo: '/lovable-uploads/b92bf2f4-d7b0-47a4-b30a-3097d19fdc40.png',
-          color: 'bg-indigo-600', // FedEx purple
+          color: 'bg-purple-600', // Purple color for FedEx
           textColor: 'text-white'
         };
       case 'DHL':

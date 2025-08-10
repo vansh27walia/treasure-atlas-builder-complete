@@ -16,7 +16,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   onInsuranceChange,
   hideFromRates = false
 }) => {
-  const [isEnabled, setIsEnabled] = useState(true);
+  const [isEnabled, setIsEnabled] = useState(false);
   const [declaredValue, setDeclaredValue] = useState(100);
   
   const calculateInsuranceCost = (value: number) => {
@@ -31,8 +31,12 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   }, [isEnabled, declaredValue, insuranceCost, onInsuranceChange]);
 
   const handleValueChange = (value: string) => {
-    const numValue = Math.max(0, Math.min(10000, parseFloat(value) || 0));
+    const numValue = Math.max(100, Math.min(10000, parseFloat(value) || 100));
     setDeclaredValue(numValue);
+  };
+
+  const handleToggle = (enabled: boolean) => {
+    setIsEnabled(enabled);
   };
 
   if (hideFromRates) {
@@ -53,7 +57,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
         </div>
         <Switch
           checked={isEnabled}
-          onCheckedChange={setIsEnabled}
+          onCheckedChange={handleToggle}
         />
       </div>
 
@@ -85,7 +89,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
               <div className="text-sm text-blue-800">
                 <p className="font-medium mb-1">Insurance Cost: +${insuranceCost.toFixed(2)}</p>
                 <p className="text-xs text-blue-600">
-                  Automatic $2.00 per $100 of declared value (minimum $2.00). 
+                  $2.00 per $100 of declared value (minimum $2.00). 
                   This will be added to your total shipping cost.
                 </p>
               </div>

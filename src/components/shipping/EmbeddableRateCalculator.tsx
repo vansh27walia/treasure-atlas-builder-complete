@@ -4,11 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calculator, Package, MapPin, Loader2, ArrowRight } from 'lucide-react';
+import { Calculator, Package, MapPin, Loader2, ArrowRight, Shield, AlertTriangle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import CarrierLogo from './CarrierLogo';
+import InsuranceCalculator from './InsuranceCalculator';
+import HazmatCalculator from './HazmatCalculator';
 
 interface RateResult {
   id: string;
@@ -22,17 +24,31 @@ const EmbeddableRateCalculator: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<RateResult[]>([]);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(false);
+  const [insuranceAmount, setInsuranceAmount] = useState(100);
+  const [insuranceCost, setInsuranceCost] = useState(0);
+  const [hazmatEnabled, setHazmatEnabled] = useState(false);
   const [formData, setFormData] = useState({
     fromZip: '',
     toZip: '',
     weight: '',
-    length: '',
-    width: '',
-    height: ''
+    length: '10',
+    width: '8',
+    height: '6'
   });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
+    setInsuranceEnabled(enabled);
+    setInsuranceAmount(amount);
+    setInsuranceCost(cost);
+  };
+
+  const handleHazmatChange = (enabled: boolean) => {
+    setHazmatEnabled(enabled);
   };
 
   const handleCalculateRates = async () => {
@@ -108,7 +124,15 @@ const EmbeddableRateCalculator: React.FC = () => {
         width: parseFloat(formData.width) || 8,
         height: parseFloat(formData.height) || 6
       },
-      selectedRate: rate
+      selectedRate: rate,
+      insurance: {
+        enabled: insuranceEnabled,
+        amount: insuranceAmount,
+        cost: insuranceCost
+      },
+      hazmat: {
+        enabled: hazmatEnabled
+      }
     };
     
     sessionStorage.setItem('rateCalculatorData', JSON.stringify(shippingData));
@@ -158,7 +182,7 @@ const EmbeddableRateCalculator: React.FC = () => {
             </div>
           </div>
 
-          {/* Package Section - Single Line Dimensions */}
+          {/* Package Section */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2">
               <Package className="w-4 h-4" />
@@ -166,52 +190,65 @@ const EmbeddableRateCalculator: React.FC = () => {
             </Label>
             
             {/* Weight */}
-            <div className="grid grid-cols-1 gap-3">
-              <div>
-                <Label className="text-xs text-gray-600">Weight (lbs)</Label>
-                <Input
-                  placeholder="5.0"
-                  type="number"
-                  step="0.1"
-                  value={formData.weight}
-                  onChange={(e) => handleInputChange('weight', e.target.value)}
-                />
-              </div>
+            <div>
+              <Label className="text-sm text-gray-600">Weight (lbs)</Label>
+              <Input
+                placeholder="5.0"
+                type="number"
+                step="0.1"
+                value={formData.weight}
+                onChange={(e) => handleInputChange('weight', e.target.value)}
+              />
             </div>
 
-            {/* Dimensions in same line */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs text-gray-600">Length (in)</Label>
-                <Input
-                  placeholder="10"
-                  type="number"
-                  value={formData.length}
-                  onChange={(e) => handleInputChange('length', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label className="text-xs text-gray-600">Width (in)</Label>
-                <Input
-                  placeholder="8"
-                  type="number"
-                  value={formData.width}
-                  onChange={(e) => handleInputChange('width', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label className="text-xs text-gray-600">Height (in)</Label>
-                <Input
-                  placeholder="6"
-                  type="number"
-                  value={formData.height}
-                  onChange={(e) => handleInputChange('height', e.target.value)}
-                />
+            {/* Dimensions in Single Line */}
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Dimensions (inches)</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Input
+                    placeholder="Length"
+                    type="number"
+                    value={formData.length}
+                    onChange={(e) => handleInputChange('length', e.target.value)}
+                  />
+                  <Label className="text-xs text-gray-500 mt-1">Length</Label>
+                </div>
+                
+                <div>
+                  <Input
+                    placeholder="Width"
+                    type="number"
+                    value={formData.width}
+                    onChange={(e) => handleInputChange('width', e.target.value)}
+                  />
+                  <Label className="text-xs text-gray-500 mt-1">Width</Label>
+                </div>
+                
+                <div>
+                  <Input
+                    placeholder="Height"
+                    type="number"
+                    value={formData.height}
+                    onChange={(e) => handleInputChange('height', e.target.value)}
+                  />
+                  <Label className="text-xs text-gray-500 mt-1">Height</Label>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Insurance Section */}
+          <InsuranceCalculator
+            onInsuranceChange={handleInsuranceChange}
+            hideFromRates={false}
+          />
+
+          {/* Hazmat Section */}
+          <HazmatCalculator
+            onHazmatChange={handleHazmatChange}
+            hideFromRates={false}
+          />
 
           {/* Calculate Button */}
           <Button
@@ -237,39 +274,61 @@ const EmbeddableRateCalculator: React.FC = () => {
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-900">Available Rates:</h3>
               <div className="space-y-3">
-                {rates.map((rate, index) => (
-                  <div
-                    key={rate.id || index}
-                    className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <CarrierLogo carrier={rate.carrier} className="w-10 h-10" />
-                        <div>
-                          <div className="font-semibold text-gray-900">
-                            {rate.carrier} {rate.service}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Delivery: {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-green-600">
-                          ${parseFloat(rate.rate).toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => handleShipThis(rate)}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      size="sm"
+                {rates.map((rate, index) => {
+                  const baseRate = parseFloat(rate.rate);
+                  const totalRate = baseRate + (insuranceEnabled ? insuranceCost : 0);
+                  
+                  return (
+                    <div
+                      key={rate.id || index}
+                      className="border rounded-lg p-4 bg-white hover:shadow-md transition-all duration-200"
                     >
-                      Ship This
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <CarrierLogo carrier={rate.carrier} className="w-12 h-12" />
+                          <div>
+                            <div className="font-semibold text-gray-900 text-lg">
+                              {rate.carrier} {rate.service}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Delivery: {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
+                            </div>
+                            {insuranceEnabled && (
+                              <div className="text-xs text-blue-600 flex items-center gap-1">
+                                <Shield className="w-3 h-3" />
+                                Insurance: +${insuranceCost.toFixed(2)}
+                              </div>
+                            )}
+                            {hazmatEnabled && (
+                              <div className="text-xs text-orange-600 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Hazmat Enabled
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-green-600">
+                            ${totalRate.toFixed(2)}
+                          </div>
+                          {insuranceEnabled && (
+                            <div className="text-xs text-gray-500">
+                              Base: ${baseRate.toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleShipThis(rate)}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        size="sm"
+                      >
+                        Ship This
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
