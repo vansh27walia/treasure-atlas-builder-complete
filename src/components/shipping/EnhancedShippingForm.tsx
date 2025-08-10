@@ -18,6 +18,7 @@ import CustomsDocumentationModal from './CustomsDocumentationModal';
 import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import HazmatSelector from './HazmatSelector';
+import InsuranceCalculator from './InsuranceCalculator';
 import { Switch } from '@/components/ui/switch';
 
 const shippingFormSchema = z.object({
@@ -43,6 +44,9 @@ const EnhancedShippingForm: React.FC = () => {
   const [customsInfo, setCustomsInfo] = useState<any>(null);
   const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
   const [labelCreationData, setLabelCreationData] = useState<any>(null);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const [insuranceAmount, setInsuranceAmount] = useState(100);
+  const [insuranceCost, setInsuranceCost] = useState(2);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -67,7 +71,6 @@ const EnhancedShippingForm: React.FC = () => {
   const watchInsurance = form.watch("insurance");
   const watchDeclaredValue = form.watch("declaredValue");
   const watchHazmat = form.watch("hazmat");
-  const insuranceCost = watchInsurance && watchDeclaredValue ? Math.max(2, Math.ceil(watchDeclaredValue / 100 * 2)) : 0;
 
   // Updated logic for showing dimensions based on package type
   const predefinedPackages = [
@@ -98,6 +101,14 @@ const EnhancedShippingForm: React.FC = () => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
     toast.success("Customs documentation saved successfully");
+  };
+
+  const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
+    setInsuranceEnabled(enabled);
+    setInsuranceAmount(amount);
+    setInsuranceCost(cost);
+    form.setValue('insurance', enabled);
+    form.setValue('declaredValue', amount);
   };
 
   const handleGetRates = async (values: ShippingFormValues) => {
@@ -193,9 +204,9 @@ const EnhancedShippingForm: React.FC = () => {
         const processedRates = data.rates.map(rate => ({
           ...rate,
           // Store insurance and hazmat settings for later use during label creation
-          _insuranceSettings: values.insurance ? {
-            enabled: values.insurance,
-            amount: values.declaredValue,
+          _insuranceSettings: insuranceEnabled ? {
+            enabled: insuranceEnabled,
+            amount: insuranceAmount,
             cost: insuranceCost
           } : null,
           _hazmatSettings: values.hazmat ? {
@@ -345,70 +356,10 @@ const EnhancedShippingForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Insurance Section - Toggle with fixed $100 value */}
-            <Card className="p-4 border border-blue-200">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-gray-900">Package Insurance</h3>
-          {isEnabled && (
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              +${insuranceCost.toFixed(2)}
-            </Badge>
-          )}
-        </div>
-        <Switch
-          checked={isEnabled}
-          onCheckedChange={handleToggle}
-        />
-      </div>
-
-      {isEnabled && (
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="declared-value" className="text-sm font-medium text-gray-700">
-              Declared Value ($100 - $10,000)
-            </Label>
-            <div className="mt-1 relative">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                id="declared-value"
-                type="number"
-                value={declaredValue}
-                onChange={(e) => handleValueChange(e.target.value)}
-                className="pl-9 bg-white"
-                placeholder="100.00"
-                min="100"
-                max="10000"
-                step="50"
-              />
+            {/* Insurance Section */}
+            <div className="p-6">
+              <InsuranceCalculator onInsuranceChange={handleInsuranceChange} />
             </div>
-          </div>
-
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Insurance Cost: +${insuranceCost.toFixed(2)}</p>
-                <p className="text-xs text-blue-600">
-                  $2.00 per $100 of declared value (minimum $2.00). 
-                  This will be added to your total shipping cost.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!isEnabled && (
-        <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-          <p className="flex items-center gap-2">
-            <Info className="w-4 h-4" />
-            Package insurance is disabled. Your shipment will not be covered for loss or damage.
-          </p>
-        </div>
-      )}
-    </Card>
 
             {/* HAZMAT */}
             <div className="p-6">
