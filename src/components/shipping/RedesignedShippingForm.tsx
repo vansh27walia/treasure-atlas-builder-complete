@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -158,9 +157,9 @@ const SimpleAddressForm: React.FC<{
 };
 
 const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmit }) => {
-  const [isInsuranceEnabled, setIsInsuranceEnabled] = useState(false);
+  const [isInsuranceEnabled, setIsInsuranceEnabled] = useState(true);
   const [isHazmatEnabled, setIsHazmatEnabled] = useState(false);
-  const [insuranceAmount, setInsuranceAmount] = useState<number | undefined>(100);
+  const [insuranceAmount, setInsuranceAmount] = useState<number>(100);
   const [hazmatDetails, setHazmatDetails] = useState<any>(null);
 
   const {
@@ -215,14 +214,13 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
     setValue("isHazmat", isHazmatEnabled);
   }, [isHazmatEnabled, setValue]);
 
-  const handleInsuranceToggle = (enabled: boolean) => {
+  const handleInsuranceChange = (enabled: boolean, amount: number) => {
     setIsInsuranceEnabled(enabled);
+    setInsuranceAmount(amount);
     if (!enabled) {
-      setInsuranceAmount(undefined);
       setValue("insuranceAmount", undefined);
     } else {
-      setInsuranceAmount(100);
-      setValue("insuranceAmount", 100);
+      setValue("insuranceAmount", amount);
     }
   };
 
@@ -441,10 +439,7 @@ const RedesignedShippingForm: React.FC<RedesignedShippingFormProps> = ({ onSubmi
 
           {/* Insurance Calculator */}
           <InsuranceCalculator
-            insurance={isInsuranceEnabled}
-            insuranceAmount={insuranceAmount || 100}
-            onInsuranceChange={handleInsuranceToggle}
-            onInsuranceAmountChange={setInsuranceAmount}
+            onInsuranceChange={handleInsuranceChange}
           />
 
           {/* Hazmat Selector */}
