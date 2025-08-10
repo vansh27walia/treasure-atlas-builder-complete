@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -19,9 +18,10 @@ const CreateLabelPage = () => {
   const {
     rates,
     handleSelectRate,
-    handleFilterByCarrier,
     uniqueCarriers,
-    activeCarrierFilter
+    filters,
+    handleFiltersChange,
+    handleClearFilters
   } = useShippingRates();
   
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
@@ -92,7 +92,18 @@ const CreateLabelPage = () => {
 
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
-    handleFilterByCarrier(filter);
+    // Use the new filters system instead
+    if (filter !== 'all') {
+      handleFiltersChange({
+        ...filters,
+        carriers: [filter]
+      });
+    } else {
+      handleFiltersChange({
+        ...filters,
+        carriers: []
+      });
+    }
   };
 
   const handleOptimizationChange = (filter: string) => {
