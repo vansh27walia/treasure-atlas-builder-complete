@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
-import { useRouter } from 'next/router';
-import { ShippingRate } from '@/types/shipping';
+import { useNavigate } from 'react-router-dom';
 import { carrierService } from '@/services/CarrierService';
 import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
 import ShippingRateCard from '@/components/shipping/ShippingRateCard';
@@ -10,6 +10,16 @@ import EnhancedLabelModal from '@/components/shipping/EnhancedLabelModal';
 import StripePaymentModal from '@/components/shipping/StripePaymentModal';
 import GlobalShipAIChatbot from '@/components/shipping/GlobalShipAIChatbot';
 import ImprovedRateFilter from '@/components/shipping/ImprovedRateFilter';
+
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date?: string;
+}
 
 interface Filters {
   search: string;
@@ -28,7 +38,8 @@ const CreateLabelPage: React.FC = () => {
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [availableCarriers, setAvailableCarriers] = useState<string[]>([]);
-  const router = useRouter();
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const [pageFilters, setPageFilters] = useState<Filters>({
     search: '',
@@ -71,20 +82,19 @@ const CreateLabelPage: React.FC = () => {
     }
   };
 
-  const handleRatesReceived = (rates: ShippingRate[]) => {
-    setRates(rates);
-  };
-
-  const handleRateSelect = (rate: ShippingRate) => {
-    setSelectedRate(rate);
-    setShowLabelModal(true);
+  const handleRateSelect = (rateId: string) => {
+    const rate = rates.find(r => r.id === rateId);
+    if (rate) {
+      setSelectedRate(rate);
+      setShowPaymentModal(true);
+    }
   };
 
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
     toast.success('Payment successful! Redirecting to label creation...');
     setTimeout(() => {
-      router.push('/labels');
+      navigate('/labels');
     }, 2000);
   };
 
@@ -106,7 +116,7 @@ const CreateLabelPage: React.FC = () => {
     }
 
     if (pageFilters.maxPrice) {
-      filtered = filtered.filter(rate => rate.rate <= pageFilters.maxPrice!);
+      filtered = filtered.filter(rate => parseFloat(rate.rate) <= pageFilters.maxPrice!);
     }
 
     if (pageFilters.maxDays) {
@@ -153,7 +163,6 @@ const CreateLabelPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <RedesignedShippingForm 
               onSubmit={handleShippingSubmit}
-              onRatesReceived={handleRatesReceived}
               isLoading={isLoading}
             />
           </div>
@@ -179,7 +188,10 @@ const CreateLabelPage: React.FC = () => {
                         rate={rate}
                         isSelected={selectedRate?.id === rate.id}
                         onSelect={handleRateSelect}
-                        showCreateLabel={true}
+                        isBestValue={false}
+                        isFastest={false}
+                        showPayButton={true}
+                        shippingDetails={formData}
                       />
                     ))}
                   </div>
@@ -198,8 +210,16 @@ const CreateLabelPage: React.FC = () => {
           <EnhancedLabelModal
             isOpen={showLabelModal}
             onClose={() => setShowLabelModal(false)}
-            rate={selectedRate}
-            formData={formData}
+            labelData={{
+              labelUrl: '',
+              trackingCode: '',
+              shipmentId: shipmentId || '',
+              carrier: selectedRate.carrier,
+              service: selectedRate.service,
+              cost: parseFloat(selectedRate.rate),
+              fromAddress: formData?.fromAddress,
+              toAddress: formData?.toAddress
+            }}
           />
         )}
 
@@ -207,9 +227,9 @@ const CreateLabelPage: React.FC = () => {
           <StripePaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
-            amount={parseFloat(selectedRate.rate)}
-            onSuccess={handlePaymentSuccess}
-            description={`Shipping label - ${selectedRate.carrier} ${selectedRate.service}`}
+            rate={selectedRate}
+            shipmentId={shipmentId}
+            onPaymentSuccess={handlePaymentSuccess}
           />
         )}
 
