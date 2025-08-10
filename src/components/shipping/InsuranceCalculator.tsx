@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Shield, DollarSign, Info } from 'lucide-react';
 
 interface InsuranceCalculatorProps {
-  onInsuranceChange: (enabled: boolean, amount: number) => void;
-  hideFromRates?: boolean; // New prop to hide during rate fetching
+  onInsuranceChange: (enabled: boolean, amount: number, cost: number) => void;
+  hideFromRates?: boolean;
 }
 
 const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
@@ -17,9 +17,8 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   hideFromRates = false
 }) => {
   const [isEnabled, setIsEnabled] = useState(true);
-  const [declaredValue, setDeclaredValue] = useState(100); // Default to $100
+  const [declaredValue, setDeclaredValue] = useState(100);
   
-  // Calculate insurance cost (minimum $2, then $2 per $100 of value)
   const calculateInsuranceCost = (value: number) => {
     if (value <= 0) return 0;
     return Math.max(2, Math.ceil((value / 100) * 2));
@@ -27,17 +26,15 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   
   const insuranceCost = isEnabled ? calculateInsuranceCost(declaredValue) : 0;
 
-  // Notify parent component of changes
   useEffect(() => {
-    onInsuranceChange(isEnabled, declaredValue);
-  }, [isEnabled, declaredValue, onInsuranceChange]);
+    onInsuranceChange(isEnabled, declaredValue, insuranceCost);
+  }, [isEnabled, declaredValue, insuranceCost, onInsuranceChange]);
 
   const handleValueChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
+    const numValue = Math.max(0, Math.min(10000, parseFloat(value) || 0));
     setDeclaredValue(numValue);
   };
 
-  // Don't render during rate fetching if hideFromRates is true
   if (hideFromRates) {
     return null;
   }
@@ -50,7 +47,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
           <h3 className="font-semibold text-gray-900">Package Insurance</h3>
           {isEnabled && (
             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              ${insuranceCost.toFixed(2)}
+              +${insuranceCost.toFixed(2)}
             </Badge>
           )}
         </div>
@@ -64,7 +61,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
         <div className="space-y-4">
           <div>
             <Label htmlFor="declared-value" className="text-sm font-medium text-gray-700">
-              Declared Value
+              Declared Value ($100 - $10,000)
             </Label>
             <div className="mt-1 relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -74,9 +71,10 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
                 value={declaredValue}
                 onChange={(e) => handleValueChange(e.target.value)}
                 className="pl-9 bg-white"
-                placeholder="0.00"
-                min="0"
-                step="0.01"
+                placeholder="100.00"
+                min="100"
+                max="10000"
+                step="50"
               />
             </div>
           </div>
@@ -85,28 +83,14 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Insurance Cost: ${insuranceCost.toFixed(2)}</p>
+                <p className="font-medium mb-1">Insurance Cost: +${insuranceCost.toFixed(2)}</p>
                 <p className="text-xs text-blue-600">
-                  Minimum $2.00, then $2.00 per $100 of declared value. 
-                  Protects against loss, damage, or theft during transit.
+                  Automatic $2.00 per $100 of declared value (minimum $2.00). 
+                  This will be added to your total shipping cost.
                 </p>
               </div>
             </div>
           </div>
-
-          {declaredValue > 5000 && (
-            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-amber-800">
-                  <p className="font-medium">High Value Item</p>
-                  <p className="text-xs">
-                    Items over $5,000 may require additional documentation and handling.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

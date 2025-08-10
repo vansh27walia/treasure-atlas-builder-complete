@@ -23,22 +23,22 @@ const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8
         return {
           name: 'UPS',
           logo: '/lovable-uploads/321101c1-be0c-4392-a060-180db437f38d.png',
-          color: 'bg-yellow-600',
+          color: 'bg-amber-800', // Brown color for UPS
           textColor: 'text-white'
         };
       case 'FedEx':
         return {
           name: 'FedEx',
           logo: '/lovable-uploads/b92bf2f4-d7b0-47a4-b30a-3097d19fdc40.png',
-          color: 'bg-purple-600',
+          color: 'bg-indigo-600', // FedEx purple
           textColor: 'text-white'
         };
       case 'DHL':
         return {
           name: 'DHL',
           logo: '/lovable-uploads/544bb790-d811-4d5b-9ac3-10e476548c3a.png',
-          color: 'bg-red-600',
-          textColor: 'text-white'
+          color: 'bg-yellow-500', // Yellow color for DHL
+          textColor: 'text-black'
         };
       case 'Canada Post':
         return {
@@ -67,7 +67,6 @@ const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8
           alt={carrierInfo.name}
           className={`${className} object-contain`}
           onError={(e) => {
-            // Fallback to text if image fails to load
             e.currentTarget.style.display = 'none';
             if (e.currentTarget.nextSibling) {
               (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex';

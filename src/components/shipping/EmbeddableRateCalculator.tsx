@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calculator, Package, MapPin, Loader2 } from 'lucide-react';
+import { Calculator, Package, MapPin, Loader2, ArrowRight } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import CarrierLogo from './CarrierLogo';
 
 interface RateResult {
@@ -19,6 +19,7 @@ interface RateResult {
 }
 
 const EmbeddableRateCalculator: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<RateResult[]>([]);
   const [formData, setFormData] = useState({
@@ -35,7 +36,6 @@ const EmbeddableRateCalculator: React.FC = () => {
   };
 
   const handleCalculateRates = async () => {
-    // Validate form
     if (!formData.fromZip || !formData.toZip || !formData.weight) {
       toast.error('Please fill in origin, destination, and weight');
       return;
@@ -44,7 +44,6 @@ const EmbeddableRateCalculator: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Prepare addresses
       const fromAddress = {
         zip: formData.fromZip,
         country: 'US'
@@ -92,6 +91,34 @@ const EmbeddableRateCalculator: React.FC = () => {
     }
   };
 
+  const handleShipThis = (rate: RateResult) => {
+    // Store form data and selected rate in sessionStorage
+    const shippingData = {
+      fromAddress: {
+        zip: formData.fromZip,
+        country: 'US'
+      },
+      toAddress: {
+        zip: formData.toZip,
+        country: 'US'
+      },
+      parcel: {
+        weight: parseFloat(formData.weight),
+        length: parseFloat(formData.length) || 10,
+        width: parseFloat(formData.width) || 8,
+        height: parseFloat(formData.height) || 6
+      },
+      selectedRate: rate
+    };
+    
+    sessionStorage.setItem('rateCalculatorData', JSON.stringify(shippingData));
+    
+    // Navigate to normal shipping with auto-fill flag
+    navigate('/create-label?tab=domestic&autofill=true');
+    
+    toast.success('Redirecting to shipping form with your details...');
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card className="shadow-lg border-2">
@@ -131,14 +158,15 @@ const EmbeddableRateCalculator: React.FC = () => {
             </div>
           </div>
 
-          {/* Package Section */}
+          {/* Package Section - Single Line Dimensions */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2">
               <Package className="w-4 h-4" />
               Package Details
             </Label>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Weight */}
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label className="text-xs text-gray-600">Weight (lbs)</Label>
                 <Input
@@ -149,7 +177,10 @@ const EmbeddableRateCalculator: React.FC = () => {
                   onChange={(e) => handleInputChange('weight', e.target.value)}
                 />
               </div>
-              
+            </div>
+
+            {/* Dimensions in same line */}
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs text-gray-600">Length (in)</Label>
                 <Input
@@ -205,24 +236,38 @@ const EmbeddableRateCalculator: React.FC = () => {
           {rates.length > 0 && (
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-900">Available Rates:</h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {rates.map((rate, index) => (
                   <div
                     key={rate.id || index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border hover:bg-blue-50 transition-colors"
+                    className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow"
                   >
-                    <div className="flex items-center gap-3">
-                      <CarrierLogo carrier={rate.carrier} className="w-8 h-8" />
-                      <div>
-                        <div className="font-medium">{rate.carrier} {rate.service}</div>
-                        <div className="text-sm text-gray-600">
-                          Delivery: {rate.delivery_days} day{rate.delivery_days !== 1 ? 's' : ''}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <CarrierLogo carrier={rate.carrier} className="w-10 h-10" />
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {rate.carrier} {rate.service}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Delivery: {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-600">
+                          ${parseFloat(rate.rate).toFixed(2)}
                         </div>
                       </div>
                     </div>
-                    <div className="font-bold text-blue-600">
-                      ${parseFloat(rate.rate).toFixed(2)}
-                    </div>
+                    <Button
+                      onClick={() => handleShipThis(rate)}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      size="sm"
+                    >
+                      Ship This
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
                   </div>
                 ))}
               </div>
