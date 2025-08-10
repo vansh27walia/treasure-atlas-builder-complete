@@ -228,7 +228,8 @@ const CreateLabelPage = () => {
       maxDays: undefined,
       features: [],
       sortBy: 'price',
-      sortOrder: 'asc'
+      sortOrder: 'asc',
+      selectedCarrier: 'all'
     });
   };
 
