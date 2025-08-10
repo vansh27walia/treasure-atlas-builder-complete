@@ -212,7 +212,8 @@ const CreateLabelPage = () => {
     maxDays: undefined,
     features: [],
     sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
-    sortOrder: 'asc' as 'asc' | 'desc'
+    sortOrder: 'asc' as 'asc' | 'desc',
+    selectedCarrier: 'all'
   });
 
   const handleLocalFiltersChange = (newFilters: any) => {

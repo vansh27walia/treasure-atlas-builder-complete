@@ -3,11 +3,10 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Filter, Zap, DollarSign, Clock, Shield, Star, Search, SortAsc, SortDesc, ChevronDown } from 'lucide-react';
+import { Filter, Search, SortAsc, SortDesc } from 'lucide-react';
+import CarrierLogo from './CarrierLogo';
 
 interface RateFilterProps {
   filters: {
@@ -18,6 +17,7 @@ interface RateFilterProps {
     features: string[];
     sortBy: 'price' | 'speed' | 'carrier' | 'reliability';
     sortOrder: 'asc' | 'desc';
+    selectedCarrier: string;
   };
   availableCarriers: string[];
   onFiltersChange: (filters: any) => void;
@@ -32,24 +32,14 @@ const RateFilter: React.FC<RateFilterProps> = ({
   onClearFilters,
   rateCount
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const handleSearchChange = (value: string) => {
     onFiltersChange({ ...filters, search: value });
   };
 
-  const handleCarrierToggle = (carrier: string) => {
-    const newCarriers = filters.carriers.includes(carrier)
-      ? filters.carriers.filter(c => c !== carrier)
-      : [...filters.carriers, carrier];
-    onFiltersChange({ ...filters, carriers: newCarriers });
-  };
-
-  const handleFeatureToggle = (feature: string) => {
-    const newFeatures = filters.features.includes(feature)
-      ? filters.features.filter(f => f !== feature)
-      : [...filters.features, feature];
-    onFiltersChange({ ...filters, features: newFeatures });
+  const handleCarrierChange = (carrier: string) => {
+    onFiltersChange({ ...filters, selectedCarrier: carrier });
   };
 
   const handleSortChange = (sortBy: string) => {
@@ -63,79 +53,75 @@ const RateFilter: React.FC<RateFilterProps> = ({
     });
   };
 
-  const handleMaxPriceChange = (value: string) => {
-    onFiltersChange({ 
-      ...filters, 
-      maxPrice: value ? parseFloat(value) : undefined 
-    });
-  };
-
-  const handleMaxDaysChange = (value: string) => {
-    onFiltersChange({ 
-      ...filters, 
-      maxDays: value ? parseInt(value) : undefined 
-    });
-  };
-
   const activeFiltersCount = 
-    filters.carriers.length + 
-    filters.features.length + 
+    (filters.search ? 1 : 0) + 
+    (filters.selectedCarrier && filters.selectedCarrier !== 'all' ? 1 : 0) + 
     (filters.maxPrice ? 1 : 0) + 
-    (filters.maxDays ? 1 : 0) +
-    (filters.search ? 1 : 0);
+    (filters.maxDays ? 1 : 0);
 
   return (
-    <div className="space-y-4">
-      {/* Quick Search and Sort Controls */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Smaller Search Input */}
-        <div className="flex-shrink-0 w-full sm:w-64 relative">
+    <div className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
+      {/* Compact Controls Row */}
+      <div className="flex flex-wrap gap-3 items-center">
+        {/* Small Search */}
+        <div className="relative w-48">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             type="text"
             placeholder="Search carriers..."
             value={filters.search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10 bg-white border-2 border-gray-200 focus:border-blue-500 text-sm"
+            className="pl-10 h-9 text-sm border-gray-300"
           />
         </div>
 
-        {/* Sort Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="min-w-[140px] justify-between">
-              Sort: {filters.sortBy === 'price' ? 'Price' : 
-                    filters.sortBy === 'speed' ? 'Speed' : 
-                    filters.sortBy === 'carrier' ? 'Carrier' : 'Reliability'}
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-            <DropdownMenuItem onClick={() => handleSortChange('price')}>
-              <DollarSign className="h-4 w-4 mr-2" />
-              Price
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('speed')}>
-              <Clock className="h-4 w-4 mr-2" />
-              Speed
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('carrier')}>
-              <Filter className="h-4 w-4 mr-2" />
-              Carrier
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSortChange('reliability')}>
-              <Star className="h-4 w-4 mr-2" />
-              Reliability
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Carrier Dropdown */}
+        <Select value={filters.selectedCarrier || 'all'} onValueChange={handleCarrierChange}>
+          <SelectTrigger className="w-40 h-9">
+            <SelectValue>
+              <div className="flex items-center gap-2">
+                {(!filters.selectedCarrier || filters.selectedCarrier === 'all') ? (
+                  'All Carriers'
+                ) : (
+                  <>
+                    <CarrierLogo carrier={filters.selectedCarrier} className="w-4 h-4" />
+                    {filters.selectedCarrier.toUpperCase()}
+                  </>
+                )}
+              </div>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            <SelectItem value="all">All Carriers</SelectItem>
+            {availableCarriers.map(carrier => (
+              <SelectItem key={carrier} value={carrier}>
+                <div className="flex items-center gap-2">
+                  <CarrierLogo carrier={carrier} className="w-4 h-4" />
+                  {carrier.toUpperCase()}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        {/* Sort Order Toggle */}
+        {/* Sort Controls */}
+        <Select value={filters.sortBy} onValueChange={handleSortChange}>
+          <SelectTrigger className="w-32 h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            <SelectItem value="price">Price</SelectItem>
+            <SelectItem value="speed">Speed</SelectItem>
+            <SelectItem value="carrier">Carrier</SelectItem>
+            <SelectItem value="reliability">Reliability</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Button 
           variant="outline" 
-          size="icon"
+          size="sm"
           onClick={handleSortOrderToggle}
-          className="shrink-0"
+          className="h-9 px-2"
         >
           {filters.sortOrder === 'asc' ? 
             <SortAsc className="h-4 w-4" /> : 
@@ -143,131 +129,67 @@ const RateFilter: React.FC<RateFilterProps> = ({
           }
         </Button>
 
-        {/* Advanced Filters Toggle */}
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        {/* Advanced Filters */}
+        <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="min-w-[120px] justify-between">
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
+            <Button variant="outline" size="sm" className="h-9">
+              <Filter className="h-4 w-4 mr-1" />
+              Advanced
               {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+                <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
                   {activeFiltersCount}
                 </Badge>
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg" align="end">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Filter Options</h3>
-                {activeFiltersCount > 0 && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={onClearFilters}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Clear All
-                  </Button>
-                )}
-              </div>
-
-              {/* Carrier Selection */}
+          <PopoverContent className="w-64 p-4 bg-white">
+            <div className="space-y-3">
               <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Carriers
-                </Label>
-                <div className="space-y-2">
-                  {availableCarriers.map(carrier => (
-                    <div key={carrier} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`carrier-${carrier}`}
-                        checked={filters.carriers.includes(carrier)}
-                        onCheckedChange={() => handleCarrierToggle(carrier)}
-                      />
-                      <Label 
-                        htmlFor={`carrier-${carrier}`} 
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {carrier.toUpperCase()}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Range */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Max Price ($)
-                </Label>
+                <label className="text-sm font-medium">Max Price ($)</label>
                 <Input
                   type="number"
                   placeholder="Enter max price"
                   value={filters.maxPrice || ''}
-                  onChange={(e) => handleMaxPriceChange(e.target.value)}
-                  className="bg-white"
+                  onChange={(e) => onFiltersChange({ 
+                    ...filters, 
+                    maxPrice: e.target.value ? parseFloat(e.target.value) : undefined 
+                  })}
+                  className="mt-1"
                 />
               </div>
-
-              {/* Delivery Time */}
               <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Max Delivery Days
-                </Label>
+                <label className="text-sm font-medium">Max Days</label>
                 <Input
                   type="number"
                   placeholder="Enter max days"
                   value={filters.maxDays || ''}
-                  onChange={(e) => handleMaxDaysChange(e.target.value)}
-                  className="bg-white"
+                  onChange={(e) => onFiltersChange({ 
+                    ...filters, 
+                    maxDays: e.target.value ? parseInt(e.target.value) : undefined 
+                  })}
+                  className="mt-1"
                 />
               </div>
-
-              {/* Service Features */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Service Features
-                </Label>
-                <div className="space-y-2">
-                  {[
-                    { id: 'express', label: 'Express Service', icon: Zap },
-                    { id: 'insured', label: 'Insurance Available', icon: Shield },
-                    { id: 'tracking', label: 'Tracking Included', icon: Search },
-                    { id: 'premium', label: 'Premium Service', icon: Star }
-                  ].map(feature => {
-                    const Icon = feature.icon;
-                    return (
-                      <div key={feature.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`feature-${feature.id}`}
-                          checked={filters.features.includes(feature.id)}
-                          onCheckedChange={() => handleFeatureToggle(feature.id)}
-                        />
-                        <Label 
-                          htmlFor={`feature-${feature.id}`} 
-                          className="text-sm font-medium cursor-pointer flex items-center gap-1"
-                        >
-                          <Icon className="h-4 w-4" />
-                          {feature.label}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              {activeFiltersCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onClearFilters}
+                  className="w-full"
+                >
+                  Clear All Filters
+                </Button>
+              )}
             </div>
           </PopoverContent>
         </Popover>
       </div>
 
-      {/* Active Filters Display */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-600">
-          Showing {rateCount} rate{rateCount !== 1 ? 's' : ''}
-        </span>
+      {/* Results Count */}
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <span>Showing {rateCount} rate{rateCount !== 1 ? 's' : ''}</span>
         {activeFiltersCount > 0 && (
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          <Badge variant="secondary" className="text-xs">
             {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} active
           </Badge>
         )}

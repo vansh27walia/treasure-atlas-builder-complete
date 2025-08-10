@@ -238,13 +238,13 @@ const EmbeddableRateCalculator: React.FC = () => {
             </div>
           </div>
 
-          {/* Insurance Section */}
+          {/* Insurance Section - Moved above button */}
           <InsuranceCalculator
             onInsuranceChange={handleInsuranceChange}
             hideFromRates={false}
           />
 
-          {/* Hazmat Section */}
+          {/* Hazmat Section - Moved above button */}
           <HazmatCalculator
             onHazmatChange={handleHazmatChange}
             hideFromRates={false}
