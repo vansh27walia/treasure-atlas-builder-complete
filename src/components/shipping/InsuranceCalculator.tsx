@@ -77,7 +77,6 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
                 className="pl-9 bg-white"
                 placeholder="100.00"
                 min="100"
-                max="10000"
                 step="50"
               />
             </div>
