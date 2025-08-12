@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -24,6 +25,8 @@ export interface ShippingRate {
   isAIRecommended?: boolean;
   _insuranceSettings?: any;
   _hazmatSettings?: any;
+  source?: string; // Add source property for UPS identification
+  isUPSRate?: boolean; // Add UPS rate flag
 }
 
 interface LabelOptions {
@@ -106,7 +109,7 @@ export const useShippingRates = () => {
         !standardizedService.toLowerCase().includes('ground')
       );
       
-      // Mark UPS rates specially
+      // Mark UPS rates specially - check both source and carrier
       const isUPSRate = rate.source === 'ups' || standardizedCarrier === 'UPS';
       
       return {
@@ -356,9 +359,11 @@ export const useShippingRates = () => {
       const isUPSRate = effectiveRateId.startsWith('ups_');
       
       // Store shipment data for UPS if needed
-      if (isUPSRate) {
-        const shipmentData = this.getShipmentDataFromSession();
-        sessionStorage.setItem(`shipment_${effectiveShipmentId}`, JSON.stringify(shipmentData));
+      if (isUPSRate && typeof window !== 'undefined') {
+        const shipmentData = getShipmentDataFromSession();
+        if (shipmentData) {
+          sessionStorage.setItem(`shipment_${effectiveShipmentId}`, JSON.stringify(shipmentData));
+        }
       }
       
       // Choose the appropriate endpoint based on whether it's international or UPS
@@ -423,6 +428,8 @@ export const useShippingRates = () => {
 
   // Helper method to get shipment data from session for UPS
   const getShipmentDataFromSession = () => {
+    if (typeof window === 'undefined') return null;
+    
     const calculatorData = sessionStorage.getItem('calculatorData');
     if (calculatorData) {
       const data = JSON.parse(calculatorData);
