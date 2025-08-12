@@ -1,5 +1,5 @@
 
-// UPS API Service for international shipping
+// UPS API Service for shipping
 export interface UPSAddress {
   AddressLine: string[];
   City: string;
@@ -23,6 +23,9 @@ export interface UPSRateRequest {
   RateRequest: {
     Request: {
       RequestOption: string;
+      TransactionReference?: {
+        CustomerContext: string;
+      };
     };
     Shipment: {
       Shipper: {
@@ -38,6 +41,10 @@ export interface UPSRateRequest {
         Name: string;
         Address: UPSAddress;
       };
+      Service?: {
+        Code: string;
+        Description: string;
+      };
       Package: UPSPackage[];
     };
   };
@@ -47,6 +54,9 @@ export interface UPSShipRequest {
   ShipmentRequest: {
     Request: {
       RequestOption: string;
+      TransactionReference?: {
+        CustomerContext: string;
+      };
     };
     Shipment: {
       Description: string;
@@ -184,13 +194,51 @@ export class UPSService {
     return data.access_token;
   }
 
+  // Determine available services based on origin and destination
+  private getAvailableServices(fromCountry: string, toCountry: string): string[] {
+    const isInternational = fromCountry !== toCountry;
+    const isDomesticUS = fromCountry === 'US' && toCountry === 'US';
+    
+    if (isDomesticUS) {
+      // US Domestic services
+      return ['03', '12', '01', '13', '14', '02', '59'];
+    } else if (isInternational) {
+      // International services
+      if (fromCountry === 'US') {
+        // From US to international
+        return ['07', '08', '54', '65'];
+      } else if (toCountry === 'US') {
+        // From international to US
+        return ['07', '08', '54', '65'];
+      } else {
+        // International to international
+        return ['07', '08', '65'];
+      }
+    }
+    
+    return ['03']; // Default to Ground
+  }
+
   async getRates(shipment: any): Promise<any> {
     const token = await this.getOAuthToken();
+    
+    // Clean and validate addresses
+    const fromCountry = shipment.fromAddress.country || 'US';
+    const toCountry = shipment.toAddress.country || 'US';
+    
+    console.log(`UPS: Getting rates from ${fromCountry} to ${toCountry}`);
+    
+    // Get available services for this route
+    const availableServices = this.getAvailableServices(fromCountry, toCountry);
+    console.log(`UPS: Available services for ${fromCountry} to ${toCountry}:`, availableServices);
     
     const rateRequest: UPSRateRequest = {
       RateRequest: {
         Request: {
           RequestOption: 'Shop',
+          TransactionReference: {
+            CustomerContext: 'Rating Request'
+          }
         },
         Shipment: {
           Shipper: {
@@ -199,9 +247,9 @@ export class UPSService {
             Address: {
               AddressLine: [shipment.fromAddress.street1, shipment.fromAddress.street2].filter(Boolean),
               City: shipment.fromAddress.city,
-              StateProvinceCode: shipment.fromAddress.state,
+              StateProvinceCode: shipment.fromAddress.state || undefined,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: shipment.fromAddress.country,
+              CountryCode: fromCountry,
             },
           },
           ShipTo: {
@@ -209,9 +257,9 @@ export class UPSService {
             Address: {
               AddressLine: [shipment.toAddress.street1, shipment.toAddress.street2].filter(Boolean),
               City: shipment.toAddress.city,
-              StateProvinceCode: shipment.toAddress.state,
+              StateProvinceCode: shipment.toAddress.state || undefined,
               PostalCode: shipment.toAddress.zip,
-              CountryCode: shipment.toAddress.country,
+              CountryCode: toCountry,
             },
           },
           ShipFrom: {
@@ -219,23 +267,23 @@ export class UPSService {
             Address: {
               AddressLine: [shipment.fromAddress.street1, shipment.fromAddress.street2].filter(Boolean),
               City: shipment.fromAddress.city,
-              StateProvinceCode: shipment.fromAddress.state,
+              StateProvinceCode: shipment.fromAddress.state || undefined,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: shipment.fromAddress.country,
+              CountryCode: fromCountry,
             },
           },
           Package: [{
             PackagingType: { Code: '02', Description: 'Package' },
             PackageWeight: { 
               UnitOfMeasurement: { Code: 'LBS' }, 
-              Weight: (shipment.parcel.weight / 16).toString() // Convert oz to lbs
+              Weight: Math.max(0.1, (shipment.parcel.weight / 16)).toFixed(1) // Convert oz to lbs, minimum 0.1 lbs
             },
             ...(shipment.parcel.length && {
               Dimensions: {
                 UnitOfMeasurement: { Code: 'IN' },
-                Length: shipment.parcel.length.toString(),
-                Width: shipment.parcel.width.toString(),
-                Height: shipment.parcel.height.toString(),
+                Length: Math.max(1, Math.floor(shipment.parcel.length)).toString(),
+                Width: Math.max(1, Math.floor(shipment.parcel.width)).toString(),
+                Height: Math.max(1, Math.floor(shipment.parcel.height)).toString(),
               }
             })
           }],
@@ -243,11 +291,15 @@ export class UPSService {
       },
     };
 
+    console.log('UPS Rate Request:', JSON.stringify(rateRequest, null, 2));
+
     const response = await fetch(`${this.baseUrl}/api/rating/v2403/Rate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        'transId': `rate-${Date.now()}`,
+        'transactionSrc': 'testing'
       },
       body: JSON.stringify(rateRequest),
     });
@@ -258,28 +310,37 @@ export class UPSService {
       throw new Error(`UPS Rates failed: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const responseData = await response.json();
+    console.log('UPS Rates Response:', JSON.stringify(responseData, null, 2));
+    return responseData;
   }
 
   async createShipment(shipment: any, serviceCode: string, customsInfo?: any): Promise<any> {
     const token = await this.getOAuthToken();
     
+    const fromCountry = shipment.fromAddress.country || 'US';
+    const toCountry = shipment.toAddress.country || 'US';
+    const isInternational = fromCountry !== toCountry;
+    
     const shipRequest: UPSShipRequest = {
       ShipmentRequest: {
         Request: {
           RequestOption: 'nonvalidate',
+          TransactionReference: {
+            CustomerContext: 'Ship Request'
+          }
         },
         Shipment: {
-          Description: customsInfo?.contents_explanation || 'International Shipment',
+          Description: customsInfo?.contents_explanation || (isInternational ? 'International Shipment' : 'Domestic Shipment'),
           Shipper: {
             Name: shipment.fromAddress.name || 'Shipper',
             ShipperNumber: this.accountNumber,
             Address: {
               AddressLine: [shipment.fromAddress.street1, shipment.fromAddress.street2].filter(Boolean),
               City: shipment.fromAddress.city,
-              StateProvinceCode: shipment.fromAddress.state,
+              StateProvinceCode: shipment.fromAddress.state || undefined,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: shipment.fromAddress.country,
+              CountryCode: fromCountry,
             },
           },
           ShipTo: {
@@ -287,9 +348,9 @@ export class UPSService {
             Address: {
               AddressLine: [shipment.toAddress.street1, shipment.toAddress.street2].filter(Boolean),
               City: shipment.toAddress.city,
-              StateProvinceCode: shipment.toAddress.state,
+              StateProvinceCode: shipment.toAddress.state || undefined,
               PostalCode: shipment.toAddress.zip,
-              CountryCode: shipment.toAddress.country,
+              CountryCode: toCountry,
             },
           },
           ShipFrom: {
@@ -297,9 +358,9 @@ export class UPSService {
             Address: {
               AddressLine: [shipment.fromAddress.street1, shipment.fromAddress.street2].filter(Boolean),
               City: shipment.fromAddress.city,
-              StateProvinceCode: shipment.fromAddress.state,
+              StateProvinceCode: shipment.fromAddress.state || undefined,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: shipment.fromAddress.country,
+              CountryCode: fromCountry,
             },
           },
           PaymentInformation: {
@@ -312,20 +373,20 @@ export class UPSService {
           },
           Service: {
             Code: serviceCode,
-            Description: 'UPS Service',
+            Description: this.getServiceName(serviceCode),
           },
           Package: [{
             PackagingType: { Code: '02', Description: 'Package' },
             PackageWeight: { 
               UnitOfMeasurement: { Code: 'LBS' }, 
-              Weight: (shipment.parcel.weight / 16).toString()
+              Weight: Math.max(0.1, (shipment.parcel.weight / 16)).toFixed(1)
             },
             ...(shipment.parcel.length && {
               Dimensions: {
                 UnitOfMeasurement: { Code: 'IN' },
-                Length: shipment.parcel.length.toString(),
-                Width: shipment.parcel.width.toString(),
-                Height: shipment.parcel.height.toString(),
+                Length: Math.max(1, Math.floor(shipment.parcel.length)).toString(),
+                Width: Math.max(1, Math.floor(shipment.parcel.width)).toString(),
+                Height: Math.max(1, Math.floor(shipment.parcel.height)).toString(),
               }
             })
           }],
@@ -338,7 +399,7 @@ export class UPSService {
               Width: '4',
             },
           },
-          ...(customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0 && {
+          ...(isInternational && customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0 && {
             InternationalForms: {
               FormType: '01', // Commercial Invoice
               InvoiceNumber: `INV-${Date.now()}`,
@@ -349,7 +410,7 @@ export class UPSService {
                 Description: item.description,
                 CommodityCode: item.hs_tariff_number || '',
                 PartNumber: `PART-${index + 1}`,
-                OriginCountryCode: item.origin_country || 'US',
+                OriginCountryCode: item.origin_country || fromCountry,
                 JointProductionIndicator: '',
                 NetCostCode: '01',
                 NetCostDateRange: {
@@ -364,7 +425,7 @@ export class UPSService {
                   UnitOfMeasurement: {
                     Code: 'LBS',
                   },
-                  Weight: (item.weight / 16).toString(),
+                  Weight: Math.max(0.1, (item.weight / 16)).toFixed(1),
                 },
                 VehicleID: '',
                 ScheduleB: '',
@@ -400,11 +461,15 @@ export class UPSService {
       },
     };
 
+    console.log('UPS Ship Request:', JSON.stringify(shipRequest, null, 2));
+
     const response = await fetch(`${this.baseUrl}/api/shipments/v2403/ship`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        'transId': `ship-${Date.now()}`,
+        'transactionSrc': 'testing'
       },
       body: JSON.stringify(shipRequest),
     });
@@ -415,7 +480,9 @@ export class UPSService {
       throw new Error(`UPS Ship failed: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const responseData = await response.json();
+    console.log('UPS Ship Response:', JSON.stringify(responseData, null, 2));
+    return responseData;
   }
 
   formatRatesForFrontend(upsResponse: any): any[] {
@@ -428,7 +495,7 @@ export class UPSService {
       : [upsResponse.RateResponse.RatedShipment];
 
     return ratedShipments.map((shipment: any) => ({
-      id: `ups_${shipment.Service.Code}_${Date.now()}`,
+      id: `ups_${shipment.Service.Code}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       carrier: 'UPS',
       service: this.getServiceName(shipment.Service.Code),
       rate: shipment.TotalCharges.MonetaryValue,
@@ -441,11 +508,12 @@ export class UPSService {
       retail_rate: shipment.TotalCharges.MonetaryValue,
       original_carrier: 'UPS',
       service_code: shipment.Service.Code,
-      source: 'ups'
+      source: 'ups',
+      isUPSRate: true
     }));
   }
 
-  private getServiceName(code: string): string {
+  getServiceName(code: string): string {
     const serviceNames: { [key: string]: string } = {
       '01': 'UPS Next Day Air',
       '02': 'UPS 2nd Day Air',
