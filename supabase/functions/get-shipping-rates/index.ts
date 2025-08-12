@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { UPSService } from "../_shared/ups-service.ts";
@@ -22,10 +21,9 @@ const applyRateMarkup = (originalRate: number): number => {
   return finalRate;
 };
 
-// Check if shipment needs UPS rates (always fetch UPS for better rates)
-const shouldFetchUPSRates = (fromCountry: string, toCountry: string): boolean => {
-  // Always try to fetch UPS rates for comparison
-  return true;
+// Check if shipment is international
+const isInternationalShipment = (fromCountry: string, toCountry: string): boolean => {
+  return fromCountry !== 'US' || toCountry !== 'US';
 };
 
 // Carrier-specific discount configurations
@@ -100,7 +98,7 @@ const calculateEstimatedDelivery = (deliveryDays: number) => {
 
 // Group rates by carrier for better organization
 const organizeRatesByCarrier = (rates) => {
-  const carrierOrder = ['UPS', 'USPS', 'FedEx', 'DHL'];
+  const carrierOrder = ['USPS', 'UPS', 'FedEx', 'DHL'];
   
   return rates.sort((a, b) => {
     const carrierA = a.carrier.toUpperCase();
@@ -155,9 +153,9 @@ serve(async (req) => {
 
     const fromCountry = requestData.fromAddress.country || 'US';
     const toCountry = requestData.toAddress.country || 'US';
-    const shouldUseUPS = shouldFetchUPSRates(fromCountry, toCountry);
+    const isInternational = isInternationalShipment(fromCountry, toCountry);
 
-    console.log(`Shipment from ${fromCountry} to ${toCountry}. Will fetch UPS rates: ${shouldUseUPS}`);
+    console.log(`Shipment type: ${isInternational ? 'International' : 'Domestic'} (From: ${fromCountry}, To: ${toCountry})`);
 
     const parcelData = { weight: requestData.parcel.weight };
     
@@ -204,8 +202,7 @@ serve(async (req) => {
 
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
 
-    // Start EasyPost request
-    const easyPostPromise = fetch('https://api.easypost.com/v2/shipments', {
+    const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -214,34 +211,24 @@ serve(async (req) => {
       body: JSON.stringify(shipmentRequest)
     });
 
-    let allRates = [];
-    let easyPostRates = [];
-    let upsRates = [];
+    const data = await response.json();
 
-    // Fetch EasyPost rates
-    try {
-      const response = await easyPostPromise;
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('EasyPost API error:', data);
-        return new Response(JSON.stringify({ error: 'Failed to get shipping rates', details: data }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: response.status
-        });
-      }
-
-      console.log('EasyPost API response received successfully');
-      easyPostRates = data.rates || [];
-    } catch (error) {
-      console.error('Error fetching EasyPost rates:', error);
-      // Continue without EasyPost rates
+    if (!response.ok) {
+      console.error('EasyPost API error:', data);
+      return new Response(JSON.stringify({ error: 'Failed to get shipping rates', details: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: response.status
+      });
     }
+
+    console.log('EasyPost API response received successfully');
+
+    let allRates = data.rates || [];
     
-    // Fetch UPS rates in parallel if enabled
-    if (shouldUseUPS) {
+    // If international shipment, also fetch UPS rates
+    if (isInternational) {
       try {
-        console.log('Fetching UPS rates...');
+        console.log('Fetching UPS rates for international shipment...');
         
         const upsClientId = Deno.env.get('UPS_CLIENT_ID');
         const upsClientSecret = Deno.env.get('UPS_CLIENT_SECRET');
@@ -250,10 +237,12 @@ serve(async (req) => {
         if (upsClientId && upsClientSecret && upsAccountNumber) {
           const upsService = new UPSService(upsClientId, upsClientSecret, upsAccountNumber, false);
           const upsResponse = await upsService.getRates(requestData);
-          const formattedUpsRates = upsService.formatRatesForFrontend(upsResponse);
+          const upsRates = upsService.formatRatesForFrontend(upsResponse);
           
-          console.log(`Received ${formattedUpsRates.length} UPS rates`);
-          upsRates = formattedUpsRates;
+          console.log(`Received ${upsRates.length} UPS rates`);
+          
+          // Add UPS rates to the total rates
+          allRates = [...allRates, ...upsRates];
         } else {
           console.log('UPS credentials not configured, skipping UPS rates');
         }
@@ -263,13 +252,10 @@ serve(async (req) => {
       }
     }
     
-    // Combine all rates
-    allRates = [...easyPostRates, ...upsRates];
-    
     if (allRates.length === 0) {
       return new Response(JSON.stringify({
         rates: [],
-        shipmentId: null,
+        shipmentId: data.id,
         message: 'No rates available for this shipment'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -280,14 +266,13 @@ serve(async (req) => {
     const processedRates = applyCarrierDiscounts(allRates);
     const organizedRates = organizeRatesByCarrier(processedRates);
 
-    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup (EasyPost: ${easyPostRates.length}, UPS: ${upsRates.length})`);
+    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup and carrier-specific discounts (including ${isInternational ? 'UPS international rates' : 'domestic rates only'})`);
 
     return new Response(JSON.stringify({
       rates: organizedRates,
-      shipmentId: easyPostRates.length > 0 ? (await easyPostPromise).then(r => r.json()).then(d => d.id) : `ups_${Date.now()}`,
+      shipmentId: data.id,
       markup_applied: `${RATE_MARKUP_PERCENTAGE}%`,
-      includes_ups: upsRates.length > 0,
-      includes_easypost: easyPostRates.length > 0
+      includes_ups: isInternational
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
