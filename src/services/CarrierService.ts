@@ -87,7 +87,7 @@ class CarrierService {
 
       console.log('Fetching shipping rates with markup applied...');
 
-      // Get rates with markup applied from backend
+      // Get rates with markup applied from backend (now includes UPS for international)
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: enhancedRequestData
       });
@@ -97,7 +97,8 @@ class CarrierService {
         throw new Error(`Error fetching shipping rates: ${error.message}`);
       }
 
-      console.log(`Received ${data.rates?.length || 0} rates with markup applied:`, data.markup_applied);
+      const includesUps = data.includes_ups ? ' (including UPS for international)' : '';
+      console.log(`Received ${data.rates?.length || 0} rates with markup applied${includesUps}:`, data.markup_applied);
 
       // Process and standardize all rates (rates already have markup applied from backend)
       const allRates = (data.rates || []).map(rate => ({
@@ -226,7 +227,41 @@ class CarrierService {
 
       console.log('Creating label with markup applied to billing...');
 
-      // Handle different carrier APIs with customs support
+      // Check if this is a UPS rate (for international shipments)
+      if (rateId.startsWith('ups_')) {
+        console.log('Creating UPS label for international shipment...');
+        
+        // Extract service code from UPS rate ID
+        const serviceCode = rateId.split('_')[1];
+        
+        // We need to reconstruct shipment data for UPS
+        // This would need to be passed from the frontend or stored in session
+        const shipmentData = this.getStoredShipmentData(shipmentId);
+        
+        const { data, error } = await supabase.functions.invoke('create-ups-label', {
+          body: { 
+            shipmentData,
+            serviceCode,
+            customsInfo 
+          }
+        });
+
+        if (error) {
+          document.dispatchEvent(new CustomEvent('payment-cancelled'));
+          throw new Error(`Error creating UPS label: ${error.message}`);
+        }
+
+        document.dispatchEvent(new CustomEvent('payment-complete'));
+        
+        console.log('UPS label created successfully');
+        
+        return {
+          labelUrl: data.labelUrl,
+          trackingCode: data.trackingCode
+        };
+      }
+
+      // Handle different carrier APIs with customs support (existing EasyPost flow)
       if (carrier === 'easypost') {
         const { data, error } = await supabase.functions.invoke('create-label', {
           body: { 
@@ -294,6 +329,18 @@ class CarrierService {
       document.dispatchEvent(new CustomEvent('payment-cancelled'));
       throw new Error('Failed to generate shipping label');
     }
+  }
+
+  // Helper method to get stored shipment data (you might want to store this in sessionStorage or pass it differently)
+  private getStoredShipmentData(shipmentId: string): any {
+    // This is a placeholder - you'll need to implement proper shipment data storage/retrieval
+    const storedData = sessionStorage.getItem(`shipment_${shipmentId}`);
+    if (storedData) {
+      return JSON.parse(storedData);
+    }
+    
+    // Fallback - this should be implemented based on your needs
+    throw new Error('Shipment data not found for UPS label creation');
   }
   
   /**

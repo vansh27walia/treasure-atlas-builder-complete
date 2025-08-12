@@ -1,6 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { UPSService } from "../_shared/ups-service.ts";
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
@@ -19,6 +19,11 @@ const applyRateMarkup = (originalRate: number): number => {
   console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
   
   return finalRate;
+};
+
+// Check if shipment is international
+const isInternationalShipment = (fromCountry: string, toCountry: string): boolean => {
+  return fromCountry !== 'US' || toCountry !== 'US';
 };
 
 // Carrier-specific discount configurations
@@ -146,6 +151,12 @@ serve(async (req) => {
       });
     }
 
+    const fromCountry = requestData.fromAddress.country || 'US';
+    const toCountry = requestData.toAddress.country || 'US';
+    const isInternational = isInternationalShipment(fromCountry, toCountry);
+
+    console.log(`Shipment type: ${isInternational ? 'International' : 'Domestic'} (From: ${fromCountry}, To: ${toCountry})`);
+
     const parcelData = { weight: requestData.parcel.weight };
     
     if (requestData.parcel.predefined_package) {
@@ -212,9 +223,36 @@ serve(async (req) => {
 
     console.log('EasyPost API response received successfully');
 
-    let rates = data.rates || [];
+    let allRates = data.rates || [];
     
-    if (rates.length === 0) {
+    // If international shipment, also fetch UPS rates
+    if (isInternational) {
+      try {
+        console.log('Fetching UPS rates for international shipment...');
+        
+        const upsClientId = Deno.env.get('UPS_CLIENT_ID');
+        const upsClientSecret = Deno.env.get('UPS_CLIENT_SECRET');
+        const upsAccountNumber = Deno.env.get('UPS_ACCOUNT_NUMBER');
+        
+        if (upsClientId && upsClientSecret && upsAccountNumber) {
+          const upsService = new UPSService(upsClientId, upsClientSecret, upsAccountNumber, false);
+          const upsResponse = await upsService.getRates(requestData);
+          const upsRates = upsService.formatRatesForFrontend(upsResponse);
+          
+          console.log(`Received ${upsRates.length} UPS rates`);
+          
+          // Add UPS rates to the total rates
+          allRates = [...allRates, ...upsRates];
+        } else {
+          console.log('UPS credentials not configured, skipping UPS rates');
+        }
+      } catch (error) {
+        console.error('Error fetching UPS rates:', error);
+        // Continue with EasyPost rates only if UPS fails
+      }
+    }
+    
+    if (allRates.length === 0) {
       return new Response(JSON.stringify({
         rates: [],
         shipmentId: data.id,
@@ -225,15 +263,16 @@ serve(async (req) => {
     }
 
     // Apply carrier-specific discounts and organize rates with markup
-    const processedRates = applyCarrierDiscounts(rates);
+    const processedRates = applyCarrierDiscounts(allRates);
     const organizedRates = organizeRatesByCarrier(processedRates);
 
-    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup and carrier-specific discounts`);
+    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup and carrier-specific discounts (including ${isInternational ? 'UPS international rates' : 'domestic rates only'})`);
 
     return new Response(JSON.stringify({
       rates: organizedRates,
       shipmentId: data.id,
-      markup_applied: `${RATE_MARKUP_PERCENTAGE}%`
+      markup_applied: `${RATE_MARKUP_PERCENTAGE}%`,
+      includes_ups: isInternational
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

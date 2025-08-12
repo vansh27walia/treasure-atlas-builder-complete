@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -107,6 +106,9 @@ export const useShippingRates = () => {
         !standardizedService.toLowerCase().includes('ground')
       );
       
+      // Mark UPS rates specially
+      const isUPSRate = rate.source === 'ups' || standardizedCarrier === 'UPS';
+      
       return {
         ...rate,
         carrier: standardizedCarrier,
@@ -115,17 +117,22 @@ export const useShippingRates = () => {
         original_service: rate.service,
         discount_percentage: discountPercentage,
         isPremium,
-        isAIRecommended
+        isAIRecommended,
+        isUPSRate // Add flag for UPS rates
       };
     });
 
-    // Sort rates: Premium/Recommended first, then by price (cheapest to most expensive)
+    // Sort rates: UPS international rates first for international shipments, then Premium/Recommended, then by price
     return processedRates.sort((a, b) => {
-      // First priority: Premium rates
+      // First priority: UPS rates for international shipments
+      if (a.isUPSRate && !b.isUPSRate) return -1;
+      if (!a.isUPSRate && b.isUPSRate) return 1;
+      
+      // Second priority: Premium rates
       if (a.isPremium && !b.isPremium) return -1;
       if (!a.isPremium && b.isPremium) return 1;
       
-      // Second priority: AI Recommended rates
+      // Third priority: AI Recommended rates
       if (a.isAIRecommended && !b.isAIRecommended) return -1;
       if (!a.isAIRecommended && b.isAIRecommended) return 1;
       
@@ -324,7 +331,7 @@ export const useShippingRates = () => {
     });
   };
 
-  // Modified to include insurance and hazmat data during label creation
+  // Modified to include UPS shipment data storage for label creation
   const handleCreateLabel = async (
     rateIdParam?: string, 
     shipmentIdParam?: string, 
@@ -346,9 +353,21 @@ export const useShippingRates = () => {
       // Get the selected rate to get insurance and hazmat settings
       const selectedRate = rates.find(rate => rate.id === effectiveRateId);
       const isInternational = selectedRate?.service?.toLowerCase().includes('international');
+      const isUPSRate = effectiveRateId.startsWith('ups_');
       
-      // Choose the appropriate endpoint based on whether it's international
-      const endpoint = isInternational ? 'create-international-label' : 'create-label';
+      // Store shipment data for UPS if needed
+      if (isUPSRate) {
+        const shipmentData = this.getShipmentDataFromSession();
+        sessionStorage.setItem(`shipment_${effectiveShipmentId}`, JSON.stringify(shipmentData));
+      }
+      
+      // Choose the appropriate endpoint based on whether it's international or UPS
+      let endpoint = 'create-label';
+      if (isUPSRate) {
+        endpoint = 'create-ups-label';
+      } else if (isInternational) {
+        endpoint = 'create-international-label';
+      }
       
       // Merge label options with insurance and hazmat settings from the rate
       const options = {
@@ -388,7 +407,8 @@ export const useShippingRates = () => {
         detail: { step: 'label' }
       }));
       
-      toast.success("Shipping label generated successfully");
+      const carrierInfo = isUPSRate ? ' (UPS)' : '';
+      toast.success(`Shipping label generated successfully${carrierInfo}`);
       
       return data;
       
@@ -399,6 +419,20 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper method to get shipment data from session for UPS
+  const getShipmentDataFromSession = () => {
+    const calculatorData = sessionStorage.getItem('calculatorData');
+    if (calculatorData) {
+      const data = JSON.parse(calculatorData);
+      return {
+        fromAddress: data.fromAddress,
+        toAddress: data.toAddress,
+        parcel: data.parcel
+      };
+    }
+    return null;
   };
 
   // Function to handle payment process
