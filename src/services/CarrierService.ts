@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ShippingRate {
@@ -15,43 +14,41 @@ export interface ShippingRate {
   est_delivery_days?: number;
   source?: string;
   isUPSRate?: boolean;
+  shipment_id?: string;
+}
+
+export interface AddressData {
+  name: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+}
+
+export interface ParcelData {
+  length?: number;
+  width?: number;
+  height?: number;
+  weight: number;
+  predefined_package?: string;
 }
 
 export interface ShippingRequest {
-  fromAddress: {
-    name: string;
-    company?: string;
-    street1: string;
-    street2?: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-    phone?: string;
-  };
-  toAddress: {
-    name: string;
-    company?: string;
-    street1: string;
-    street2?: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-    phone?: string;
-  };
-  parcel: {
-    length?: number;
-    width?: number;
-    height?: number;
-    weight: number;
-    predefined_package?: string;
-  };
+  fromAddress: AddressData;
+  toAddress: AddressData;
+  parcel: ParcelData;
   options?: any;
   carriers?: string[];
   customs_info?: any;
   insurance?: number;
 }
+
+// Keep the old interface name for backward compatibility
+export interface ShippingRequestData extends ShippingRequest {}
 
 class CarrierService {
   async getShippingRates(request: ShippingRequest): Promise<ShippingRate[]> {
@@ -76,6 +73,27 @@ class CarrierService {
       return data.rates;
     } catch (error) {
       console.error('CarrierService: Error in getShippingRates:', error);
+      throw error;
+    }
+  }
+
+  async verifyAddress(address: AddressData): Promise<any> {
+    try {
+      console.log('CarrierService: Verifying address...', address);
+      
+      const { data, error } = await supabase.functions.invoke('verify-address', {
+        body: { address }
+      });
+
+      if (error) {
+        console.error('CarrierService: Error verifying address:', error);
+        throw new Error(`Failed to verify address: ${error.message}`);
+      }
+
+      console.log('CarrierService: Address verified successfully');
+      return data;
+    } catch (error) {
+      console.error('CarrierService: Error in verifyAddress:', error);
       throw error;
     }
   }

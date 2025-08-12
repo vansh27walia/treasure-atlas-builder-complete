@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useShippingRates } from '@/hooks/useShippingRates';
-import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
+import { AddressData, ParcelData, ShippingRequest, carrierService } from '@/services/CarrierService';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 
@@ -127,7 +127,7 @@ const InternationalShippingPage: React.FC = () => {
         weight: weightInOz || (activeTab === 'document' ? 3 : 16), // Default weight in oz
       };
       
-      const requestData: ShippingRequestData = {
+      const requestData: ShippingRequest = {
         fromAddress,
         toAddress,
         parcel,
