@@ -22,12 +22,20 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Properly calculate the final total including both shipping and insurance
+  // FIXED: Properly calculate the final total - totalCost already includes sum of all individual rates
   const shippingTotal = totalCost;
   const insuranceTotal = totalInsurance;
   const finalTotal = shippingTotal + insuranceTotal;
   
   const averageCostPerLabel = successfulCount > 0 ? finalTotal / successfulCount : 0;
+
+  console.log('OrderSummary - Payment calculation:', {
+    successfulCount,
+    shippingTotal,
+    insuranceTotal,
+    finalTotal,
+    averageCostPerLabel
+  });
 
   return (
     <div className="bg-white p-8 rounded-xl border-2 border-green-100 shadow-2xl">
@@ -43,10 +51,10 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           <span className="font-bold text-lg text-gray-900">{successfulCount}</span>
         </div>
         
-        {/* Shipping Cost Breakdown */}
+        {/* Shipping Cost Breakdown - FIXED: Shows sum of all individual row totals */}
         <div className="bg-blue-50 p-4 rounded-lg space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-700 font-medium">Shipping costs:</span>
+            <span className="text-gray-700 font-medium">Shipping costs (sum of all rows):</span>
             <span className="font-semibold text-blue-800">${shippingTotal.toFixed(2)}</span>
           </div>
           {successfulCount > 0 && (
@@ -76,7 +84,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           </div>
         )}
         
-        {/* Total Amount - Prominently Displayed */}
+        {/* Total Amount - Prominently Displayed - FIXED: Shows correct final total */}
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border-2 border-green-200">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -89,7 +97,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <p className="text-sm text-green-600">
               {insuranceTotal > 0 
                 ? `Shipping: $${shippingTotal.toFixed(2)} + Insurance: $${insuranceTotal.toFixed(2)}`
-                : 'Shipping costs only'
+                : 'Sum of all individual row rates'
               }
             </p>
             {successfulCount > 0 && (
@@ -102,7 +110,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* Payment Button - Enhanced */}
+        {/* Payment Button - FIXED: Triggers automatic label creation */}
         <Button 
           onClick={onProceedToPayment}
           disabled={isPaying || successfulCount === 0}

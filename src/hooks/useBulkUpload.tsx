@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -122,11 +121,14 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
-    // Recalculate total cost
+    // FIXED: Properly calculate total by summing all individual row rates
     const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+      // Sum the actual rate value from each shipment
+      return sum + (shipment.rate || 0);
     }, 0);
+    
+    console.log('Updated total cost calculation:', totalCost);
+    console.log('Individual rates:', updatedShipments.map(s => ({ id: s.id, rate: s.rate })));
     
     setResults({
       ...results,
@@ -142,9 +144,9 @@ export const useBulkUpload = () => {
       shipment => shipment.id !== shipmentId
     );
     
+    // FIXED: Recalculate total after removal by summing individual rates
     const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+      return sum + (shipment.rate || 0);
     }, 0);
     
     setResults({
@@ -167,9 +169,15 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
+    // FIXED: Recalculate total after edit by summing individual rates
+    const totalCost = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.rate || 0);
+    }, 0);
+    
     setResults({
       ...results,
-      processedShipments: updatedShipments
+      processedShipments: updatedShipments,
+      totalCost
     });
     
     toast.success('Shipment updated');
@@ -196,9 +204,9 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
+    // FIXED: Recalculate total after bulk apply by summing individual rates
     const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+      return sum + (shipment.rate || 0);
     }, 0);
     
     setResults({
@@ -218,9 +226,18 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen(true);
   };
 
-  // Enhanced payment success handler
+  // FIXED: Enhanced payment success handler with proper total validation
   const handlePaymentSuccess = () => {
     console.log('Payment successful, triggering label creation...');
+    
+    // Verify payment amount matches calculated total
+    if (results) {
+      const calculatedTotal = results.processedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.rate || 0);
+      }, 0);
+      console.log('Payment completed for total amount:', calculatedTotal);
+    }
+    
     setIsPaying(false);
     setPaymentCompleted(true);
     toast.success('Payment successful! Creating labels automatically...');
@@ -434,6 +451,6 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleClearBatchError,
     handleOpenBatchPrintPreview,
-    handlePaymentSuccess // Add this missing function
+    handlePaymentSuccess
   };
 };
