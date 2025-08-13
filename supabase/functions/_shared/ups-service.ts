@@ -165,8 +165,6 @@ export class UPSService {
     
     const credentials = btoa(`${this.clientId}:${this.clientSecret}`);
     
-    console.log('UPS OAuth request to:', url);
-    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -183,166 +181,88 @@ export class UPSService {
     }
 
     const data = await response.json();
-    console.log('UPS OAuth successful');
     return data.access_token;
   }
 
-  private isInternationalShipment(fromCountry: string, toCountry: string): boolean {
-    return fromCountry !== toCountry;
-  }
-
-  private validateAddress(address: any): boolean {
-    // Basic validation for required fields
-    if (!address.city || !address.country) {
-      console.error('UPS Address validation failed: Missing city or country');
-      return false;
-    }
-    
-    // For US addresses, state and zip are required
-    if (address.country === 'US' && (!address.state || !address.zip)) {
-      console.error('UPS Address validation failed: US address missing state or zip');
-      return false;
-    }
-    
-    return true;
-  }
-
-  private getValidServices(fromCountry: string, toCountry: string): string[] {
-    const isInternational = this.isInternationalShipment(fromCountry, toCountry);
-    
-    if (isInternational) {
-      // International services only
-      return ['07', '08', '54', '65']; // Worldwide Express, Expedited, Express Plus, Saver
-    } else {
-      // Domestic US services
-      return ['01', '02', '03', '12', '13', '14']; // Next Day Air, 2nd Day, Ground, 3 Day, etc.
-    }
-  }
-
   async getRates(shipment: any): Promise<any> {
-    try {
-      console.log('--- START UPS API REQUEST LOG ---');
-      
-      // Validate addresses first
-      if (!this.validateAddress(shipment.fromAddress) || !this.validateAddress(shipment.toAddress)) {
-        throw new Error('Invalid address format for UPS API');
-      }
-      
-      const token = await this.getOAuthToken();
-      
-      const fromCountry = shipment.fromAddress.country || 'US';
-      const toCountry = shipment.toAddress.country || 'US';
-      const isInternational = this.isInternationalShipment(fromCountry, toCountry);
-      
-      console.log(`UPS Rate request: ${fromCountry} -> ${toCountry} (International: ${isInternational})`);
-      
-      // Build the shipper address (this should be your business address)
-      const shipperAddress: UPSAddress = {
-        AddressLine: [shipment.fromAddress.street1 || shipment.fromAddress.city],
-        City: shipment.fromAddress.city,
-        StateProvinceCode: shipment.fromAddress.state || undefined,
-        PostalCode: shipment.fromAddress.zip || '00000',
-        CountryCode: fromCountry,
-      };
-      
-      // Build the ship-to address
-      const shipToAddress: UPSAddress = {
-        AddressLine: [shipment.toAddress.street1 || shipment.toAddress.city],
-        City: shipment.toAddress.city,
-        StateProvinceCode: shipment.toAddress.state || undefined,
-        PostalCode: shipment.toAddress.zip || '00000',
-        CountryCode: toCountry,
-      };
-      
-      const rateRequest: UPSRateRequest = {
-        RateRequest: {
-          Request: {
-            RequestOption: 'Rate', // Changed from 'Shop' to 'Rate' for international
-          },
-          Shipment: {
-            Shipper: {
-              Name: shipment.fromAddress.name || 'Rate Calculator',
-              ShipperNumber: this.accountNumber,
-              Address: shipperAddress,
-            },
-            ShipTo: {
-              Name: shipment.toAddress.name || 'Recipient',
-              Address: shipToAddress,
-            },
-            ShipFrom: {
-              Name: shipment.fromAddress.name || 'Rate Calculator',
-              Address: shipperAddress, // Ship from same as shipper for rate requests
-            },
-            Package: [{
-              PackagingType: { Code: '02', Description: 'Package' },
-              PackageWeight: { 
-                UnitOfMeasurement: { Code: 'LBS' }, 
-                Weight: (shipment.parcel.weight / 16).toFixed(2) // Convert oz to lbs
-              },
-              ...(shipment.parcel.length && {
-                Dimensions: {
-                  UnitOfMeasurement: { Code: 'IN' },
-                  Length: shipment.parcel.length.toString(),
-                  Width: shipment.parcel.width.toString(),
-                  Height: shipment.parcel.height.toString(),
-                }
-              })
-            }],
-          },
+    const token = await this.getOAuthToken();
+    
+    const rateRequest: UPSRateRequest = {
+      RateRequest: {
+        Request: {
+          RequestOption: 'Shop',
         },
-      };
-
-      console.log('Sending UPS RateRequest:', JSON.stringify(rateRequest, null, 2));
-
-      const response = await fetch(`${this.baseUrl}/api/rating/v2403/Rate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'transId': `rate_${Date.now()}`,
-          'transactionSrc': 'testing',
+        Shipment: {
+          Shipper: {
+            Name: shipment.fromAddress.name || 'Shipper',
+            ShipperNumber: this.accountNumber,
+            Address: {
+              AddressLine: [shipment.fromAddress.street1, shipment.fromAddress.street2].filter(Boolean),
+              City: shipment.fromAddress.city,
+              StateProvinceCode: shipment.fromAddress.state,
+              PostalCode: shipment.fromAddress.zip,
+              CountryCode: shipment.fromAddress.country,
+            },
+          },
+          ShipTo: {
+            Name: shipment.toAddress.name || 'Recipient',
+            Address: {
+              AddressLine: [shipment.toAddress.street1, shipment.toAddress.street2].filter(Boolean),
+              City: shipment.toAddress.city,
+              StateProvinceCode: shipment.toAddress.state,
+              PostalCode: shipment.toAddress.zip,
+              CountryCode: shipment.toAddress.country,
+            },
+          },
+          ShipFrom: {
+            Name: shipment.fromAddress.name || 'Shipper',
+            Address: {
+              AddressLine: [shipment.fromAddress.street1, shipment.fromAddress.street2].filter(Boolean),
+              City: shipment.fromAddress.city,
+              StateProvinceCode: shipment.fromAddress.state,
+              PostalCode: shipment.fromAddress.zip,
+              CountryCode: shipment.fromAddress.country,
+            },
+          },
+          Package: [{
+            PackagingType: { Code: '02', Description: 'Package' },
+            PackageWeight: { 
+              UnitOfMeasurement: { Code: 'LBS' }, 
+              Weight: (shipment.parcel.weight / 16).toString() // Convert oz to lbs
+            },
+            ...(shipment.parcel.length && {
+              Dimensions: {
+                UnitOfMeasurement: { Code: 'IN' },
+                Length: shipment.parcel.length.toString(),
+                Width: shipment.parcel.width.toString(),
+                Height: shipment.parcel.height.toString(),
+              }
+            })
+          }],
         },
-        body: JSON.stringify(rateRequest),
-      });
+      },
+    };
 
-      console.log('--- END UPS API REQUEST LOG ---');
+    const response = await fetch(`${this.baseUrl}/api/rating/v2403/Rate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(rateRequest),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('UPS Rates Error:', errorData);
-        
-        // Check for specific error codes
-        try {
-          const errorJson = JSON.parse(errorData);
-          if (errorJson.response?.errors?.[0]?.code === '111100') {
-            console.log('UPS Error 111100: Invalid service from origin. This may be due to test account limitations.');
-            // Return empty rates instead of throwing
-            return { RateResponse: { RatedShipment: [] } };
-          }
-        } catch (e) {
-          // Not JSON, continue with original error
-        }
-        
-        throw new Error(`UPS Rates failed: ${response.status} ${response.statusText}`);
-      }
-
-      const responseData = await response.json();
-      console.log('UPS Rates Response received successfully');
-      return responseData;
-
-    } catch (error) {
-      console.error('UPS Service Error:', error);
-      // Return empty rates instead of throwing to allow EasyPost fallback
-      return { RateResponse: { RatedShipment: [] } };
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('UPS Rates Error:', errorData);
+      throw new Error(`UPS Rates failed: ${response.status} ${response.statusText}`);
     }
+
+    return await response.json();
   }
 
   async createShipment(shipment: any, serviceCode: string, customsInfo?: any): Promise<any> {
     const token = await this.getOAuthToken();
-    
-    const fromCountry = shipment.fromAddress.country || 'US';
-    const toCountry = shipment.toAddress.country || 'US';
-    const isInternational = this.isInternationalShipment(fromCountry, toCountry);
     
     const shipRequest: UPSShipRequest = {
       ShipmentRequest: {
@@ -359,7 +279,7 @@ export class UPSService {
               City: shipment.fromAddress.city,
               StateProvinceCode: shipment.fromAddress.state,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: fromCountry,
+              CountryCode: shipment.fromAddress.country,
             },
           },
           ShipTo: {
@@ -369,7 +289,7 @@ export class UPSService {
               City: shipment.toAddress.city,
               StateProvinceCode: shipment.toAddress.state,
               PostalCode: shipment.toAddress.zip,
-              CountryCode: toCountry,
+              CountryCode: shipment.toAddress.country,
             },
           },
           ShipFrom: {
@@ -379,7 +299,7 @@ export class UPSService {
               City: shipment.fromAddress.city,
               StateProvinceCode: shipment.fromAddress.state,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: fromCountry,
+              CountryCode: shipment.fromAddress.country,
             },
           },
           PaymentInformation: {
@@ -392,7 +312,7 @@ export class UPSService {
           },
           Service: {
             Code: serviceCode,
-            Description: this.getServiceName(serviceCode),
+            Description: 'UPS Service',
           },
           Package: [{
             PackagingType: { Code: '02', Description: 'Package' },
@@ -418,7 +338,7 @@ export class UPSService {
               Width: '4',
             },
           },
-          ...(isInternational && customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0 && {
+          ...(customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0 && {
             InternationalForms: {
               FormType: '01', // Commercial Invoice
               InvoiceNumber: `INV-${Date.now()}`,
@@ -429,7 +349,7 @@ export class UPSService {
                 Description: item.description,
                 CommodityCode: item.hs_tariff_number || '',
                 PartNumber: `PART-${index + 1}`,
-                OriginCountryCode: item.origin_country || fromCountry,
+                OriginCountryCode: item.origin_country || 'US',
                 JointProductionIndicator: '',
                 NetCostCode: '01',
                 NetCostDateRange: {
@@ -500,15 +420,12 @@ export class UPSService {
 
   formatRatesForFrontend(upsResponse: any): any[] {
     if (!upsResponse.RateResponse?.RatedShipment) {
-      console.log('No UPS rates found in response');
       return [];
     }
 
     const ratedShipments = Array.isArray(upsResponse.RateResponse.RatedShipment) 
       ? upsResponse.RateResponse.RatedShipment 
       : [upsResponse.RateResponse.RatedShipment];
-
-    console.log(`Formatting ${ratedShipments.length} UPS rates for frontend`);
 
     return ratedShipments.map((shipment: any) => ({
       id: `ups_${shipment.Service.Code}_${Date.now()}`,
