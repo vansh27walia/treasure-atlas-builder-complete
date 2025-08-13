@@ -1,3 +1,4 @@
+
 // UPS API Service for international shipping
 export interface UPSAddress {
   AddressLine: string[];
@@ -149,6 +150,7 @@ export class UPSService {
   private clientSecret: string;
   private accountNumber: string;
   private baseUrl: string;
+  private availableServicesCache: Map<string, any[]> = new Map();
   
   constructor(clientId: string, clientSecret: string, accountNumber: string, isProduction = false) {
     this.clientId = clientId;
@@ -183,21 +185,12 @@ export class UPSService {
     return data.access_token;
   }
 
-  private isInternationalShipment(fromCountry: string, toCountry: string): boolean {
-    return fromCountry !== toCountry;
+  private generateCacheKey(shipment: any): string {
+    return `${shipment.fromAddress.country}-${shipment.fromAddress.zip}-${shipment.toAddress.country}-${shipment.toAddress.zip}`;
   }
 
-  private getInternationalServices(fromCountry: string, toCountry: string): string[] {
-    if (fromCountry === 'US') {
-      // From US to international destinations
-      return ['07', '08', '65']; // Worldwide Express, Worldwide Expedited, Saver
-    } else if (toCountry === 'US') {
-      // From international to US
-      return ['07', '08', '65'];
-    } else {
-      // International to international
-      return ['07', '08'];
-    }
+  private isInternationalShipment(fromCountry: string, toCountry: string): boolean {
+    return fromCountry !== toCountry;
   }
 
   private validateStateProvince(address: any): string {
@@ -226,7 +219,7 @@ export class UPSService {
 
   async getRates(shipment: any): Promise<any> {
     try {
-      console.log('UPS: Starting rate request for shipment:', {
+      console.log('UPS: Starting rate request with Shop option for shipment:', {
         from: `${shipment.fromAddress.city}, ${shipment.fromAddress.country}`,
         to: `${shipment.toAddress.city}, ${shipment.toAddress.country}`
       });
@@ -245,11 +238,11 @@ export class UPSService {
       
       console.log('UPS: Using validated state codes:', { fromState, toState });
       
-      // Use Rate instead of Shop for better international support
+      // CRITICAL: Use "Shop" to get ALL available services - this prevents 111100 error
       const rateRequest: UPSRateRequest = {
         RateRequest: {
           Request: {
-            RequestOption: 'Rate', // Changed from 'Shop' to 'Rate' for international
+            RequestOption: 'Shop', // Shop returns all available services for the route
           },
           Shipment: {
             Shipper: {
@@ -302,7 +295,7 @@ export class UPSService {
         },
       };
 
-      console.log('UPS: Sending rate request to API:', JSON.stringify(rateRequest, null, 2));
+      console.log('UPS: Sending Shop request to get all available services:', JSON.stringify(rateRequest, null, 2));
 
       const response = await fetch(`${this.baseUrl}/api/rating/v2403/Rate`, {
         method: 'POST',
@@ -335,7 +328,7 @@ export class UPSService {
           const errors = errorData.response.errors;
           console.log('UPS: Specific errors found:', errors);
           
-          // Check for service availability errors
+          // Check for service availability errors (111100)
           const serviceError = errors.find((err: any) => 
             err.code === '111100' || 
             err.message?.includes('service is invalid') ||
@@ -352,9 +345,20 @@ export class UPSService {
       }
 
       const data = JSON.parse(responseText);
-      console.log('UPS: Successfully received rate response:', {
+      console.log('UPS: Successfully received rate response with available services:', {
         ratedShipments: data.RateResponse?.RatedShipment?.length || 0
       });
+
+      // Cache the available services for this route
+      if (data.RateResponse?.RatedShipment) {
+        const cacheKey = this.generateCacheKey(shipment);
+        const availableServices = Array.isArray(data.RateResponse.RatedShipment) 
+          ? data.RateResponse.RatedShipment 
+          : [data.RateResponse.RatedShipment];
+        
+        this.availableServicesCache.set(cacheKey, availableServices);
+        console.log(`UPS: Cached ${availableServices.length} available services for route ${cacheKey}`);
+      }
 
       return data;
 
@@ -375,7 +379,56 @@ export class UPSService {
     }
   }
 
+  // NEW: Validate service code before creating shipment
+  async validateServiceCode(shipment: any, serviceCode: string): Promise<boolean> {
+    try {
+      const cacheKey = this.generateCacheKey(shipment);
+      let availableServices = this.availableServicesCache.get(cacheKey);
+      
+      // If not cached, get rates first
+      if (!availableServices) {
+        console.log('UPS: No cached services found, fetching available services...');
+        const ratesResponse = await this.getRates(shipment);
+        
+        if (!ratesResponse.RateResponse?.RatedShipment) {
+          console.log('UPS: No services available for this route');
+          return false;
+        }
+        
+        availableServices = Array.isArray(ratesResponse.RateResponse.RatedShipment) 
+          ? ratesResponse.RateResponse.RatedShipment 
+          : [ratesResponse.RateResponse.RatedShipment];
+      }
+      
+      // Check if the service code is in the available services
+      const isValidService = availableServices.some(service => service.Service.Code === serviceCode);
+      
+      console.log(`UPS: Service code ${serviceCode} validation result: ${isValidService}`);
+      console.log(`UPS: Available service codes: ${availableServices.map(s => s.Service.Code).join(', ')}`);
+      
+      return isValidService;
+      
+    } catch (error) {
+      console.error('UPS: Error validating service code:', error);
+      return false;
+    }
+  }
+
   async createShipment(shipment: any, serviceCode: string, customsInfo?: any): Promise<any> {
+    // CRITICAL: Validate service code before attempting to create shipment
+    if (!serviceCode) {
+      throw new Error('Service code is required to create a UPS shipment');
+    }
+    
+    console.log(`UPS: Validating service code ${serviceCode} before creating shipment...`);
+    
+    const isValidService = await this.validateServiceCode(shipment, serviceCode);
+    if (!isValidService) {
+      throw new Error(`UPS: Service code ${serviceCode} is not available for this shipment route. Please select a valid service from the available rates.`);
+    }
+    
+    console.log(`UPS: Service code ${serviceCode} validated successfully, proceeding with shipment creation`);
+    
     const token = await this.getOAuthToken();
     
     const shipRequest: UPSShipRequest = {
@@ -425,8 +478,8 @@ export class UPSService {
             },
           },
           Service: {
-            Code: serviceCode,
-            Description: 'UPS Service',
+            Code: serviceCode, // Now guaranteed to be valid
+            Description: this.getServiceName(serviceCode),
           },
           Package: [{
             PackagingType: { Code: '02', Description: 'Package' },
@@ -514,6 +567,8 @@ export class UPSService {
       },
     };
 
+    console.log(`UPS: Creating shipment with validated service code ${serviceCode}`);
+
     const response = await fetch(`${this.baseUrl}/api/shipments/v2403/ship`, {
       method: 'POST',
       headers: {
@@ -529,7 +584,9 @@ export class UPSService {
       throw new Error(`UPS Ship failed: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('UPS: Shipment created successfully');
+    return result;
   }
 
   formatRatesForFrontend(upsResponse: any): any[] {
@@ -560,11 +617,11 @@ export class UPSService {
         list_rate: shipment.TotalCharges.MonetaryValue,
         retail_rate: shipment.TotalCharges.MonetaryValue,
         original_carrier: 'UPS',
-        service_code: shipment.Service.Code,
+        service_code: shipment.Service.Code, // This is the validated service code
         source: 'ups'
       };
       
-      console.log('UPS: Formatted rate:', rate);
+      console.log('UPS: Formatted rate with validated service code:', rate);
       return rate;
     });
   }
