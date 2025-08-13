@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,8 +32,8 @@ const IndependentRateCalculator = () => {
     }
 
     try {
-      const fromAddress = await GeocodingService.generateAddressFromZip(fromZip, fromCountry);
-      const toAddress = await GeocodingService.generateAddressFromZip(toZip, toCountry);
+      const fromAddress = await GeocodingService.generateAddressFromZip(fromZip);
+      const toAddress = await GeocodingService.generateAddressFromZip(toZip);
       
       if (!fromAddress || !toAddress) {
         toast.error('Unable to validate addresses. Please check the zip codes.');
