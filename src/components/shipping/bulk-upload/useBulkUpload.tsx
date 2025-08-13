@@ -23,6 +23,7 @@ export const useBulkUpload = () => {
   });
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   
   const {
     file,
@@ -359,26 +360,8 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
-    
-    if (!pickupAddress) {
-      const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
-      toast.error(errorMsg, {
-        description: 'Go to Settings > Pickup Address to add your shipping address.',
-        action: {
-          label: 'Go to Settings',
-          onClick: () => window.location.href = '/settings'
-        }
-      });
-      throw new Error(errorMsg);
-    }
-    
-    return originalHandleUpload(file, pickupAddress);
-  };
-
-  const handleFileUpload = async (file: File) => {
-    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
+  const handleUpload = async (file: File) => {
+    console.log('handleUpload called with:', { file: file.name, pickupAddress });
     
     if (!pickupAddress) {
       const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
@@ -411,10 +394,6 @@ export const useBulkUpload = () => {
     setShowAddPaymentModal(true);
   };
 
-  const handleFileChange = (newFile: File) => {
-    setFile(newFile);
-  };
-
   return {
     file,
     isUploading,
@@ -431,9 +410,14 @@ export const useBulkUpload = () => {
     filteredShipments,
     pickupAddress,
     batchError,
+    labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    showAddPaymentModal,
     setPickupAddress,
+    setBatchPrintPreviewModalOpen,
+    setShowAddPaymentModal,
     handleFileChange,
-    handleUpload: handleFileUpload,
+    handleUpload,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
@@ -442,8 +426,6 @@ export const useBulkUpload = () => {
     handleCreateLabels,
     handleOpenBatchPrintPreview,
     handleClearBatchError,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
@@ -453,18 +435,7 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    labelGenerationProgress,
     handlePaymentSuccess,
-    file,
-    batchError,
-    labelGenerationProgress,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
-    showAddPaymentModal,
-    setShowAddPaymentModal,
-    handleFileChange,
-    handleOpenBatchPrintPreview,
-    handleClearBatchError,
     handleAddPaymentMethod,
   };
 };

@@ -36,9 +36,8 @@ interface BulkUploadViewProps {
 const BulkUploadView: React.FC<BulkUploadViewProps> = ({
   defaultPickupAddress
 }) => {
-  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
-  
   const {
+    file,
     isUploading,
     uploadStatus,
     results,
@@ -52,7 +51,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
+    batchError,
+    labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
+    showAddPaymentModal,
+    setShowAddPaymentModal,
     setPickupAddress,
+    handleFileChange,
     handleUpload,
     handleSelectRate,
     handleRemoveShipment,
@@ -60,22 +66,23 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleCreateLabels,
+    handleOpenBatchPrintPreview,
+    handleClearBatchError,
     handleDownloadTemplate,
     setSearchTerm,
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
     handlePaymentSuccess,
+    handleAddPaymentMethod,
   } = useBulkUpload();
-
-  const [file, setFile] = useState<File | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setFile(acceptedFiles[0]);
+      handleFileChange(acceptedFiles[0]);
       handleUpload(acceptedFiles[0]);
     }
-  }, [handleUpload]);
+  }, [handleFileChange, handleUpload]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop, 
@@ -85,10 +92,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     } 
   });
-
-  const handleAddPaymentMethod = () => {
-    setShowAddPaymentModal(true);
-  };
 
   return (
     <div className="space-y-6">
@@ -177,7 +180,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     <TableCell>{shipment.recipient || shipment.customer_name}</TableCell>
                     <TableCell>
                       {shipment.customer_address && typeof shipment.customer_address === 'object' 
-                        ? `${shipment.customer_address.street1}, ${shipment.customer_address.city}, ${shipment.customer_address.state}`
+                        ? `${shipment.customer_address.street1 || ''}, ${shipment.customer_address.city || ''}, ${shipment.customer_address.state || ''}`
                         : 'Address not available'
                       }
                     </TableCell>
