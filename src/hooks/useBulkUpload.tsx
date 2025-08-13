@@ -40,6 +40,7 @@ export const useBulkUpload = () => {
   });
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -121,12 +122,12 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
-    // FIXED: Calculate total by summing each row's (rate + insurance)
+    // FIXED: Calculate totals by summing each row's (rate + insurance)
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
     }, 0);
     
-    // FIXED: Calculate total insurance separately
+    // FIXED: Calculate total insurance separately - sum of each row's insurance
     const totalInsurance = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.insurance_cost || 0);
     }, 0);
@@ -139,7 +140,7 @@ export const useBulkUpload = () => {
         id: s.id, 
         rate: s.rate, 
         insurance: s.insurance_cost || 0,
-        total: (s.rate || 0) + (s.insurance_cost || 0)
+        rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
       }))
     });
     
@@ -255,16 +256,29 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen(true);
   };
 
+  // Handle showing the add payment method modal
+  const handleAddPaymentMethod = () => {
+    setShowAddPaymentModal(true);
+  };
+
   // FIXED: Enhanced payment success handler with proper total validation
   const handlePaymentSuccess = () => {
     console.log('Payment successful, triggering label creation...');
     
     // Verify payment amount matches calculated total
     if (results) {
-      const calculatedTotal = results.processedShipments.reduce((sum, shipment) => {
+      const calculatedShippingTotal = results.processedShipments.reduce((sum, shipment) => {
         return sum + (shipment.rate || 0);
       }, 0);
-      console.log('Payment completed for total amount:', calculatedTotal);
+      const calculatedInsuranceTotal = results.processedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.insurance_cost || 0);
+      }, 0);
+      const calculatedFinalTotal = calculatedShippingTotal + calculatedInsuranceTotal;
+      console.log('Payment completed for total amount:', {
+        shipping: calculatedShippingTotal,
+        insurance: calculatedInsuranceTotal,
+        final: calculatedFinalTotal
+      });
     }
     
     setIsPaying(false);
@@ -456,6 +470,8 @@ export const useBulkUpload = () => {
     // Modal states
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
+    showAddPaymentModal,
+    setShowAddPaymentModal,
     
     // Setters
     setPickupAddress,
@@ -467,12 +483,6 @@ export const useBulkUpload = () => {
     // Handlers
     handleFileChange,
     handleUpload,
-    handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
-    handleEmailLabels,
-    handleDownloadTemplate,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
@@ -480,6 +490,8 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleClearBatchError,
     handleOpenBatchPrintPreview,
-    handlePaymentSuccess
+    handlePaymentSuccess,
+    handleAddPaymentMethod,
+    handleDownloadTemplate
   };
 };
