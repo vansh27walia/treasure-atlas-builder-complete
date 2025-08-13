@@ -1,9 +1,9 @@
+
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileInput } from '@/components/ui/file-input';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/components/ui/sonner';
 import { Download, UploadCloud } from 'lucide-react';
@@ -25,12 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { BulkShipment } from '@/types/shipping';
-import { useBulkUpload } from '@/hooks/useBulkUpload';
+import { useBulkUpload } from './useBulkUpload';
 import OrderSummary from './OrderSummary';
-import ShipmentList from './ShipmentList';
-import LabelOptionsModal from './LabelOptionsModal';
-import BatchPrintPreviewModal from './BatchPrintPreviewModal';
-import BatchErrorModal from './BatchErrorModal';
 import BulkPaymentModal from './BulkPaymentModal';
 
 interface BulkUploadViewProps {
@@ -40,8 +36,9 @@ interface BulkUploadViewProps {
 const BulkUploadView: React.FC<BulkUploadViewProps> = ({
   defaultPickupAddress
 }) => {
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  
   const {
-    file,
     isUploading,
     uploadStatus,
     results,
@@ -55,9 +52,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
-    batchError,
     setPickupAddress,
-    handleFileChange,
     handleUpload,
     handleSelectRate,
     handleRemoveShipment,
@@ -65,37 +60,35 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleCreateLabels,
-    handleOpenBatchPrintPreview,
-    handleClearBatchError,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
-    handleEmailLabels,
     handleDownloadTemplate,
     setSearchTerm,
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    labelGenerationProgress,
     handlePaymentSuccess,
-    showAddPaymentModal,
-    setShowAddPaymentModal,
-    handleAddPaymentMethod,
   } = useBulkUpload();
+
+  const [file, setFile] = useState<File | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      handleFileChange(acceptedFiles[0]);
+      setFile(acceptedFiles[0]);
+      handleUpload(acceptedFiles[0]);
     }
-  }, [handleFileChange]);
+  }, [handleUpload]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: {
-    'text/csv': ['.csv'],
-    'application/vnd.ms-excel': ['.xls'],
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
-  } });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+    onDrop, 
+    accept: {
+      'text/csv': ['.csv'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+    } 
+  });
+
+  const handleAddPaymentMethod = () => {
+    setShowAddPaymentModal(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -155,7 +148,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All Carriers</SelectItem>
-                  {/* Add carrier options dynamically based on available carriers in results */}
                   {Array.from(new Set(results.processedShipments.map(s => s.carrier))).map((carrier: any) => (
                     <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
                   ))}
@@ -164,21 +156,56 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             </div>
           </div>
 
-          <ShipmentList
-            shipments={filteredShipments}
-            onSelectRate={handleSelectRate}
-            onRemoveShipment={handleRemoveShipment}
-            onEditShipment={handleEditShipment}
-            onRefreshRates={handleRefreshRates}
-            onBulkApplyCarrier={handleBulkApplyCarrier}
-            isFetchingRates={isFetchingRates}
-          />
+          {/* Simple Shipments Table */}
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Recipient</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Carrier</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Rate</TableHead>
+                  <TableHead>Insurance</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredShipments.map((shipment) => (
+                  <TableRow key={shipment.id}>
+                    <TableCell>{shipment.recipient || shipment.customer_name}</TableCell>
+                    <TableCell>
+                      {shipment.customer_address && typeof shipment.customer_address === 'object' 
+                        ? `${shipment.customer_address.street1}, ${shipment.customer_address.city}, ${shipment.customer_address.state}`
+                        : 'Address not available'
+                      }
+                    </TableCell>
+                    <TableCell>{shipment.carrier}</TableCell>
+                    <TableCell>{shipment.service}</TableCell>
+                    <TableCell>${(shipment.rate || 0).toFixed(2)}</TableCell>
+                    <TableCell>${(shipment.insurance_cost || 0).toFixed(2)}</TableCell>
+                    <TableCell>${((shipment.rate || 0) + (shipment.insurance_cost || 0)).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleRemoveShipment(shipment.id)}
+                      >
+                        Remove
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           <OrderSummary
             successfulCount={results.successful}
             totalCost={results.totalCost}
             totalInsurance={results.totalInsurance || 0}
-            onDownloadAllLabels={handleDownloadAllLabels}
+            onDownloadAllLabels={() => console.log('Download all labels')}
             onProceedToPayment={handlePaymentSuccess}
             onAddPaymentMethod={handleAddPaymentMethod}
             isPaying={isPaying}
@@ -192,31 +219,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
         open={showAddPaymentModal}
         onOpenChange={setShowAddPaymentModal}
       />
-
-      {/* Label Options Modal */}
-      <LabelOptionsModal
-        isOpen={false}
-        onClose={() => {}}
-        onDownloadLabelsWithFormat={handleDownloadLabelsWithFormat}
-        isCreatingLabels={isCreatingLabels}
-      />
-
-      {/* Batch Print Preview Modal */}
-      <BatchPrintPreviewModal
-        isOpen={batchPrintPreviewModalOpen}
-        onOpenChange={setBatchPrintPreviewModalOpen}
-        onDownloadLabelsWithFormat={handleDownloadLabelsWithFormat}
-      />
-
-      {/* Batch Error Modal */}
-      {batchError && (
-        <BatchErrorModal
-          isOpen={!!batchError}
-          onClose={handleClearBatchError}
-          error={batchError?.error || 'Unknown error'}
-          packageNumber={batchError?.packageNumber || 0}
-        />
-      )}
     </div>
   );
 };

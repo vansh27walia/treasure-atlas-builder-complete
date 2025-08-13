@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { EnhancedAddPaymentMethodModal } from '@/components/payment/EnhancedAddPaymentMethodModal';
+import EnhancedAddPaymentMethodModal from '@/components/payment/EnhancedAddPaymentMethodModal';
 
 interface BulkPaymentModalProps {
   open: boolean;
@@ -17,6 +17,10 @@ const BulkPaymentModal: React.FC<BulkPaymentModalProps> = ({
   open,
   onOpenChange
 }) => {
+  const handleSuccess = () => {
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -27,6 +31,7 @@ const BulkPaymentModal: React.FC<BulkPaymentModalProps> = ({
           <EnhancedAddPaymentMethodModal 
             isOpen={open}
             onClose={() => onOpenChange(false)}
+            onSuccess={handleSuccess}
           />
         </div>
       </DialogContent>

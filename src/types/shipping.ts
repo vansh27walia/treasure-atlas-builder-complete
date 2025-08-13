@@ -184,15 +184,19 @@ export interface BulkUploadResult {
   total: number;
   successful: number;
   failed: number;
-  totalCost?: number;
+  totalCost: number;
+  totalInsurance?: number; // Added this property
   processedShipments: BulkShipment[];
-  failedShipments?: FailedShipmentInfo[]; // More structured info for failed ones
-  uploadStatus?: 'idle' | 'uploading' | 'editing' | 'rates_fetching' | 'rate_selection' | 'paying' | 'creating-labels' | 'success' | 'error';
-  pickupAddress?: any; // Consider using SavedAddress type
-  batchResult?: BatchResult | null;
-  // Deprecated fields, prefer them inside batchResult or processedShipments
+  failedShipments?: Array<{
+    shipmentId: string;
+    error: string;
+    row?: number;
+  }>;
+  batchResult?: BatchResult;
+  bulk_label_pdf_url?: string | null;
   bulk_label_png_url?: string | null;
-  bulk_label_pdf_url?: string | null; 
+  uploadStatus?: string;
+  pickupAddress?: any;
 }
 
 export const CARRIER_OPTIONS = [

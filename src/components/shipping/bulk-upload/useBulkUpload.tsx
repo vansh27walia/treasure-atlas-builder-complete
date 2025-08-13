@@ -377,6 +377,24 @@ export const useBulkUpload = () => {
     return originalHandleUpload(file, pickupAddress);
   };
 
+  const handleFileUpload = async (file: File) => {
+    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
+    
+    if (!pickupAddress) {
+      const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
+      toast.error(errorMsg, {
+        description: 'Go to Settings > Pickup Address to add your shipping address.',
+        action: {
+          label: 'Go to Settings',
+          onClick: () => window.location.href = '/settings'
+        }
+      });
+      throw new Error(errorMsg);
+    }
+    
+    return originalHandleUpload(file, pickupAddress);
+  };
+
   const handleOpenBatchPrintPreview = () => {
     if (results?.batchResult) {
       setBatchPrintPreviewModalOpen(true);
@@ -387,6 +405,14 @@ export const useBulkUpload = () => {
 
   const handleClearBatchError = () => {
     setBatchError(null);
+  };
+
+  const handleAddPaymentMethod = () => {
+    setShowAddPaymentModal(true);
+  };
+
+  const handleFileChange = (newFile: File) => {
+    setFile(newFile);
   };
 
   return {
@@ -428,6 +454,17 @@ export const useBulkUpload = () => {
     setSortDirection,
     setSelectedCarrierFilter,
     labelGenerationProgress,
-    handlePaymentSuccess
+    handlePaymentSuccess,
+    file,
+    batchError,
+    labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
+    showAddPaymentModal,
+    setShowAddPaymentModal,
+    handleFileChange,
+    handleOpenBatchPrintPreview,
+    handleClearBatchError,
+    handleAddPaymentMethod,
   };
 };
