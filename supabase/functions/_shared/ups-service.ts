@@ -1,4 +1,3 @@
-
 // UPS API Service for international shipping
 export interface UPSAddress {
   AddressLine: string[];
@@ -187,6 +186,16 @@ export class UPSService {
   async getRates(shipment: any): Promise<any> {
     const token = await this.getOAuthToken();
     
+    // Validate and clean addresses
+    const fromCountry = (shipment.fromAddress.country || 'US').toUpperCase();
+    const toCountry = (shipment.toAddress.country || 'US').toUpperCase();
+    
+    // Check if this is a valid UPS route
+    if (!this.isValidUPSRoute(fromCountry, toCountry)) {
+      console.log(`UPS service not available for route ${fromCountry} -> ${toCountry}`);
+      return { RateResponse: { RatedShipment: [] } }; // Return empty rates instead of throwing
+    }
+    
     const rateRequest: UPSRateRequest = {
       RateRequest: {
         Request: {
@@ -201,7 +210,7 @@ export class UPSService {
               City: shipment.fromAddress.city,
               StateProvinceCode: shipment.fromAddress.state,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: shipment.fromAddress.country,
+              CountryCode: fromCountry,
             },
           },
           ShipTo: {
@@ -211,7 +220,7 @@ export class UPSService {
               City: shipment.toAddress.city,
               StateProvinceCode: shipment.toAddress.state,
               PostalCode: shipment.toAddress.zip,
-              CountryCode: shipment.toAddress.country,
+              CountryCode: toCountry,
             },
           },
           ShipFrom: {
@@ -221,7 +230,7 @@ export class UPSService {
               City: shipment.fromAddress.city,
               StateProvinceCode: shipment.fromAddress.state,
               PostalCode: shipment.fromAddress.zip,
-              CountryCode: shipment.fromAddress.country,
+              CountryCode: fromCountry,
             },
           },
           Package: [{
@@ -243,22 +252,52 @@ export class UPSService {
       },
     };
 
-    const response = await fetch(`${this.baseUrl}/api/rating/v2403/Rate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(rateRequest),
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/api/rating/v2403/Rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(rateRequest),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('UPS Rates Error:', errorData);
-      throw new Error(`UPS Rates failed: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('UPS Rates Error:', errorData);
+        
+        // Parse error to check if it's a service availability issue
+        try {
+          const errorJson = JSON.parse(errorData);
+          if (errorJson.response?.errors?.some(err => err.code === '111100')) {
+            console.log('UPS service not available for this route - returning empty rates');
+            return { RateResponse: { RatedShipment: [] } };
+          }
+        } catch (parseError) {
+          // Continue with the original error
+        }
+        
+        throw new Error(`UPS Rates failed: ${response.status} ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('UPS API Error:', error);
+      // Return empty rates instead of throwing to allow EasyPost to continue
+      return { RateResponse: { RatedShipment: [] } };
     }
+  }
 
-    return await response.json();
+  private isValidUPSRoute(fromCountry: string, toCountry: string): boolean {
+    // UPS has limited service in test environment
+    // Common UPS service countries (this is a simplified list)
+    const upsCountries = [
+      'US', 'CA', 'MX', 'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 
+      'AT', 'CH', 'DK', 'SE', 'NO', 'FI', 'IE', 'PT', 'LU',
+      'AU', 'NZ', 'JP', 'KR', 'SG', 'HK', 'TW', 'IN', 'CN', 'BR'
+    ];
+    
+    return upsCountries.includes(fromCountry) && upsCountries.includes(toCountry);
   }
 
   async createShipment(shipment: any, serviceCode: string, customsInfo?: any): Promise<any> {
@@ -420,12 +459,15 @@ export class UPSService {
 
   formatRatesForFrontend(upsResponse: any): any[] {
     if (!upsResponse.RateResponse?.RatedShipment) {
+      console.log('No UPS rates found in response');
       return [];
     }
 
     const ratedShipments = Array.isArray(upsResponse.RateResponse.RatedShipment) 
       ? upsResponse.RateResponse.RatedShipment 
       : [upsResponse.RateResponse.RatedShipment];
+
+    console.log(`Processing ${ratedShipments.length} UPS rates`);
 
     return ratedShipments.map((shipment: any) => ({
       id: `ups_${shipment.Service.Code}_${Date.now()}`,
