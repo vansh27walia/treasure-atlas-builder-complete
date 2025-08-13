@@ -121,19 +121,33 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
-    // FIXED: Properly calculate total by summing all individual row rates
+    // FIXED: Calculate total by summing each row's (rate + insurance)
     const totalCost = updatedShipments.reduce((sum, shipment) => {
-      // Sum the actual rate value from each shipment
       return sum + (shipment.rate || 0);
     }, 0);
     
-    console.log('Updated total cost calculation:', totalCost);
-    console.log('Individual rates:', updatedShipments.map(s => ({ id: s.id, rate: s.rate })));
+    // FIXED: Calculate total insurance separately
+    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.insurance_cost || 0);
+    }, 0);
+    
+    console.log('Rate selection - Updated totals:', {
+      totalCost,
+      totalInsurance,
+      finalTotal: totalCost + totalInsurance,
+      shipmentBreakdown: updatedShipments.map(s => ({ 
+        id: s.id, 
+        rate: s.rate, 
+        insurance: s.insurance_cost || 0,
+        total: (s.rate || 0) + (s.insurance_cost || 0)
+      }))
+    });
     
     setResults({
       ...results,
       processedShipments: updatedShipments,
-      totalCost
+      totalCost,
+      totalInsurance
     });
   };
 
@@ -144,16 +158,21 @@ export const useBulkUpload = () => {
       shipment => shipment.id !== shipmentId
     );
     
-    // FIXED: Recalculate total after removal by summing individual rates
+    // FIXED: Recalculate totals after removal
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
+    }, 0);
+    
+    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.insurance_cost || 0);
     }, 0);
     
     setResults({
       ...results,
       processedShipments: updatedShipments,
       successful: updatedShipments.length,
-      totalCost
+      totalCost,
+      totalInsurance
     });
     
     toast.success('Shipment removed from list');
@@ -169,15 +188,20 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
-    // FIXED: Recalculate total after edit by summing individual rates
+    // FIXED: Recalculate totals after edit
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
+    }, 0);
+    
+    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.insurance_cost || 0);
     }, 0);
     
     setResults({
       ...results,
       processedShipments: updatedShipments,
-      totalCost
+      totalCost,
+      totalInsurance
     });
     
     toast.success('Shipment updated');
@@ -204,15 +228,20 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
-    // FIXED: Recalculate total after bulk apply by summing individual rates
+    // FIXED: Recalculate totals after bulk apply
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
+    }, 0);
+    
+    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.insurance_cost || 0);
     }, 0);
     
     setResults({
       ...results,
       processedShipments: updatedShipments,
-      totalCost
+      totalCost,
+      totalInsurance
     });
     
     toast.success(`Applied ${carrier} to all applicable shipments`);

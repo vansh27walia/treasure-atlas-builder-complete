@@ -22,7 +22,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // FIXED: Properly calculate the final total - totalCost already includes sum of all individual rates
+  // FIXED: Calculate the final total correctly - totalCost already includes the sum of all individual row rates
   const shippingTotal = totalCost;
   const insuranceTotal = totalInsurance;
   const finalTotal = shippingTotal + insuranceTotal;
@@ -51,10 +51,10 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           <span className="font-bold text-lg text-gray-900">{successfulCount}</span>
         </div>
         
-        {/* Shipping Cost Breakdown - FIXED: Shows sum of all individual row totals */}
+        {/* Shipping Cost Breakdown - Shows sum of all individual row rates */}
         <div className="bg-blue-50 p-4 rounded-lg space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-700 font-medium">Shipping costs (sum of all rows):</span>
+            <span className="text-gray-700 font-medium">Shipping costs (sum of all row rates):</span>
             <span className="font-semibold text-blue-800">${shippingTotal.toFixed(2)}</span>
           </div>
           {successfulCount > 0 && (
@@ -71,7 +71,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-700 font-medium flex items-center gap-2">
                 <Shield className="h-4 w-4 text-amber-600" />
-                Insurance costs:
+                Insurance costs (sum of all row insurance):
               </span>
               <span className="font-semibold text-amber-800">${insuranceTotal.toFixed(2)}</span>
             </div>
@@ -84,63 +84,71 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           </div>
         )}
         
-        {/* Total Amount - Prominently Displayed - FIXED: Shows correct final total */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border-2 border-green-200">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-6 w-6 text-green-600" />
-              <span className="font-bold text-lg text-green-800">Total Amount:</span>
+        {/* Total Amount - Enhanced Payment Box */}
+        <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 p-8 rounded-2xl border-3 border-green-300 shadow-xl">
+          <div className="text-center mb-4">
+            <div className="flex justify-center items-center gap-3 mb-2">
+              <DollarSign className="h-8 w-8 text-green-600" />
+              <span className="font-bold text-2xl text-green-800">Total Payment Amount</span>
             </div>
-            <span className="font-bold text-3xl text-green-700">${finalTotal.toFixed(2)}</span>
+            <div className="text-center">
+              <span className="font-bold text-5xl text-green-700">${finalTotal.toFixed(2)}</span>
+            </div>
           </div>
-          <div className="mt-2 text-right">
-            <p className="text-sm text-green-600">
-              {insuranceTotal > 0 
-                ? `Shipping: $${shippingTotal.toFixed(2)} + Insurance: $${insuranceTotal.toFixed(2)}`
-                : 'Sum of all individual row rates'
-              }
-            </p>
-            {successfulCount > 0 && (
-              <p className="text-xs text-green-500 mt-1">
-                Average: ${averageCostPerLabel.toFixed(2)} per label
+          
+          <div className="bg-white/80 p-4 rounded-xl border border-green-200">
+            <div className="text-center text-sm text-green-700 space-y-1">
+              <p className="font-semibold">
+                {insuranceTotal > 0 
+                  ? `Shipping: $${shippingTotal.toFixed(2)} + Insurance: $${insuranceTotal.toFixed(2)}`
+                  : `Total of all row rates: $${shippingTotal.toFixed(2)}`
+                }
               </p>
-            )}
+              {successfulCount > 0 && (
+                <p className="text-xs text-green-600">
+                  Average cost per label: ${averageCostPerLabel.toFixed(2)}
+                </p>
+              )}
+              <p className="text-xs text-green-500 mt-2 font-medium">
+                ✓ All {successfulCount} rows calculated: Rate + Insurance for each row
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* Payment Button - FIXED: Triggers automatic label creation */}
+        {/* Enhanced Payment Button */}
         <Button 
           onClick={onProceedToPayment}
           disabled={isPaying || successfulCount === 0}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white w-full py-4 text-xl font-bold shadow-xl hover:shadow-2xl transition-all duration-300"
+          className="bg-gradient-to-r from-green-600 via-green-700 to-emerald-700 hover:from-green-700 hover:via-green-800 hover:to-emerald-800 text-white w-full py-6 text-2xl font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
           size="lg"
         >
           {isPaying ? (
             <>
-              <Loader className="mr-3 h-6 w-6 animate-spin" />
+              <Loader className="mr-3 h-8 w-8 animate-spin" />
               Processing Payment...
             </>
           ) : (
             <>
-              <CreditCard className="mr-3 h-6 w-6" />
+              <CreditCard className="mr-3 h-8 w-8" />
               Pay ${finalTotal.toFixed(2)}
               {insuranceTotal > 0 && (
-                <span className="ml-2 text-sm opacity-90">
-                  (incl. insurance)
+                <span className="ml-2 text-lg opacity-90">
+                  (incl. ${insuranceTotal.toFixed(2)} insurance)
                 </span>
               )}
             </>
           )}
         </Button>
         
-        {/* Download Button - Enhanced */}
+        {/* Download Button */}
         <Button 
           variant="outline" 
           onClick={onDownloadAllLabels}
           disabled={isCreatingLabels}
-          className="w-full py-3 border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300"
+          className="w-full py-3 border-2 border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all duration-300"
         >
           {isCreatingLabels ? (
             <>
@@ -155,14 +163,18 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           )}
         </Button>
         
-        {/* Summary Info */}
-        <div className="text-center text-sm text-gray-500 pt-2 border-t">
-          <p>Secure payment processing • All costs calculated in real-time</p>
+        {/* Enhanced Summary Info */}
+        <div className="text-center text-sm text-gray-500 pt-4 border-t-2 border-gray-100">
+          <p className="font-semibold text-gray-700">Secure payment processing • Real-time rate calculation</p>
           {insuranceTotal > 0 && (
-            <p className="text-amber-600 font-medium mt-1">
-              ✓ Insurance coverage included for all shipments
+            <p className="text-amber-600 font-medium mt-2 flex items-center justify-center gap-1">
+              <Shield className="h-4 w-4" />
+              Insurance coverage included for all {successfulCount} shipments
             </p>
           )}
+          <p className="text-xs text-gray-400 mt-2">
+            Each row: Rate + Insurance = Total • Final Amount: Sum of all rows
+          </p>
         </div>
       </div>
     </div>
