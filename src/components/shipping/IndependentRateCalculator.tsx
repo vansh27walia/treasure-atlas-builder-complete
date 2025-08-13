@@ -430,32 +430,31 @@ const IndependentRateCalculator: React.FC = () => {
                     <span className="text-sm text-gray-500 ml-2">(Height automatically set to 0 for envelopes)</span>
                   )}
                 </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input 
-                    type="number" 
-                    placeholder="Length" 
-                    value={dimensions.length} 
-                    onChange={e => setDimensions(prev => ({ ...prev, length: e.target.value }))} 
-                    className="h-12 border-2 border-gray-200 focus:border-blue-500" 
-                  />
-                  <Input 
-                    type="number" 
-                    placeholder="Width" 
-                    value={dimensions.width} 
-                    onChange={e => setDimensions(prev => ({ ...prev, width: e.target.value }))} 
-                    className="h-12 border-2 border-gray-200 focus:border-blue-500" 
-                  />
-                  {/* Only show height field for boxes, not envelopes */}
-                  {packageType === 'box' && (
-                    <Input 
-                      type="number" 
-                      placeholder="Height" 
-                      value={dimensions.height} 
-                      onChange={e => setDimensions(prev => ({ ...prev, height: e.target.value }))} 
-                      className="h-12 border-2 border-gray-200 focus:border-blue-500" 
-                    />
-                  )}
-                </div>
+                <div className="grid grid-cols-3 gap-4">
+  <Input
+    type="number"
+    placeholder="Length"
+    value={dimensions.length}
+    onChange={e => setDimensions(prev => ({ ...prev, length: e.target.value }))}
+    className="h-12 border-2 border-gray-200 focus:border-blue-500"
+  />
+  <Input
+    type="number"
+    placeholder="Width"
+    value={dimensions.width}
+    onChange={e => setDimensions(prev => ({ ...prev, width: e.target.value }))}
+    className="h-12 border-2 border-gray-200 focus:border-blue-500"
+  />
+  {packageType === 'box' && (
+    <Input
+      type="number"
+      placeholder="Height"
+      value={dimensions.height}
+      onChange={e => setDimensions(prev => ({ ...prev, height: e.target.value }))}
+      className="h-12 border-2 border-gray-200 focus:border-blue-500"
+    />
+  )}
+</div>
               </div>
             )}
 
