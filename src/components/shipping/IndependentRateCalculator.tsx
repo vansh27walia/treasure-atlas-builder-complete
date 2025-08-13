@@ -60,31 +60,35 @@ const IndependentRateCalculator: React.FC = () => {
     }
 
     try {
-      // Generate addresses using geocoding service
-      const fromAddressStr = `${formData.fromCity || formData.fromZip}, ${formData.fromState || ''}, ${formData.fromCountry}`.trim();
-      const toAddressStr = `${formData.toCity || formData.toZip}, ${formData.toState || ''}, ${formData.toCountry}`.trim();
-      
-      const geocodingService = new GeocodingService();
-      
+      // Generate addresses using geocoding service with ZIP codes
       const [fromAddressResult, toAddressResult] = await Promise.all([
-        geocodingService.generateAddress(fromAddressStr, formData.fromCountry),
-        geocodingService.generateAddress(toAddressStr, formData.toCountry)
+        GeocodingService.generateAddressFromZip(formData.fromZip),
+        GeocodingService.generateAddressFromZip(formData.toZip)
       ]);
       
       if (!fromAddressResult || !toAddressResult) {
-        toast.error('Unable to validate addresses. Please check your location details.');
+        toast.error('Unable to validate addresses. Please check your ZIP codes.');
         return;
       }
       
+      // Override with user-provided data if available
+      const fromAddress = {
+        ...fromAddressResult,
+        city: formData.fromCity || fromAddressResult.city,
+        state: formData.fromState || fromAddressResult.state,
+        country: formData.fromCountry || fromAddressResult.country
+      };
+      
+      const toAddress = {
+        ...toAddressResult,
+        city: formData.toCity || toAddressResult.city,
+        state: formData.toState || toAddressResult.state,
+        country: formData.toCountry || toAddressResult.country
+      };
+      
       const requestData = {
-        fromAddress: {
-          ...fromAddressResult,
-          name: 'Rate Calculator'
-        },
-        toAddress: {
-          ...toAddressResult,
-          name: 'Rate Calculator'
-        },
+        fromAddress,
+        toAddress,
         parcel: {
           weight: parseFloat(formData.weight) * 16, // Convert lbs to oz
           length: parseFloat(formData.length) || 10,
@@ -227,7 +231,7 @@ const IndependentRateCalculator: React.FC = () => {
               </div>
             </div>
 
-            {/* Dimensions in Single Row */}
+            {/* Dimensions in Single Row with Clear Labels */}
             <div>
               <Label className="text-sm text-gray-600 mb-2 block">Dimensions (inches)</Label>
               <div className="grid grid-cols-3 gap-4">
