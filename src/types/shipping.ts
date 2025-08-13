@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -133,7 +134,7 @@ export interface BulkShipment {
   easypost_id?: string; // EasyPost shipment ID, populated after rate fetching
   recipient?: string; // For display
   customer_name?: string;
-  customer_address?: string;
+  customer_address?: string | AddressDetails;
   customer_phone?: string;
   customer_email?: string;
   customer_company?: string;
@@ -153,6 +154,7 @@ export interface BulkShipment {
   rate?: number; // Populated after rate selection
   carrier?: string; // Populated after rate selection
   service?: string; // Populated after rate selection
+  insurance_cost?: number; // Added insurance cost property
   [key: string]: any; // Allow other dynamic fields
 }
 
@@ -191,6 +193,7 @@ export interface BulkUploadResult {
     shipmentId: string;
     error: string;
     row?: number;
+    details?: string; // Added details property
   }>;
   batchResult?: BatchResult;
   bulk_label_pdf_url?: string | null;

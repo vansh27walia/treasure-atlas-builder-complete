@@ -79,8 +79,9 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      handleFileChange(acceptedFiles[0]);
-      handleUpload(acceptedFiles[0]);
+      const file = acceptedFiles[0];
+      handleFileChange(file);
+      handleUpload(file);
     }
   }, [handleFileChange, handleUpload]);
 
@@ -180,7 +181,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     <TableCell>{shipment.recipient || shipment.customer_name}</TableCell>
                     <TableCell>
                       {shipment.customer_address && typeof shipment.customer_address === 'object' 
-                        ? `${shipment.customer_address.street1 || ''}, ${shipment.customer_address.city || ''}, ${shipment.customer_address.state || ''}`
+                        ? `${shipment.customer_address?.street1 || ''}, ${shipment.customer_address?.city || ''}, ${shipment.customer_address?.state || ''}`
                         : 'Address not available'
                       }
                     </TableCell>
