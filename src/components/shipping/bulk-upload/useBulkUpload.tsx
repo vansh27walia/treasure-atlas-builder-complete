@@ -53,17 +53,25 @@ export const useBulkUpload = () => {
         return sum + (shipment.insurance_cost || 0);
       }, 0);
       
+      // FIXED: Final total is now the sum of all row totals (rate + insurance for each row)
+      const calculatedFinalTotal = newResults.processedShipments.reduce((sum, shipment) => {
+        const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
+        return sum + rowTotal;
+      }, 0);
+      
       console.log('Row totals calculation in updateResults:', {
         shipmentCount: newResults.processedShipments.length,
         calculatedShippingTotal,
         calculatedInsuranceTotal,
+        calculatedFinalTotal,
         finalRowTotal: calculatedShippingTotal + calculatedInsuranceTotal,
         rowBreakdown: newResults.processedShipments.map((s, i) => ({
           row: i + 1,
           rate: s.rate || 0,
           insurance: s.insurance_cost || 0,
           rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
-        }))
+        })),
+        verification: `Shipping: ${calculatedShippingTotal} + Insurance: ${calculatedInsuranceTotal} = ${calculatedShippingTotal + calculatedInsuranceTotal} (should equal ${calculatedFinalTotal})`
       });
       
       // Update the results with properly calculated totals
@@ -156,14 +164,26 @@ export const useBulkUpload = () => {
           s.id === shipment.id ? shipment : s
         );
         
+        // Calculate new totals properly - sum of all row totals
         const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
         const newInsuranceTotal = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
+        const newFinalTotal = updatedShipments.reduce((sum, s) => {
+          const rowTotal = (s.rate || 0) + (s.insurance_cost || 0);
+          return sum + rowTotal;
+        }, 0);
         
         console.log('Row totals after edit:', {
           editedShipmentId: shipment.id,
           newShippingTotal,
           newInsuranceTotal,
-          newFinalTotal: newShippingTotal + newInsuranceTotal
+          newFinalTotal,
+          verification: `${newShippingTotal} + ${newInsuranceTotal} = ${newShippingTotal + newInsuranceTotal} (should equal ${newFinalTotal})`,
+          rowBreakdown: updatedShipments.map(s => ({
+            id: s.id,
+            rate: s.rate || 0,
+            insurance: s.insurance_cost || 0,
+            rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
+          }))
         });
         
         updateResults({

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
@@ -177,45 +178,66 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             </div>
           </div>
 
-          {/* Simple Shipments Table */}
-          <div className="border rounded-lg">
+          {/* Enhanced Shipments Table */}
+          <div className="border rounded-lg shadow-lg bg-white">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-gray-50">
                 <TableRow>
-                  <TableHead>Recipient</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Carrier</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Insurance</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="font-semibold">Recipient</TableHead>
+                  <TableHead className="font-semibold">Address</TableHead>
+                  <TableHead className="font-semibold">Carrier</TableHead>
+                  <TableHead className="font-semibold">Service</TableHead>
+                  <TableHead className="font-semibold">Rate</TableHead>
+                  <TableHead className="font-semibold">Insurance</TableHead>
+                  <TableHead className="font-semibold bg-green-50 text-green-800">Row Total</TableHead>
+                  <TableHead className="font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredShipments.map((shipment) => (
-                  <TableRow key={shipment.id}>
-                    <TableCell>{shipment.recipient || shipment.customer_name}</TableCell>
-                    <TableCell>
-                      {formatAddressForDisplay(shipment.customer_address)}
-                    </TableCell>
-                    <TableCell>{shipment.carrier}</TableCell>
-                    <TableCell>{shipment.service}</TableCell>
-                    <TableCell>${(shipment.rate || 0).toFixed(2)}</TableCell>
-                    <TableCell>${(shipment.insurance_cost || 0).toFixed(2)}</TableCell>
-                    <TableCell>${((shipment.rate || 0) + (shipment.insurance_cost || 0)).toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleRemoveShipment(shipment.id)}
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredShipments.map((shipment) => {
+                  const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
+                  return (
+                    <TableRow key={shipment.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">{shipment.recipient || shipment.customer_name}</TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {formatAddressForDisplay(shipment.customer_address)}
+                      </TableCell>
+                      <TableCell>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                          {shipment.carrier}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{shipment.service}</TableCell>
+                      <TableCell className="font-mono">${(shipment.rate || 0).toFixed(2)}</TableCell>
+                      <TableCell className="font-mono">${(shipment.insurance_cost || 0).toFixed(2)}</TableCell>
+                      <TableCell className="font-mono font-bold text-green-700 bg-green-50">
+                        ${rowTotal.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleRemoveShipment(shipment.id)}
+                          className="hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+                        >
+                          Remove
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
+              <TableFooter className="bg-gray-100">
+                <TableRow>
+                  <TableCell colSpan={6} className="text-right font-semibold">
+                    Grand Total (Sum of all Row Totals):
+                  </TableCell>
+                  <TableCell className="font-bold text-lg text-green-700">
+                    ${((results.totalCost || 0) + (results.totalInsurance || 0)).toFixed(2)}
+                  </TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableFooter>
             </Table>
           </div>
 
@@ -232,7 +254,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
         </div>
       )}
 
-      {/* Add Payment Method Modal */}
+      {/* Enhanced Add Payment Method Modal */}
       <BulkPaymentModal
         open={showAddPaymentModal}
         onOpenChange={setShowAddPaymentModal}
