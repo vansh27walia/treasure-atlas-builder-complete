@@ -40,6 +40,37 @@ export const useBulkUpload = () => {
 
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload:', newResults);
+    
+    // ENHANCED: Ensure proper calculation of row totals when updating results
+    if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
+      // Calculate total shipping cost (sum of all row rates)
+      const calculatedShippingTotal = newResults.processedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.rate || 0);
+      }, 0);
+      
+      // Calculate total insurance cost (sum of all row insurance)
+      const calculatedInsuranceTotal = newResults.processedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.insurance_cost || 0);
+      }, 0);
+      
+      console.log('Row totals calculation in updateResults:', {
+        shipmentCount: newResults.processedShipments.length,
+        calculatedShippingTotal,
+        calculatedInsuranceTotal,
+        finalRowTotal: calculatedShippingTotal + calculatedInsuranceTotal,
+        rowBreakdown: newResults.processedShipments.map((s, i) => ({
+          row: i + 1,
+          rate: s.rate || 0,
+          insurance: s.insurance_cost || 0,
+          rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
+        }))
+      });
+      
+      // Update the results with properly calculated totals
+      newResults.totalCost = calculatedShippingTotal;
+      newResults.totalInsurance = calculatedInsuranceTotal;
+    }
+    
     setResults(newResults);
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
@@ -119,7 +150,31 @@ export const useBulkUpload = () => {
       console.log('Refreshing rates after shipment edit...');
       await handleRefreshRatesAfterEdit(shipment.id);
       
-      toast.success('Shipment updated and rates refreshed successfully');
+      // ENHANCED: Recalculate row totals after edit
+      if (results) {
+        const updatedShipments = results.processedShipments.map(s => 
+          s.id === shipment.id ? shipment : s
+        );
+        
+        const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
+        const newInsuranceTotal = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
+        
+        console.log('Row totals after edit:', {
+          editedShipmentId: shipment.id,
+          newShippingTotal,
+          newInsuranceTotal,
+          newFinalTotal: newShippingTotal + newInsuranceTotal
+        });
+        
+        updateResults({
+          ...results,
+          processedShipments: updatedShipments,
+          totalCost: newShippingTotal,
+          totalInsurance: newInsuranceTotal
+        });
+      }
+      
+      toast.success('Shipment updated and row totals recalculated');
     } catch (error) {
       console.error('Error updating shipment and refreshing rates:', error);
       toast.error('Failed to update shipment or refresh rates');

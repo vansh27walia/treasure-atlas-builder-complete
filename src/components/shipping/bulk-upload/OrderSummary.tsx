@@ -24,19 +24,20 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // FIXED: Calculate the final total correctly - totalCost (shipping) + totalInsurance
+  // Calculate the final total correctly - sum of all row totals (shipping + insurance for each row)
   const shippingTotal = totalCost;
   const insuranceTotal = totalInsurance;
   const finalTotal = shippingTotal + insuranceTotal;
   
   const averageCostPerLabel = successfulCount > 0 ? finalTotal / successfulCount : 0;
 
-  console.log('OrderSummary - Payment calculation:', {
+  console.log('OrderSummary - Row totals calculation:', {
     successfulCount,
-    shippingTotal,
-    insuranceTotal,
-    finalTotal,
-    averageCostPerLabel
+    shippingTotal: shippingTotal,
+    insuranceTotal: insuranceTotal,
+    finalTotal: finalTotal,
+    averageCostPerLabel,
+    calculationBreakdown: `${successfulCount} rows: Each row total (rate + insurance) summed = $${finalTotal.toFixed(2)}`
   });
 
   return (
@@ -49,19 +50,19 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       <div className="space-y-4 mb-6">
         {/* Label Count */}
         <div className="flex justify-between items-center py-2 border-b border-gray-100">
-          <span className="text-gray-600 font-medium">Number of labels:</span>
+          <span className="text-gray-600 font-medium">Number of rows/labels:</span>
           <span className="font-bold text-lg text-gray-900">{successfulCount}</span>
         </div>
         
-        {/* Shipping Cost Breakdown */}
+        {/* Row Totals Breakdown */}
         <div className="bg-blue-50 p-4 rounded-lg space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-700 font-medium">Shipping costs (sum of all row rates):</span>
+            <span className="text-gray-700 font-medium">Sum of all row shipping rates:</span>
             <span className="font-semibold text-blue-800">${shippingTotal.toFixed(2)}</span>
           </div>
           {successfulCount > 0 && (
             <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Average per label:</span>
+              <span className="text-gray-500">Average shipping per row:</span>
               <span className="text-gray-600">${(shippingTotal / successfulCount).toFixed(2)}</span>
             </div>
           )}
@@ -73,20 +74,20 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-700 font-medium flex items-center gap-2">
                 <Shield className="h-4 w-4 text-amber-600" />
-                Insurance costs (sum of all row insurance):
+                Sum of all row insurance costs:
               </span>
               <span className="font-semibold text-amber-800">${insuranceTotal.toFixed(2)}</span>
             </div>
             {successfulCount > 0 && (
               <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Average per label:</span>
+                <span className="text-gray-500">Average insurance per row:</span>
                 <span className="text-gray-600">${(insuranceTotal / successfulCount).toFixed(2)}</span>
               </div>
             )}
           </div>
         )}
         
-        {/* Enhanced Total Amount Payment Box */}
+        {/* Enhanced Total Payment Amount - Sum of All Row Totals */}
         <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 p-8 rounded-2xl border-3 border-green-300 shadow-xl">
           <div className="text-center mb-6">
             <div className="flex justify-center items-center gap-3 mb-3">
@@ -100,18 +101,21 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <div className="bg-white/90 p-6 rounded-xl border-2 border-green-200 shadow-lg">
               <div className="text-center text-sm text-green-700 space-y-2">
                 <p className="font-semibold text-lg">
+                  Sum of All Row Totals: ${finalTotal.toFixed(2)}
+                </p>
+                <p className="text-sm text-green-600">
                   {insuranceTotal > 0 
-                    ? `Shipping: $${shippingTotal.toFixed(2)} + Insurance: $${insuranceTotal.toFixed(2)}`
-                    : `Total of all row rates: $${shippingTotal.toFixed(2)}`
+                    ? `(${successfulCount} rows × rate) + (${successfulCount} rows × insurance) = Total`
+                    : `Sum of ${successfulCount} row shipping rates = Total`
                   }
                 </p>
                 {successfulCount > 0 && (
                   <p className="text-sm text-green-600 font-medium">
-                    Average cost per label: ${averageCostPerLabel.toFixed(2)}
+                    Average cost per row: ${averageCostPerLabel.toFixed(2)}
                   </p>
                 )}
                 <p className="text-xs text-green-500 mt-3 font-medium bg-green-100 px-3 py-2 rounded-lg">
-                  ✓ All {successfulCount} rows calculated: Rate + Insurance for each row
+                  ✓ All {successfulCount} row totals calculated and summed
                 </p>
               </div>
             </div>
@@ -120,11 +124,11 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* Enhanced Payment Button with Add Payment Option */}
+        {/* Enhanced Payment Button with Row Totals Sum */}
         <div className="space-y-3">
           <Button 
             onClick={onProceedToPayment}
-            disabled={isPaying || successfulCount === 0}
+            disabled={isPaying || successfulCount === 0 || finalTotal <= 0}
             className="bg-gradient-to-r from-green-600 via-green-700 to-emerald-700 hover:from-green-700 hover:via-green-800 hover:to-emerald-800 text-white w-full py-8 text-3xl font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 rounded-2xl"
             size="lg"
           >
@@ -137,9 +141,9 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
               <>
                 <CreditCard className="mr-4 h-10 w-10" />
                 Pay ${finalTotal.toFixed(2)}
-                {insuranceTotal > 0 && (
+                {successfulCount > 0 && (
                   <span className="ml-3 text-xl opacity-90">
-                    (incl. ${insuranceTotal.toFixed(2)} insurance)
+                    ({successfulCount} row totals)
                   </span>
                 )}
               </>
@@ -182,7 +186,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
         {/* Enhanced Summary Info */}
         <div className="text-center text-sm text-gray-500 pt-6 border-t-2 border-gray-100">
           <p className="font-semibold text-gray-700 text-lg mb-2">🔒 Secure Payment Processing</p>
-          <p className="text-gray-600">Real-time rate calculation • Each row total calculated</p>
+          <p className="text-gray-600">Row-by-row calculation • Sum of all row totals</p>
           {insuranceTotal > 0 && (
             <p className="text-amber-600 font-medium mt-3 flex items-center justify-center gap-2 bg-amber-50 px-4 py-2 rounded-lg">
               <Shield className="h-5 w-5" />
@@ -190,7 +194,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             </p>
           )}
           <p className="text-xs text-gray-400 mt-3 bg-gray-50 px-3 py-2 rounded-lg">
-            Payment Calculation: Sum of (Rate + Insurance) for each row = Final Total
+            Payment Calculation: Row 1 Total + Row 2 Total + Row 3 Total + ... = Final Total
           </p>
         </div>
       </div>
