@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
@@ -85,7 +84,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
         target: {
           files: [file]
         }
-      } as React.ChangeEvent<HTMLInputElement>;
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
       
       handleFileChange(syntheticEvent);
       handleUpload(file);
@@ -100,6 +99,17 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     } 
   });
+
+  // Helper function to format address for display
+  const formatAddressForDisplay = (address: string | any): string => {
+    if (typeof address === 'string') {
+      return address;
+    }
+    if (address && typeof address === 'object') {
+      return `${address.street1 || ''}, ${address.city || ''}, ${address.state || ''}`.replace(/^,\s*|,\s*$/g, '');
+    }
+    return 'Address not available';
+  };
 
   return (
     <div className="space-y-6">
@@ -187,10 +197,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                   <TableRow key={shipment.id}>
                     <TableCell>{shipment.recipient || shipment.customer_name}</TableCell>
                     <TableCell>
-                      {shipment.customer_address && typeof shipment.customer_address === 'object' 
-                        ? `${shipment.customer_address?.street1 || ''}, ${shipment.customer_address?.city || ''}, ${shipment.customer_address?.state || ''}`
-                        : shipment.customer_address || 'Address not available'
-                      }
+                      {formatAddressForDisplay(shipment.customer_address)}
                     </TableCell>
                     <TableCell>{shipment.carrier}</TableCell>
                     <TableCell>{shipment.service}</TableCell>
