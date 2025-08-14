@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PaymentMethodSelector from '../payment/PaymentMethodSelector';
+import SimplifiedLabelInterface from './SimplifiedLabelInterface';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -36,8 +37,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
   const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [paymentCompleted, setPaymentCompleted] = useState(!!labelUrl); // If labelUrl exists, payment was completed
-  
+  const [paymentCompleted, setPaymentCompleted] = useState(!!labelUrl);
+
   useEffect(() => {
     if (labelUrl !== localLabelUrl) {
       setLocalLabelUrl(labelUrl);
@@ -303,47 +304,26 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
               <h3 className="font-semibold text-purple-800 text-xl mb-2">Label Generated Successfully!</h3>
               <p className="text-sm text-purple-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-purple-200">{trackingCode}</span></p>
             </div>
-            <div className="flex gap-2 mt-3 sm:mt-0">
-              <Select
-                value={selectedFormat}
-                onValueChange={handleFormatChange}
+            
+            {shipmentId && (
+              <Button
+                onClick={handleRefreshLabel}
+                variant="outline"
+                size="sm"
+                className="bg-white text-purple-600 border-purple-200 hover:bg-purple-50"
                 disabled={isRefreshing}
               >
-                <SelectTrigger className="w-[200px] bg-white text-purple-800 border-purple-200">
-                  <SelectValue placeholder="Select Label Format" />
-                </SelectTrigger>
-                <SelectContent>
-                  {labelFormats.map(format => (
-                    <SelectItem key={format.value} value={format.value}>
-                      <div>
-                        <div className="font-medium">{format.label}</div>
-                        <div className="text-xs text-gray-500">{format.description}</div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {shipmentId && (
-                <Button
-                  onClick={handleRefreshLabel}
-                  variant="outline"
-                  size="sm"
-                  className="bg-white text-purple-600 border-purple-200 hover:bg-purple-50"
-                  disabled={isRefreshing}
-                >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
-                  Refresh
-                </Button>
-              )}
-            </div>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
+                Refresh
+              </Button>
+            )}
           </div>
           
           <div className="bg-white p-6 rounded-md border border-gray-200 shadow-sm">
             {isRefreshing ? (
               <div className="flex flex-col items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
-                <p className="text-purple-800">Regenerating label with new format...</p>
+                <p className="text-purple-800">Refreshing label...</p>
               </div>
             ) : !paymentCompleted ? (
               <div className="space-y-4">
@@ -357,47 +337,14 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                 />
               </div>
             ) : (
-              <>
-                <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Button 
-                    onClick={() => setIsLabelModalOpen(true)}
-                    variant="outline" 
-                    className="border-gray-300 hover:bg-gray-50 h-12"
-                  >
-                    <Download className="mr-2 h-5 w-5" /> Download Label
-                  </Button>
-                  
-                  <Button 
-                    onClick={handleOpenInNewTab}
-                    variant="outline"
-                    className="border-gray-300 hover:bg-gray-50 h-12"
-                  >
-                    <ExternalLink className="mr-2 h-5 w-5" /> Open in New Tab
-                  </Button>
-                  
-                  <Button 
-                    onClick={handleEmailLabel}
-                    variant="outline"
-                    className="border-gray-300 hover:bg-gray-50 h-12"
-                    disabled={isEmailSending}
-                  >
-                    <Mail className="mr-2 h-5 w-5" /> 
-                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
-                  </Button>
-                  
-                  <Button 
-                    onClick={handleSaveToAccount}
-                    variant="outline"
-                    className="border-gray-300 hover:bg-gray-50 h-12"
-                    disabled={isSaving}
-                  >
-                    <Save className="mr-2 h-5 w-5" /> 
-                    {isSaving ? 'Saving...' : 'Save to My Labels'}
-                  </Button>
-                </div>
-              </>
+              <SimplifiedLabelInterface
+                labelUrl={localLabelUrl || labelUrl || ''}
+                trackingCode={trackingCode || ''}
+                shipmentId={shipmentId}
+                labelUrls={{
+                  pdf: localLabelUrl || labelUrl || undefined
+                }}
+              />
             )}
           </div>
 
@@ -406,161 +353,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
           </div>
         </div>
       </div>
-      
-      <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
-        <DialogContent className="bg-white max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Shipping Label</DialogTitle>
-            <DialogDescription>
-              Tracking #: {trackingCode}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Tabs defaultValue="preview" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-              <TabsTrigger value="download">Download</TabsTrigger>
-              <TabsTrigger value="share">Share</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="preview">
-              <div className="w-full flex flex-col items-center">
-                <div className="mb-4 flex justify-center">
-                  <Select
-                    value={selectedFormat}
-                    onValueChange={handleFormatChange}
-                    disabled={isRefreshing}
-                  >
-                    <SelectTrigger className="w-[280px]">
-                      <SelectValue placeholder="Select Label Format" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {labelFormats.map(format => (
-                        <SelectItem key={format.value} value={format.value}>
-                          <div>
-                            <div className="font-medium">{format.label}</div>
-                            <div className="text-xs text-gray-500">{format.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {isRefreshing ? (
-                  <div className="flex flex-col items-center justify-center h-64 w-full">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
-                    <p className="text-purple-800">Regenerating label with new format...</p>
-                  </div>
-                ) : blobUrl ? (
-                  <iframe 
-                    src={blobUrl} 
-                    className="w-full h-[500px]" 
-                    title="Label Preview"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full w-full">
-                    <File className="h-16 w-16 text-gray-300 mb-4" />
-                    <p className="text-gray-500">Loading preview...</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="download">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFileFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFileFormat('pdf')}
-                  >
-                    <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
-                    <h4 className="font-medium">PDF Format</h4>
-                    <p className="text-xs text-gray-500">Best for printing</p>
-                  </div>
-                  
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFileFormat === 'png' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                    `}
-                    onClick={() => setSelectedFileFormat('png')}
-                  >
-                    <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
-                    <h4 className="font-medium">PNG Format</h4>
-                    <p className="text-xs text-gray-500">Image format</p>
-                  </div>
-                  
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFileFormat === 'zpl' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
-                    `}
-                    onClick={() => setSelectedFileFormat('zpl')}
-                  >
-                    <FileArchive className="h-12 w-12 mx-auto mb-2 text-purple-600" />
-                    <h4 className="font-medium">ZPL Format</h4>
-                    <p className="text-xs text-gray-500">For thermal printers</p>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={() => handleDirectDownload(selectedFileFormat)} 
-                  className={`w-full h-12 ${
-                    selectedFileFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 
-                    selectedFileFormat === 'png' ? 'bg-green-600 hover:bg-green-700' : 
-                    'bg-purple-600 hover:bg-purple-700'
-                  }`}
-                  disabled={isRefreshing || !blobUrl}
-                >
-                  <Download className="mr-2 h-5 w-5" />
-                  Download {selectedFileFormat.toUpperCase()} File
-                </Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="share">
-              <div className="space-y-6">
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Email Label</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Send this label to your email address for easy access later
-                  </p>
-                  <Button 
-                    onClick={handleEmailLabel}
-                    disabled={isEmailSending || isRefreshing}
-                    className="w-full"
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
-                  </Button>
-                </div>
-                
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Save to Account</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Save this label to your account for easy access later
-                  </p>
-                  <Button 
-                    onClick={handleSaveToAccount}
-                    disabled={isSaving || isRefreshing}
-                    className="w-full"
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? 'Saving...' : 'Save to My Labels'}
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>
-              <X className="mr-2 h-4 w-4" /> Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };
