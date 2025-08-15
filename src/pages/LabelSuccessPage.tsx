@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,9 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
+
+// Supabase URL constant
+const SUPABASE_URL = "https://adhegezdzqlnqqnymvps.supabase.co";
 
 // Label format options
 const LABEL_FORMATS = [
@@ -109,7 +111,7 @@ const LabelSuccessPage: React.FC = () => {
       }
 
       // Create download URL and trigger download
-      const url = `${supabase.supabaseUrl}/functions/v1/generate-label-format?format=${format}&shipmentId=${shipmentId}`;
+      const url = `${SUPABASE_URL}/functions/v1/generate-label-format?format=${format}&shipmentId=${shipmentId}`;
       
       const link = document.createElement('a');
       link.href = url;
@@ -156,7 +158,7 @@ const LabelSuccessPage: React.FC = () => {
   };
 
   const getPreviewUrl = (format: string) => {
-    return `${supabase.supabaseUrl}/functions/v1/generate-label-preview?format=${format}`;
+    return `${SUPABASE_URL}/functions/v1/generate-label-preview?format=${format}`;
   };
 
   return (
