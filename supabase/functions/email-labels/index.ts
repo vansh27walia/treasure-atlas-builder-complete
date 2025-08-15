@@ -1,47 +1,53 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "npm:resend@2.0.0";
 
-// Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
-  console.log('Email function invoked with method:', req.method);
-
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the user's JWT token from the Authorization header
+    console.log('Email function invoked with method:', req.method);
+    
+    // Verify request method
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 405
+      });
+    }
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401
       });
     }
 
-    // Create a Supabase client with user authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       {
         global: {
-          headers: { Authorization: authHeader },
-        },
+          headers: { Authorization: authHeader }
+        }
       }
     );
 
-    // Get the current user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
     if (userError || !user) {
-      console.error('User authentication failed:', userError?.message);
+      console.error('User authentication failed:', userError);
       return new Response(JSON.stringify({ error: 'User not authenticated' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401
@@ -51,103 +57,195 @@ serve(async (req) => {
     console.log('User authenticated successfully:', user.email);
 
     // Parse request body
-    const requestBody = await req.json();
-    console.log('Request body parsed:', JSON.stringify(requestBody, null, 2));
-
-    const { trackingCode, subject, format, toEmails } = requestBody;
-
-    if (!trackingCode || !toEmails || !Array.isArray(toEmails) || toEmails.length === 0) {
-      return new Response(JSON.stringify({ error: 'Missing required fields: trackingCode, toEmails' }), {
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('Request body parsed:', JSON.stringify(requestBody, null, 2));
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       });
     }
 
-    // Get the RESEND_API_KEY from environment
+    const { 
+      toEmails, 
+      subject, 
+      description, 
+      batchResult, 
+      selectedFormats = ['pdf'] 
+    } = requestBody;
+
+    console.log('Processing email request for:', { toEmails, subject, selectedFormats });
+
+    // Validate required fields
+    if (!toEmails || toEmails.length === 0 || !subject) {
+      console.error('Missing required fields:', { toEmails, subject });
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields', 
+        details: 'toEmails and subject are required' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
+    // Check Resend API key
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is missing from environment');
-      return new Response(JSON.stringify({ error: 'Email service not configured' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Email service not configured',
+        message: 'RESEND_API_KEY is missing from backend configuration'
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       });
     }
 
-    // Get the label from the database
-    const { data: shipmentRecord, error: recordError } = await supabaseClient
-      .from('shipment_records')
-      .select('label_url, shipment_data')
-      .eq('tracking_code', trackingCode)
-      .eq('user_id', user.id)
-      .single();
+    console.log('Resend API key found, initializing Resend client');
+    const resend = new Resend(resendApiKey);
 
-    if (recordError || !shipmentRecord?.label_url) {
-      console.error('Shipment record not found:', recordError?.message);
-      return new Response(JSON.stringify({ error: 'Shipment record not found' }), {
+    // Prepare attachments based on selected formats
+    const attachments = [];
+    const labelsList = [];
+
+    if (batchResult?.consolidatedLabelUrls) {
+      for (const format of selectedFormats) {
+        if (format === 'scanForm' && batchResult.scanFormUrl) {
+          try {
+            console.log('Fetching scan form from:', batchResult.scanFormUrl);
+            const response = await fetch(batchResult.scanFormUrl);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              attachments.push({
+                filename: `pickup_manifest_${Date.now()}.pdf`,
+                content: new Uint8Array(buffer),
+                contentType: 'application/pdf'
+              });
+              labelsList.push('• Pickup Manifest (Scan Form)');
+              console.log('Successfully attached scan form');
+            } else {
+              console.error('Failed to fetch scan form:', response.status, response.statusText);
+            }
+          } catch (error) {
+            console.error('Error fetching scan form:', error);
+          }
+          continue;
+        }
+
+        const url = batchResult.consolidatedLabelUrls[format];
+        if (url) {
+          try {
+            console.log(`Fetching ${format} label from:`, url);
+            const response = await fetch(url);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              const filename = `consolidated_labels_${Date.now()}.${format}`;
+              
+              attachments.push({
+                filename,
+                content: new Uint8Array(buffer),
+                contentType: format === 'pdf' ? 'application/pdf' : 
+                           format === 'zpl' || format === 'epl' ? 'text/plain' : 
+                           'image/png'
+              });
+              
+              labelsList.push(`• Consolidated ${format.toUpperCase()} Labels`);
+              console.log(`Successfully attached ${format} label`);
+            } else {
+              console.error(`Failed to fetch ${format} label: ${response.status} ${response.statusText}`);
+            }
+          } catch (error) {
+            console.error(`Error fetching ${format} label:`, error);
+          }
+        }
+      }
+    }
+
+    if (attachments.length === 0) {
+      console.error('No attachments could be prepared');
+      return new Response(JSON.stringify({ 
+        error: 'No labels available to attach',
+        message: 'Unable to fetch any labels for email attachment'
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 404
+        status: 400
       });
     }
 
-    console.log('Processing email request for:', {
-      toEmails,
-      subject,
-      selectedFormats: [format || 'pdf']
-    });
+    // Prepare email content
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Shipping Labels</h2>
+        <p>${description || 'Please find your shipping labels attached to this email.'}</p>
+        
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #374151;">Attached Files:</h3>
+          ${labelsList.map(item => `<p style="margin: 5px 0;">${item}</p>`).join('')}
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          These labels are ready to use for shipping. Please print them on appropriate label stock.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        <p style="color: #9ca3af; font-size: 12px;">
+          This email was sent from your shipping management system.
+        </p>
+      </div>
+    `;
 
-    // Send email using Resend
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'ShipAI <noreply@shipai.app>',
-        to: toEmails,
-        subject: subject || 'Your Shipping Label',
-        html: `
-          <h2>Your Shipping Label</h2>
-          <p>Dear Customer,</p>
-          <p>Please find your shipping label attached for tracking number: <strong>${trackingCode}</strong></p>
-          <p>You can also download your label directly from this link: <a href="${shipmentRecord.label_url}" target="_blank">Download Label</a></p>
-          <p>Thank you for using our shipping service!</p>
-          <br>
-          <p>Best regards,<br>ShipAI Team</p>
-        `,
-        attachments: [
-          {
-            filename: `shipping_label_${trackingCode}.pdf`,
-            content_type: 'application/pdf',
-            content: shipmentRecord.label_url
-          }
-        ]
-      }),
-    });
+    // Convert single email to array if needed
+    const emailArray = Array.isArray(toEmails) ? toEmails : [toEmails];
+    
+    console.log(`Preparing to send email to ${emailArray.length} recipients with ${attachments.length} attachments`);
 
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error('Resend API error:', errorText);
-      throw new Error(`Failed to send email: ${errorText}`);
+    const emailData = {
+      from: 'Shipping System <noreply@yourdomain.com>',
+      to: emailArray,
+      subject: subject,
+      html: emailHtml,
+      attachments: attachments
+    };
+
+    console.log('Sending email via Resend...');
+    const { data: emailResult, error: emailError } = await resend.emails.send(emailData);
+
+    if (emailError) {
+      console.error('Resend API error:', emailError);
+      return new Response(JSON.stringify({ 
+        error: 'Failed to send email',
+        details: emailError.message || 'Unknown Resend error'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
     }
 
-    const emailResult = await emailResponse.json();
-    console.log('Email sent successfully:', emailResult);
+    console.log('Email sent successfully via Resend:', emailResult);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: `Label emailed successfully to ${toEmails.length} recipient(s)`,
-      emailId: emailResult.id 
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Email sent successfully',
+      emailId: emailResult.id,
+      recipientCount: emailArray.length,
+      attachmentsCount: attachments.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
 
   } catch (error) {
-    console.error('Error in email-labels function:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    console.error('Unexpected error in email-labels function:', error);
+    return new Response(JSON.stringify({
+      error: 'Email service error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      stack: error instanceof Error ? error.stack : undefined
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
   }
 });
