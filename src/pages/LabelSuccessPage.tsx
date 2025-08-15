@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, FileText, Mail, ExternalLink, Search, Eye } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, FileText, Mail, ExternalLink, Search, Eye, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -17,7 +17,7 @@ const LABEL_FORMATS = [
   {
     id: '4x6',
     name: '4x6" Shipping Label',
-    description: 'For Thermal Label Printers',
+    description: 'Formatted for Thermal Label Printers',
     icon: '📄'
   },
   {
@@ -28,16 +28,22 @@ const LABEL_FORMATS = [
   },
   {
     id: '8.5x11-left',
-    name: '8.5x11" - 1 Shipping Label (Left Side)',
-    description: 'One label on the left side of page',
+    name: '8.5x11" - 1 Shipping Label per Page - Left Side',
+    description: 'One 4x6" label on the left side of a letter-sized page',
     icon: '📄'
   },
   {
     id: '8.5x11-two',
     name: '8.5x11" - 2 Shipping Labels per Page',
-    description: 'Two labels on one page',
+    description: 'Two labels on one page vertically',
     icon: '📋'
   }
+];
+
+const DOWNLOAD_FORMATS = [
+  { id: 'pdf', name: 'PDF', description: 'Professional document format' },
+  { id: 'png', name: 'PNG', description: 'High-quality image format' },
+  { id: 'zpl', name: 'ZPL', description: 'Zebra Programming Language' }
 ];
 
 const LabelSuccessPage: React.FC = () => {
@@ -49,10 +55,12 @@ const LabelSuccessPage: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
+  const [selectedDownloadFormat, setSelectedDownloadFormat] = useState<string>('pdf');
   const [trackingSearch, setTrackingSearch] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('Your Shipping Label');
+  const [emailFormat, setEmailFormat] = useState<string>('pdf');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -86,41 +94,32 @@ const LabelSuccessPage: React.FC = () => {
     }
   };
 
-  const handleDownloadLabel = async (format: string = selectedFormat) => {
-    if (!shipmentId) {
-      toast.error("Shipment ID is not available");
+  const handleDownloadLabel = async (format?: string) => {
+    if (!labelUrl) {
+      toast.error("Label URL is not available");
       return;
     }
 
     setIsDownloading(true);
     
     try {
-      console.log(`Downloading label in ${format} format`);
+      const downloadFormat = format || selectedDownloadFormat;
+      console.log(`Downloading label in ${downloadFormat} format`);
       
-      // Call the generate-label-format function
-      const { data, error } = await supabase.functions.invoke('generate-label-format', {
-        body: {},
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (error) {
-        console.error('Error generating label:', error);
-        throw new Error(`Error generating label: ${error.message}`);
+      // For PDF format, use the original label URL if it's a PDF
+      if (downloadFormat === 'pdf' && labelUrl.includes('.pdf')) {
+        const link = document.createElement('a');
+        link.href = labelUrl;
+        link.download = `shipping-label-${trackingCode || shipmentId || Date.now()}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success(`Downloaded ${downloadFormat.toUpperCase()} format label`);
+      } else {
+        // For other formats, we would need backend support
+        toast.info(`${downloadFormat.toUpperCase()} format download will be available soon`);
       }
-
-      // Create download URL and trigger download
-      const url = `${SUPABASE_URL}/functions/v1/generate-label-format?format=${format}&shipmentId=${shipmentId}`;
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `shipping-label-${format}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success(`Downloaded ${format} format label`);
       
     } catch (error) {
       console.error('Error downloading label:', error);
@@ -141,7 +140,7 @@ const LabelSuccessPage: React.FC = () => {
         body: {
           trackingCode,
           subject: emailSubject,
-          format: selectedFormat
+          format: emailFormat
         }
       });
 
@@ -159,6 +158,11 @@ const LabelSuccessPage: React.FC = () => {
 
   const getPreviewUrl = (format: string) => {
     return `${SUPABASE_URL}/functions/v1/generate-label-preview?format=${format}`;
+  };
+
+  const handleFormatChange = (format: string) => {
+    setSelectedFormat(format);
+    console.log(`Format changed to: ${format}`);
   };
 
   return (
@@ -198,7 +202,7 @@ const LabelSuccessPage: React.FC = () => {
             </Button>
             
             <Button 
-              onClick={() => handleDownloadLabel('4x6')}
+              onClick={() => handleDownloadLabel('pdf')}
               variant="outline"
               className="border-green-300 hover:bg-green-50 h-14 text-lg font-semibold"
               disabled={isDownloading}
@@ -276,80 +280,88 @@ const LabelSuccessPage: React.FC = () => {
 
         {/* Enhanced Label Preview Modal */}
         <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-          <DialogContent className="bg-white max-w-7xl max-h-[95vh] overflow-hidden p-0">
-            <div className="flex h-[90vh]">
-              {/* Left Sidebar - Format Options */}
-              <div className="w-80 bg-gray-50 border-r overflow-y-auto">
-                <div className="p-6 border-b bg-white">
-                  <DialogTitle className="text-xl font-semibold">Label Formats</DialogTitle>
-                  <p className="text-sm text-gray-600 mt-1">Choose your preferred format</p>
-                </div>
-                
-                <div className="p-4 space-y-2">
-                  {LABEL_FORMATS.map((format) => (
-                    <div
-                      key={format.id}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                        selectedFormat === format.id
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 bg-white hover:border-blue-300'
-                      }`}
-                      onClick={() => setSelectedFormat(format.id)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <span className="text-2xl">{format.icon}</span>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm text-gray-900">{format.name}</h4>
-                          <p className="text-xs text-gray-600 mt-1">{format.description}</p>
-                        </div>
-                      </div>
+          <DialogContent className="bg-white max-w-6xl max-h-[95vh] overflow-hidden p-0">
+            <div className="flex flex-col h-[90vh]">
+              {/* Header with Format Dropdown */}
+              <div className="p-6 border-b bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <DialogTitle className="text-xl font-semibold mb-4">Label Preview & Download</DialogTitle>
+                    <div className="flex items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700">Format:</label>
+                      <select
+                        value={selectedFormat}
+                        onChange={(e) => handleFormatChange(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        {LABEL_FORMATS.map((format) => (
+                          <option key={format.id} value={format.id}>
+                            {format.name}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <label className="text-sm font-medium text-gray-700 ml-6">Download Format:</label>
+                      <select
+                        value={selectedDownloadFormat}
+                        onChange={(e) => setSelectedDownloadFormat(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        {DOWNLOAD_FORMATS.map((format) => (
+                          <option key={format.id} value={format.id}>
+                            {format.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsPreviewModalOpen(false)}
+                    className="rounded-sm opacity-70 transition-opacity hover:opacity-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
-              {/* Right Side - Preview Area */}
-              <div className="flex-1 flex flex-col">
-                <div className="p-6 border-b bg-white">
-                  <h3 className="text-lg font-semibold">Preview</h3>
-                  <p className="text-sm text-gray-600">
-                    {LABEL_FORMATS.find(f => f.id === selectedFormat)?.name}
-                  </p>
-                </div>
-
-                {/* Preview Container */}
-                <div className="flex-1 p-6 bg-gray-100 flex items-center justify-center">
-                  <div className="bg-white rounded-lg shadow-lg max-w-full max-h-full overflow-auto">
-                    <img
-                      src={getPreviewUrl(selectedFormat)}
-                      alt={`Preview of ${selectedFormat} format`}
-                      className="max-w-full h-auto"
-                      style={{ maxHeight: '70vh' }}
+              {/* Preview Container */}
+              <div className="flex-1 p-6 bg-gray-100 flex items-center justify-center overflow-auto">
+                <div className="bg-white rounded-lg shadow-lg max-w-full max-h-full overflow-auto">
+                  {labelUrl ? (
+                    <iframe
+                      src={labelUrl}
+                      className="w-full h-[600px] border-0"
+                      title="Label Preview"
                     />
-                  </div>
+                  ) : (
+                    <div className="w-96 h-96 flex items-center justify-center text-gray-500 border border-gray-300">
+                      Preview not available
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                {/* Bottom Action Bar */}
-                <div className="p-6 bg-white border-t">
-                  <div className="flex justify-between items-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsPreviewModalOpen(false)}
-                      className="px-6"
-                    >
-                      Close
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleDownloadLabel(selectedFormat)}
-                      disabled={isDownloading}
-                      className="bg-green-600 hover:bg-green-700 px-8"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      {isDownloading ? 'Downloading...' : 'Download Label'}
-                    </Button>
-                  </div>
-                </div>
+              {/* Bottom Action Bar */}
+              <div className="p-6 bg-white border-t flex justify-between items-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="px-6"
+                >
+                  Close
+                </Button>
+                
+                <Button
+                  onClick={() => handleDownloadLabel()}
+                  disabled={isDownloading}
+                  className="bg-green-600 hover:bg-green-700 px-8"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isDownloading ? 'Downloading...' : `Download ${selectedDownloadFormat.toUpperCase()}`}
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -368,11 +380,11 @@ const LabelSuccessPage: React.FC = () => {
                   Format
                 </label>
                 <select
-                  value={selectedFormat}
-                  onChange={(e) => setSelectedFormat(e.target.value)}
+                  value={emailFormat}
+                  onChange={(e) => setEmailFormat(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {LABEL_FORMATS.map((format) => (
+                  {DOWNLOAD_FORMATS.map((format) => (
                     <option key={format.id} value={format.id}>
                       {format.name}
                     </option>
