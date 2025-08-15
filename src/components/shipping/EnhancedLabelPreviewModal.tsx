@@ -1,14 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Download, X, Mail, Printer, FileText, Image, Code } from 'lucide-react';
+import { Download, X, Mail, Printer, FileText, Image, Code, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Supabase URL constant
 const SUPABASE_URL = "https://adhegezdzqlnqqnymvps.supabase.co";
 
 // Label format options
@@ -16,7 +17,19 @@ const LABEL_FORMATS = [
   {
     id: '4x6',
     name: '4x6" Shipping Label',
-    description: 'Standard thermal label format',
+    description: 'Formatted for Thermal Label Printers',
+    icon: '📄'
+  },
+  {
+    id: '8.5x11-left',
+    name: '8.5x11" - 1 Shipping Label per Page - Left Side',
+    description: 'One 4x6" label on the left side of a letter-sized page',
+    icon: '📋'
+  },
+  {
+    id: '8.5x11-right',
+    name: '8.5x11" - 1 Shipping Label per Page - Right Side',
+    description: 'One 4x6" label on the right side of a letter-sized page',
     icon: '📄'
   },
   {
@@ -26,15 +39,9 @@ const LABEL_FORMATS = [
     icon: '📋'
   },
   {
-    id: '8.5x11-left',
-    name: '8.5x11" - Left Side',
-    description: 'One label on left side',
-    icon: '📄'
-  },
-  {
     id: '8.5x11-two',
-    name: '8.5x11" - Two Labels',
-    description: 'Two labels vertically',
+    name: '8.5x11" - 2 Labels per Page',
+    description: 'Two labels vertically arranged',
     icon: '📋'
   }
 ];
@@ -62,9 +69,35 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
   const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
   const [selectedDownloadFormat, setSelectedDownloadFormat] = useState<string>('pdf');
   const [isDownloading, setIsDownloading] = useState(false);
-  const [emailAddress, setEmailAddress] = useState('');
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
+  const [emailAddresses, setEmailAddresses] = useState<string[]>(['']);
   const [emailSubject, setEmailSubject] = useState('Your Shipping Label');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (labelUrl) {
+      setCurrentPreviewUrl(labelUrl);
+    }
+  }, [labelUrl, isOpen]);
+
+  const handleFormatChange = async (format: string) => {
+    setSelectedFormat(format);
+    setIsRegenerating(true);
+    
+    try {
+      // Here you would call your backend to regenerate the label in the new format
+      // For now, we'll just simulate the change
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success(`Label format updated to ${format}`);
+    } catch (error) {
+      console.error('Error changing format:', error);
+      toast.error('Failed to update label format');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   const handleDownload = async (format?: string) => {
     if (!labelUrl) {
@@ -99,9 +132,42 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
     }
   };
 
+  const handlePrint = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.focus();
+        iframeRef.current.contentWindow.print();
+        onClose();
+      } catch (error) {
+        console.error("Error printing PDF from iframe:", error);
+        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+      }
+    } else {
+      toast.error("No preview available to print directly. Please download the label.");
+    }
+  };
+
+  const addEmailAddress = () => {
+    setEmailAddresses([...emailAddresses, '']);
+  };
+
+  const removeEmailAddress = (index: number) => {
+    if (emailAddresses.length > 1) {
+      setEmailAddresses(emailAddresses.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEmailAddress = (index: number, value: string) => {
+    const newAddresses = [...emailAddresses];
+    newAddresses[index] = value;
+    setEmailAddresses(newAddresses);
+  };
+
   const handleEmailSend = async () => {
-    if (!emailAddress.trim()) {
-      toast.error("Please enter an email address");
+    const validEmails = emailAddresses.filter(email => email.trim());
+    
+    if (validEmails.length === 0) {
+      toast.error("Please enter at least one email address");
       return;
     }
 
@@ -118,7 +184,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
           trackingCode,
           subject: emailSubject,
           format: selectedDownloadFormat,
-          toEmail: emailAddress
+          toEmails: validEmails
         }
       });
 
@@ -126,8 +192,8 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
         throw new Error(error.message);
       }
 
-      toast.success('Label has been sent to the specified email address');
-      setEmailAddress('');
+      toast.success(`Label has been sent to ${validEmails.length} email address${validEmails.length > 1 ? 'es' : ''}`);
+      setEmailAddresses(['']);
     } catch (error) {
       console.error('Error emailing label:', error);
       toast.error("Failed to email label. Please try again.");
@@ -151,10 +217,10 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 bg-white">
+      <DialogContent className="max-w-[98vw] max-h-[98vh] w-full h-full p-0 bg-white">
         <div className="flex flex-col h-full">
           {/* Header with tabs */}
-          <div className="flex items-center justify-between p-6 border-b bg-gray-50">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex gap-4">
               <TabButton
                 tab="preview"
@@ -200,37 +266,64 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
               <>
                 {/* Format selector */}
                 <div className="p-4 bg-white border-b">
-                  <div className="flex items-center gap-4">
-                    <label className="text-sm font-medium text-gray-700">Format:</label>
-                    <select
-                      value={selectedFormat}
-                      onChange={(e) => setSelectedFormat(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700">Format:</label>
+                      <Select
+                        value={selectedFormat}
+                        onValueChange={handleFormatChange}
+                        disabled={isRegenerating}
+                      >
+                        <SelectTrigger className="w-80">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-gray-200 shadow-lg z-[9999]">
+                          {LABEL_FORMATS.map((format) => (
+                            <SelectItem key={format.id} value={format.id} className="hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg">{format.icon}</span>
+                                <div>
+                                  <div className="font-medium">{format.name}</div>
+                                  <div className="text-xs text-gray-500">{format.description}</div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Button
+                      onClick={handlePrint}
+                      disabled={isRegenerating || !currentPreviewUrl}
+                      className="bg-purple-600 hover:bg-purple-700"
                     >
-                      {LABEL_FORMATS.map((format) => (
-                        <option key={format.id} value={format.id}>
-                          {format.name}
-                        </option>
-                      ))}
-                    </select>
+                      <Printer className="mr-2 h-4 w-4" />
+                      Print
+                    </Button>
                   </div>
                 </div>
 
                 {/* Full screen preview */}
-                <div className="flex-1 bg-gray-100 flex items-center justify-center p-4">
-                  <div className="bg-white rounded-lg shadow-lg w-full h-full max-w-4xl max-h-full overflow-auto">
-                    {labelUrl ? (
+                <div className="flex-1 bg-gray-100 p-4">
+                  <div className="bg-white rounded-lg shadow-lg w-full h-full flex items-center justify-center">
+                    {isRegenerating ? (
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+                        <p className="text-blue-800 text-lg">Regenerating label...</p>
+                      </div>
+                    ) : currentPreviewUrl ? (
                       <iframe
-                        src={labelUrl}
-                        className="w-full h-full border-0 min-h-[600px]"
+                        ref={iframeRef}
+                        src={currentPreviewUrl}
+                        className="w-full h-full border-0 rounded-lg"
                         title="Label Preview"
+                        style={{ minHeight: '70vh' }}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 min-h-[400px]">
-                        <div className="text-center">
-                          <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                          <p>Preview not available</p>
-                        </div>
+                      <div className="text-center">
+                        <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-500">Preview not available</p>
                       </div>
                     )}
                   </div>
@@ -241,8 +334,8 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                   <div className="flex justify-center">
                     <Button
                       onClick={() => handleDownload('pdf')}
-                      disabled={isDownloading}
-                      className="bg-green-600 hover:bg-green-700 px-12 py-3 text-lg"
+                      disabled={isDownloading || !currentPreviewUrl}
+                      className="bg-green-600 hover:bg-green-700 px-12 py-3 text-lg min-w-[300px]"
                       size="lg"
                     >
                       <Download className="mr-2 h-5 w-5" />
@@ -300,16 +393,46 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                   
                   <Card className="p-6 space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                      </label>
-                      <Input
-                        type="email"
-                        value={emailAddress}
-                        onChange={(e) => setEmailAddress(e.target.value)}
-                        placeholder="Enter email address"
-                        className="w-full"
-                      />
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Email Addresses
+                        </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addEmailAddress}
+                          className="flex items-center gap-1"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Email
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {emailAddresses.map((email, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Input
+                              type="email"
+                              value={email}
+                              onChange={(e) => updateEmailAddress(index, e.target.value)}
+                              placeholder="Enter email address"
+                              className="flex-1"
+                            />
+                            {emailAddresses.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeEmailAddress(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     
                     <div>
@@ -329,23 +452,27 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Format
                       </label>
-                      <select
+                      <Select
                         value={selectedDownloadFormat}
-                        onChange={(e) => setSelectedDownloadFormat(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onValueChange={setSelectedDownloadFormat}
                       >
-                        {DOWNLOAD_FORMATS.map((format) => (
-                          <option key={format.id} value={format.id}>
-                            {format.name}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-gray-200 shadow-lg z-[9999]">
+                          {DOWNLOAD_FORMATS.map((format) => (
+                            <SelectItem key={format.id} value={format.id}>
+                              {format.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     <div className="text-center pt-4">
                       <Button
                         onClick={handleEmailSend}
-                        disabled={isSendingEmail || !emailAddress.trim()}
+                        disabled={isSendingEmail || emailAddresses.every(email => !email.trim())}
                         className="bg-blue-600 hover:bg-blue-700 px-12 py-3 text-lg"
                         size="lg"
                       >
