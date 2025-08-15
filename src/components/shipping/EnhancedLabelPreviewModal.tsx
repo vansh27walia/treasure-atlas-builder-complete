@@ -1,46 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Download, X, Mail, Printer, FileText, FileImage, Code, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail, Plus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConsolidatedLabelUrls } from '@/types/shipping';
+import { PDFDocument } from 'pdf-lib';
+import { supabase } from '@/integrations/supabase/client';
 
-// Label format options
-const LABEL_FORMATS = [
-  {
-    id: '4x6',
-    name: '4x6" Shipping Label',
-    description: 'Standard thermal label format',
-    icon: '📄'
-  },
-  {
-    id: '8.5x11-top',
-    name: '8.5x11" - Top Position',
-    description: 'Label positioned at top of page',
-    icon: '📋'
-  },
-  {
-    id: '8.5x11-center',
-    name: '8.5x11" - Center Position',
-    description: 'Label centered on page',
-    icon: '📄'
-  },
-  {
-    id: '8.5x11-two',
-    name: '8.5x11" - Two Labels Side by Side',
-    description: 'Two labels horizontally arranged',
-    icon: '📋'
-  }
-];
-
-const DOWNLOAD_FORMATS = [
-  { id: 'pdf', name: 'PDF', icon: FileText },
-  { id: 'png', name: 'PNG', icon: FileImage }, // Corrected icon for clarity
-  { id: 'zpl', name: 'ZPL', icon: Code }
+const labelFormats = [
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-top', label: '8.5x11" - Top Position', description: 'Label positioned at top of page' },
+  { value: '8.5x11-center', label: '8.5x11" - Center Position', description: 'Label centered on page' },
+  { value: '8.5x11-2up', label: '8.5x11" - Two Labels Side by Side', description: 'Two labels horizontally arranged' }
 ];
 
 interface EnhancedLabelPreviewModalProps {
@@ -48,49 +22,179 @@ interface EnhancedLabelPreviewModalProps {
   onClose: () => void;
   labelUrl: string | null;
   trackingCode: string | null;
+  shipmentId?: string;
+  labelUrls?: {
+    png?: string;
+    pdf?: string;
+    zpl?: string;
+  };
+  batchResult?: {
+    batchId: string;
+    consolidatedLabelUrls: ConsolidatedLabelUrls;
+    scanFormUrl: string | null;
+  };
+  isBatchPreview?: boolean;
 }
 
 const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
   isOpen,
   onClose,
   labelUrl,
-  trackingCode
+  trackingCode,
+  shipmentId,
+  labelUrls,
+  batchResult,
+  isBatchPreview = false
 }) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const setIsOpen = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  };
+
+  const [selectedFormat, setSelectedFormat] = useState('4x6');
   const [activeTab, setActiveTab] = useState<'preview' | 'download' | 'email'>('preview');
-  const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
-  const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [emailAddresses, setEmailAddresses] = useState<string[]>(['']);
   const [emailSubject, setEmailSubject] = useState('Your Shipping Label');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
+  const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
+  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
+
   useEffect(() => {
-    if (labelUrl) {
-      setCurrentPreviewUrl(labelUrl);
+    if (isBatchPreview) {
+      if (batchResult?.consolidatedLabelUrls?.pdf) {
+        setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
+        setPreviewType('pdf');
+        setSelectedFormat('8.5x11-2up');
+      } else {
+        setCurrentPreviewUrl('');
+        setPreviewType('placeholder');
+      }
+    } else {
+      if (labelUrls?.pdf) {
+        setCurrentPreviewUrl(labelUrls.pdf);
+        setPreviewType('pdf');
+      } else if (labelUrl && labelUrl.endsWith('.png')) {
+        setCurrentPreviewUrl(labelUrl);
+        setPreviewType('image');
+      } else if (labelUrl) {
+        setCurrentPreviewUrl(labelUrl);
+        setPreviewType('pdf');
+      } else {
+        setCurrentPreviewUrl('');
+        setPreviewType('placeholder');
+      }
+      setSelectedFormat('4x6');
     }
-  }, [labelUrl, isOpen]);
+  }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]);
+
+  const generateLabelPDF = async (fileBytes: ArrayBuffer, layoutOption: string): Promise<Uint8Array> => {
+    try {
+      const originalPdf = await PDFDocument.load(fileBytes);
+      const outputPdf = await PDFDocument.create();
+
+      const copiedPages = await outputPdf.copyPages(originalPdf, [0]);
+      const embeddedPage = copiedPages[0];
+
+      const letterWidth = 612;
+      const letterHeight = 792;
+      const labelWidth = 288;
+      const labelHeight = 432;
+
+      if (layoutOption === '4x6') {
+        const page = outputPdf.addPage([labelWidth, labelHeight]);
+        page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-2up') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight });
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 0, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-top') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-center') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 180, width: labelWidth, height: labelHeight });
+      }
+
+      return await outputPdf.save();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw error;
+    }
+  };
 
   const handleFormatChange = async (format: string) => {
     setSelectedFormat(format);
     setIsRegeneratingLabel(true);
 
     try {
-      console.log(`Changing format to: ${format}`);
-      // This is a placeholder as the PDF-Lib functionality from the first code block isn't present here.
-      // You would need to implement or call a function to regenerate the label in the new format.
-      toast.info(`Attempting to regenerate label in ${format} format...`);
-      // Simulating a network request
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      // In a real scenario, you'd update currentPreviewUrl with the new URL
-      // For now, it stays the same
-      toast.success('Label format change simulated successfully.');
+      if (currentPreviewUrl) {
+        const response = await fetch(currentPreviewUrl);
+        const fileBytes = await response.arrayBuffer();
+
+        const pdfBytes = await generateLabelPDF(fileBytes, format);
+
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const newUrl = URL.createObjectURL(blob);
+        setCurrentPreviewUrl(newUrl);
+
+        toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label || format}`);
+      }
     } catch (error) {
       console.error("Error changing label format:", error);
       toast.error("Failed to update label format.");
     } finally {
       setIsRegeneratingLabel(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!currentPreviewUrl) {
+      toast.error("No label available for download");
+      return;
+    }
+
+    try {
+      const response = await fetch(currentPreviewUrl);
+      const fileBytes = await response.arrayBuffer();
+
+      let pdfBytes: Uint8Array;
+      if (selectedFormat !== '4x6') {
+        pdfBytes = await generateLabelPDF(fileBytes, selectedFormat);
+      } else {
+        pdfBytes = new Uint8Array(fileBytes);
+      }
+
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success('Label downloaded successfully');
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast.error("Failed to download file.");
+    }
+  };
+
+  const handlePrint = () => {
+    if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.focus();
+        iframeRef.current.contentWindow.print();
+      } catch (error) {
+        console.error("Error printing PDF from iframe:", error);
+        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+      }
+    } else {
+      toast.error("No PDF preview available to print directly. Please download the label.");
     }
   };
 
@@ -133,7 +237,6 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
         toEmails: validEmails
       });
 
-      // Invoke the Supabase Edge Function to send the email
       const { data, error } = await supabase.functions.invoke('email-labels', {
         body: {
           trackingCode,
@@ -149,7 +252,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
       }
 
       toast.success(`Label has been sent to ${validEmails.length} email address${validEmails.length > 1 ? 'es' : ''}`);
-      setEmailAddresses(['']); // Reset email addresses
+      setEmailAddresses(['']);
     } catch (error) {
       console.error('Error emailing label:', error);
       toast.error("Failed to email label. Please try again.");
@@ -158,91 +261,163 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
     }
   };
 
-  // Helper function to download a file from a URL
-  const downloadFile = async (url: string, fileName: string) => {
+  const downloadFile = (url: string, fileName: string) => {
     try {
-      setIsDownloading(true);
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Network response was not ok');
-      const blob = await response.blob();
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
+      link.href = url;
       link.download = fileName;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success('Download started successfully.');
+
+      console.log(`Successfully initiated download for ${fileName}`);
+      toast.success(`Downloading ${fileName}`);
     } catch (error) {
       console.error("Error downloading file:", error);
       toast.error("Failed to download file.");
-    } finally {
-      setIsDownloading(false);
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl') => {
-    if (!currentPreviewUrl) {
-      toast.error("No label available for download");
+  const handleDownloadIndividualFormat = (format: 'png' | 'pdf' | 'zpl') => {
+    console.log('Download individual format attempt:', format, labelUrls);
+    let urlToDownload = labelUrls?.[format];
+
+    if (format === 'pdf' && !urlToDownload && labelUrl && labelUrl.endsWith('.pdf')) {
+      urlToDownload = labelUrl;
+    } else if (format === 'png' && !urlToDownload && labelUrl && labelUrl.endsWith('.png')) {
+      urlToDownload = labelUrl;
+    } else if (format === 'png' && !urlToDownload && labelUrl) {
+      urlToDownload = labelUrl;
+    } else if (format === 'zpl' && !urlToDownload && labelUrls?.pdf) {
+      urlToDownload = labelUrls.pdf;
+    }
+
+    if (!urlToDownload) {
+      console.error(`No URL available for individual ${format} format`);
+      toast.error(`${format.toUpperCase()} format not available for this label.`);
+      return;
+    }
+    downloadFile(urlToDownload, `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`);
+  };
+
+  const handleDownloadBatchFormat = (formatType: 'pdf' | 'zpl' | 'epl' | 'pdfZip' | 'zplZip' | 'eplZip') => {
+    if (!batchResult?.consolidatedLabelUrls) {
+      toast.error('Batch labels not available.');
+      return;
+    }
+    const urls = batchResult.consolidatedLabelUrls;
+    let url: string | undefined;
+    let downloadName: string;
+    let formatName: string;
+
+    switch (formatType) {
+      case 'pdf':
+        url = urls.pdf;
+        formatName = 'Batch PDF';
+        downloadName = `batch_labels_${batchResult.batchId}.pdf`;
+        break;
+      case 'zpl':
+        url = urls.zpl;
+        formatName = 'Batch ZPL';
+        downloadName = `batch_labels_${batchResult.batchId}.zpl`;
+        break;
+      case 'epl':
+        url = urls.epl;
+        formatName = 'Batch EPL';
+        downloadName = `batch_labels_${batchResult.batchId}.epl`;
+        break;
+      case 'pdfZip':
+        url = urls.pdfZip;
+        formatName = 'Batch PDF (ZIP)';
+        downloadName = `batch_labels_${batchResult.batchId}_pdfs.zip`;
+        break;
+      case 'zplZip':
+        url = urls.zplZip;
+        formatName = 'Batch ZPL (ZIP)';
+        downloadName = `batch_labels_${batchResult.batchId}_zpls.zip`;
+        break;
+      case 'eplZip':
+        url = urls.eplZip;
+        formatName = 'Batch EPL (ZIP)';
+        downloadName = `batch_labels_${batchResult.batchId}_epls.zip`;
+        break;
+      default:
+        toast.error(`Unknown batch format type: ${formatType}`);
+        return;
+    }
+
+    if (!url) {
+      toast.error(`${formatName} not available.`);
       return;
     }
 
-    const fileName = `shipping_label_${trackingCode || Date.now()}.${format}`;
-    downloadFile(currentPreviewUrl, fileName);
+    downloadFile(url, downloadName);
   };
 
-  const handlePrint = () => {
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      try {
-        iframeRef.current.contentWindow.focus();
-        iframeRef.current.contentWindow.print();
-      } catch (error) {
-        console.error("Error printing PDF from iframe:", error);
-        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
-      }
-    } else {
-      toast.error("No PDF preview available to print directly. Please download the label.");
-    }
-  };
+  const hasIndividualDownloadFormats = !isBatchPreview && labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl || labelUrl);
+  const isPdfDownloadAvailable = isBatchPreview
+    ? !!batchResult?.consolidatedLabelUrls?.pdf
+    : (!!labelUrls?.pdf || (labelUrl && labelUrl.endsWith('.pdf')));
+
+  const dialogTitleText = isBatchPreview
+    ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
+    : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
+
+  const TabButton = ({ tab, icon: Icon, children, isActive, onClick }: any) => (
+    <Button
+      variant={isActive ? "default" : "outline"}
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 ${
+        isActive ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {children}
+    </Button>
+  );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0 bg-white m-4">
         <div className="flex flex-col h-full">
           {/* Header with tabs */}
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex gap-2">
-              <Button
-                variant={activeTab === 'preview' ? "default" : "outline"}
+              <TabButton
+                tab="preview"
+                icon={Printer}
+                isActive={activeTab === 'preview'}
                 onClick={() => setActiveTab('preview')}
-                className="flex items-center gap-2 px-4 py-2"
               >
-                <Printer className="h-4 w-4" />
                 Print Preview
-              </Button>
+              </TabButton>
 
-              <Button
-                variant={activeTab === 'download' ? "default" : "outline"}
+              <TabButton
+                tab="download"
+                icon={Download}
+                isActive={activeTab === 'download'}
                 onClick={() => setActiveTab('download')}
-                className="flex items-center gap-2 px-4 py-2"
               >
-                <Download className="h-4 w-4" />
                 Download
-              </Button>
+              </TabButton>
 
-              <Button
-                variant={activeTab === 'email' ? "default" : "outline"}
+              <TabButton
+                tab="email"
+                icon={Mail}
+                isActive={activeTab === 'email'}
                 onClick={() => setActiveTab('email')}
-                className="flex items-center gap-2 px-4 py-2"
               >
-                <Mail className="h-4 w-4" />
                 Email
-              </Button>
+              </TabButton>
             </div>
 
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={() => setIsOpen(false)}
               className="rounded-sm opacity-70 hover:opacity-100"
             >
               <X className="h-5 w-5" />
@@ -266,11 +441,11 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-white border border-gray-200 shadow-lg z-[9999] w-full">
-                          {LABEL_FORMATS.map((format) => (
-                            <SelectItem key={format.id} value={format.id} className="hover:bg-gray-50 p-4">
+                          {labelFormats.map((format) => (
+                            <SelectItem key={format.value} value={format.value} className="hover:bg-gray-50 p-4">
                               <div className="flex items-center gap-3 w-full">
                                 <div className="flex-1">
-                                  <div className="font-medium text-base">{format.name}</div>
+                                  <div className="font-medium text-base">{format.label}</div>
                                   <div className="text-sm text-gray-500">{format.description}</div>
                                 </div>
                               </div>
@@ -309,7 +484,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                 <div className="p-4 bg-white border-t">
                   <div className="flex justify-center">
                     <Button
-                      onClick={() => handleDownload('pdf')}
+                      onClick={handleDownload}
                       disabled={!currentPreviewUrl}
                       className="bg-green-600 hover:bg-green-700 px-8 py-3 text-lg min-w-[250px]"
                     >
@@ -327,25 +502,53 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                   <h2 className="text-xl font-semibold mb-6">Download Options</h2>
 
                   <div className="grid grid-cols-1 gap-4">
-                    {DOWNLOAD_FORMATS.map((format) => (
-                      <div key={format.id} className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors bg-white">
-                        <format.icon className="h-12 w-12 mx-auto mb-3 text-blue-600" />
-                        <h4 className="font-medium mb-2">{format.name} Format</h4>
-                        <p className="text-xs text-gray-500 mb-4">
-                          {format.id === 'pdf' ? 'Professional document format. Ideal for printing and archiving shipment records.' :
-                           format.id === 'png' ? 'High-quality image format. Perfect for most standard printers and email attachments.' :
-                           'Zebra Programming Language. Optimized for thermal label printers and industrial use.'}
-                        </p>
-                        <Button
-                          onClick={() => handleDownload(format.id as 'pdf' | 'png' | 'zpl')}
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                          disabled={!currentPreviewUrl || isDownloading}
-                        >
-                          {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                          Download {format.name}
-                        </Button>
-                      </div>
-                    ))}
+                    <div className="border rounded-lg p-4 text-center hover:border-green-300 transition-colors bg-white">
+                      <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
+                      <h4 className="font-medium mb-2">PNG Format</h4>
+                      <p className="text-xs text-gray-500 mb-4">
+                        High-quality image format. Perfect for most standard printers and email attachments.
+                      </p>
+                      <Button
+                        onClick={() => handleDownloadIndividualFormat('png')}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        disabled={!(labelUrls?.png || labelUrl)}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download PNG
+                      </Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors bg-white">
+                      <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+                      <h4 className="font-medium mb-2">PDF Format</h4>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Professional document format. Ideal for printing and archiving shipment records.
+                      </p>
+                      <Button
+                        onClick={() => handleDownloadIndividualFormat('pdf')}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        disabled={!(labelUrls?.pdf || labelUrl)}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download PDF
+                      </Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 text-center hover:border-purple-300 transition-colors bg-white">
+                      <FileText className="h-12 w-12 mx-auto mb-3 text-purple-600" />
+                      <h4 className="font-medium mb-2">ZPL Format</h4>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Zebra Programming Language. Optimized for thermal label printers and industrial use.
+                      </p>
+                      <Button
+                        onClick={() => handleDownloadIndividualFormat('zpl')}
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                        disabled={!labelUrls?.zpl}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download ZPL
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
