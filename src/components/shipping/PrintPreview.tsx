@@ -1,17 +1,20 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Printer, Download, X, FileText, Eye, Loader2, Mail, Plus, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
+import { PDFDocument } from 'pdf-lib';
+import { supabase } from '@/integrations/supabase/client';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
-  { value: '8.5x11-left', label: '8.5x11" - 1 Label per Page - Left Side', description: 'One 4x6" label on the left side of a letter-sized page' },
-  { value: '8.5x11-right', label: '8.5x11" - 1 Label per Page - Right Side', description: 'One 4x6" label on the right side of a letter-sized page' },
-  { value: '8.5x11-2up', label: '8.5x12" - 2 Labels per Page', description: 'Two 4x6" labels per letter-sized page' }
+  { value: '8.5x11-top', label: '8.5x11" - Top Position', description: 'Label positioned at top of page' },
+  { value: '8.5x11-center', label: '8.5x11" - Center Position', description: 'Label centered on page' },
+  { value: '8.5x11-2up', label: '8.5x11" - Two Labels Side by Side', description: 'Two labels horizontally arranged' }
 ];
 
 interface PrintPreviewProps {
@@ -69,6 +72,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const [selectedFormat, setSelectedFormat] = useState('4x6');
+  const [activeTab, setActiveTab] = useState<'preview' | 'email'>('preview');
+  const [emailAddresses, setEmailAddresses] = useState<string[]>(['']);
+  const [emailSubject, setEmailSubject] = useState('Your Shipping Label');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
@@ -92,6 +99,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       } else if (labelUrl && labelUrl.endsWith('.png')) {
         setCurrentPreviewUrl(labelUrl);
         setPreviewType('image');
+      } else if (labelUrl) {
+        setCurrentPreviewUrl(labelUrl);
+        setPreviewType('pdf');
       } else {
         setCurrentPreviewUrl('');
         setPreviewType('placeholder');
@@ -100,18 +110,38 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]);
 
-  const handlePrint = () => {
-    if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
-      try {
-        iframeRef.current.contentWindow.focus();
-        iframeRef.current.contentWindow.print();
-        setIsOpen(false);
-      } catch (error) {
-        console.error("Error printing PDF from iframe:", error);
-        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+  const generateLabelPDF = async (fileBytes: ArrayBuffer, layoutOption: string): Promise<Uint8Array> => {
+    try {
+      const originalPdf = await PDFDocument.load(fileBytes);
+      const outputPdf = await PDFDocument.create();
+
+      const copiedPages = await outputPdf.copyPages(originalPdf, [0]);
+      const embeddedPage = copiedPages[0];
+
+      const letterWidth = 612;
+      const letterHeight = 792;
+      const labelWidth = 288;
+      const labelHeight = 432;
+
+      if (layoutOption === '4x6') {
+        const page = outputPdf.addPage([labelWidth, labelHeight]);
+        page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-2up') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight });
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 0, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-top') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-center') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 180, width: labelWidth, height: labelHeight });
       }
-    } else {
-      toast.error("No PDF preview available to print directly. Please download the label.");
+
+      return await outputPdf.save();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw error;
     }
   };
 
@@ -120,14 +150,17 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setIsRegeneratingLabel(true);
 
     try {
-      if (isBatchPreview && onBatchFormatChange) {
-        await onBatchFormatChange(format);
-        toast.success(`Batch label format updated by server to ${format}.`);
-      } else if (!isBatchPreview && onFormatChange) {
-        await onFormatChange(format);
-        toast.success(`Label format updated by server to ${format}.`);
-      } else {
-        toast.info(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. (Server-side update not configured)`);
+      if (currentPreviewUrl) {
+        const response = await fetch(currentPreviewUrl);
+        const fileBytes = await response.arrayBuffer();
+        
+        const pdfBytes = await generateLabelPDF(fileBytes, format);
+        
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const newUrl = URL.createObjectURL(blob);
+        setCurrentPreviewUrl(newUrl);
+        
+        toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label || format}`);
       }
     } catch (error) {
       console.error("Error changing label format:", error);
@@ -137,163 +170,146 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const downloadFile = (url: string, fileName: string) => {
-    try {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
+  const handleDownload = async () => {
+    if (!currentPreviewUrl) {
+      toast.error("No label available for download");
+      return;
+    }
 
+    try {
+      const response = await fetch(currentPreviewUrl);
+      const fileBytes = await response.arrayBuffer();
+      
+      let pdfBytes: Uint8Array;
+      if (selectedFormat !== '4x6') {
+        pdfBytes = await generateLabelPDF(fileBytes, selectedFormat);
+      } else {
+        pdfBytes = new Uint8Array(fileBytes);
+      }
+
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      console.log(`Successfully initiated download for ${fileName}`);
-      toast.success(`Downloading ${fileName}`);
+      
+      toast.success('Label downloaded successfully');
     } catch (error) {
       console.error("Error downloading file:", error);
       toast.error("Failed to download file.");
     }
   };
 
-  const handleDownloadIndividualFormat = (format: 'png' | 'pdf' | 'zpl') => {
-    console.log('Download individual format attempt:', format, labelUrls);
-    let urlToDownload = labelUrls?.[format];
-
-    if (format === 'pdf' && !urlToDownload && labelUrl && labelUrl.endsWith('.pdf')) {
-      urlToDownload = labelUrl;
-    } else if (format === 'png' && !urlToDownload && labelUrl && labelUrl.endsWith('.png')) {
-      urlToDownload = labelUrl;
-    }
-
-    if (!urlToDownload) {
-      console.error(`No URL available for individual ${format} format`);
-      toast.error(`${format.toUpperCase()} format not available for this label.`);
-      return;
-    }
-    downloadFile(urlToDownload, `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`);
-  };
-
-  const handleDownloadBatchFormat = (formatType: 'pdf' | 'zpl' | 'epl' | 'pdfZip' | 'zplZip' | 'eplZip') => {
-    if (!batchResult?.consolidatedLabelUrls) {
-      toast.error('Batch labels not available.');
-      return;
-    }
-    const urls = batchResult.consolidatedLabelUrls;
-    let url: string | undefined;
-    let downloadName: string;
-    let formatName: string;
-
-    switch (formatType) {
-      case 'pdf':
-        url = urls.pdf;
-        formatName = 'Batch PDF';
-        downloadName = `batch_labels_${batchResult.batchId}.pdf`;
-        break;
-      case 'zpl':
-        url = urls.zpl;
-        formatName = 'Batch ZPL';
-        downloadName = `batch_labels_${batchResult.batchId}.zpl`;
-        break;
-      case 'epl':
-        url = urls.epl;
-        formatName = 'Batch EPL';
-        downloadName = `batch_labels_${batchResult.batchId}.epl`;
-        break;
-      case 'pdfZip':
-        url = urls.pdfZip;
-        formatName = 'Batch PDF (ZIP)';
-        downloadName = `batch_labels_${batchResult.batchId}_pdfs.zip`;
-        break;
-      case 'zplZip':
-        url = urls.zplZip;
-        formatName = 'Batch ZPL (ZIP)';
-        downloadName = `batch_labels_${batchResult.batchId}_zpls.zip`;
-        break;
-      case 'eplZip':
-        url = urls.eplZip;
-        formatName = 'Batch EPL (ZIP)';
-        downloadName = `batch_labels_${batchResult.batchId}_epls.zip`;
-        break;
-      default:
-        toast.error(`Unknown batch format type: ${formatType}`);
-        return;
-    }
-
-    if (!url) {
-      toast.error(`${formatName} not available.`);
-      return;
-    }
-
-    downloadFile(url, downloadName);
-  };
-
-  const handleDownloadAllBatchLabels = () => {
-    if (!batchResult?.consolidatedLabelUrls) {
-      toast.error('No batch labels available for download.');
-      return;
-    }
-
-    const { pdfZip, zplZip, eplZip, pdf } = batchResult.consolidatedLabelUrls;
-
-    // Prioritize PDF ZIP, then ZPL ZIP, then EPL ZIP, then single PDF
-    if (pdfZip) {
-      downloadFile(pdfZip, `batch_labels_${batchResult.batchId}_all_labels.zip`);
-    } else if (zplZip) {
-      downloadFile(zplZip, `batch_labels_${batchResult.batchId}_all_zpls.zip`);
-    } else if (eplZip) {
-      downloadFile(eplZip, `batch_labels_${batchResult.batchId}_all_epls.zip`);
-    } else if (pdf) {
-      downloadFile(pdf, `batch_labels_${batchResult.batchId}.pdf`);
+  const handlePrint = () => {
+    if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.focus();
+        iframeRef.current.contentWindow.print();
+      } catch (error) {
+        console.error("Error printing PDF from iframe:", error);
+        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+      }
     } else {
-      toast.error('No consolidated or ZIP batch label formats available for download.');
+      toast.error("No PDF preview available to print directly. Please download the label.");
     }
   };
 
-  const handleDownloadManifest = () => {
-    if (!batchResult?.scanFormUrl) {
-      toast.error('Manifest not available');
+  const addEmailAddress = () => {
+    setEmailAddresses([...emailAddresses, '']);
+  };
+
+  const removeEmailAddress = (index: number) => {
+    if (emailAddresses.length > 1) {
+      setEmailAddresses(emailAddresses.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEmailAddress = (index: number, value: string) => {
+    const newAddresses = [...emailAddresses];
+    newAddresses[index] = value;
+    setEmailAddresses(newAddresses);
+  };
+
+  const handleEmailSend = async () => {
+    const validEmails = emailAddresses.filter(email => email.trim());
+    
+    if (validEmails.length === 0) {
+      toast.error("Please enter at least one email address");
       return;
     }
-    downloadFile(batchResult.scanFormUrl, `manifest_${batchResult.batchId}.pdf`);
+
+    if (!trackingCode) {
+      toast.error("Tracking code is not available");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    
+    try {
+      console.log('Sending email with:', {
+        trackingCode,
+        subject: emailSubject,
+        format: 'pdf',
+        toEmails: validEmails
+      });
+
+      const { data, error } = await supabase.functions.invoke('email-labels', {
+        body: {
+          trackingCode,
+          subject: emailSubject,
+          format: 'pdf',
+          toEmails: validEmails
+        }
+      });
+
+      if (error) {
+        console.error('Email error:', error);
+        throw new Error(error.message);
+      }
+
+      toast.success(`Label has been sent to ${validEmails.length} email address${validEmails.length > 1 ? 'es' : ''}`);
+      setEmailAddresses(['']);
+    } catch (error) {
+      console.error('Error emailing label:', error);
+      toast.error("Failed to email label. Please try again.");
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
-
-  const handleEmailLabels = (isBatch: boolean) => {
-    toast.info(`Initiating email process for ${isBatch ? 'batch' : 'individual'} labels...`);
-    console.log(`Email request for ${isBatch ? 'batch ID: ' + batchResult?.batchId : 'shipment ID: ' + shipmentId || trackingCode}`);
-    // TODO: Implement API call to your backend to send the email
-  };
-
-  const hasIndividualDownloadFormats = !isBatchPreview && labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl || labelUrl);
-  const hasBatchDownloads = isBatchPreview && batchResult?.consolidatedLabelUrls &&
-    (batchResult.consolidatedLabelUrls.pdf || batchResult.consolidatedLabelUrls.zpl || batchResult.consolidatedLabelUrls.epl ||
-      batchResult.consolidatedLabelUrls.pdfZip || batchResult.consolidatedLabelUrls.zplZip || batchResult.consolidatedLabelUrls.eplZip);
-
-  const isPdfDownloadAvailable = isBatchPreview
-    ? !!batchResult?.consolidatedLabelUrls?.pdf
-    : (!!labelUrls?.pdf || (labelUrl && labelUrl.endsWith('.pdf')));
 
   const dialogTitleText = isBatchPreview
     ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
     : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
+  const TabButton = ({ tab, icon: Icon, children, isActive, onClick }: any) => (
+    <Button
+      variant={isActive ? "default" : "outline"}
+      onClick={onClick}
+      className={`flex items-center gap-2 px-6 py-3 ${
+        isActive ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
+      }`}
+    >
+      <Icon className="h-5 w-5" />
+      {children}
+    </Button>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {triggerButton ? triggerButton : (
         <div className="flex gap-2">
-          {/* Button for direct PDF Download */}
           <Button
             variant="outline"
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
-            onClick={isBatchPreview ? () => handleDownloadBatchFormat('pdf') : () => handleDownloadIndividualFormat('pdf')}
-            disabled={!isPdfDownloadAvailable}
+            onClick={handleDownload}
+            disabled={!currentPreviewUrl}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
           </Button>
-          {/* Button to open the Print Preview Dialog */}
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
               <Eye className="h-3 w-3 mr-1" />
@@ -303,343 +319,204 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between pr-6">
-            <span>{dialogTitleText}</span>
-          </DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            disabled={isRegeneratingLabel}
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </Button>
-        </DialogHeader>
-
-        <Tabs defaultValue={"preview"} className="w-full pt-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-4">
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            {!isBatchPreview && <TabsTrigger value="individual" disabled={!hasIndividualDownloadFormats}>Individual Formats</TabsTrigger>}
-            {isBatchPreview && <TabsTrigger value="batch">Batch Downloads</TabsTrigger>}
-            <TabsTrigger value="print_settings">{isBatchPreview ? "Print Batch" : "Print Label"}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="preview">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-              {(isBatchPreview || !isBatchPreview) && (
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isRegeneratingLabel}
-                >
-                  <SelectTrigger className="w-full sm:w-[280px]">
-                    <SelectValue placeholder="Select Format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value}>
-                        {format.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrint}
-                className="border-purple-200 hover:bg-purple-50 text-purple-700 w-full sm:w-auto"
-                disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl}
+      <DialogContent className="max-w-[98vw] max-h-[98vh] w-full h-full p-0 bg-white">
+        <div className="flex flex-col h-full">
+          {/* Header with tabs */}
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <div className="flex gap-4">
+              <TabButton
+                tab="preview"
+                icon={Printer}
+                isActive={activeTab === 'preview'}
+                onClick={() => setActiveTab('preview')}
               >
-                <Printer className="h-4 w-4 mr-2" /> {isBatchPreview ? 'Print Batch Preview' : 'Print Label'}
-              </Button>
+                Print Preview
+              </TabButton>
+              
+              <TabButton
+                tab="email"
+                icon={Mail}
+                isActive={activeTab === 'email'}
+                onClick={() => setActiveTab('email')}
+              >
+                Email Label
+              </TabButton>
             </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="rounded-sm opacity-70 hover:opacity-100"
+            >
+              <X className="h-6 w-6" />
+            </Button>
+          </div>
 
-            <div className="p-6 bg-gray-50 border rounded-lg">
-              <div className="mb-6">
-                <div className="mb-3 text-sm text-gray-500">
-                  {isRegeneratingLabel ? (
-                    <div className="flex items-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Regenerating label with {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
+          {/* Content based on active tab */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {activeTab === 'preview' && (
+              <>
+                {/* Format selector */}
+                <div className="p-4 bg-white border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700">Format:</label>
+                      <Select
+                        value={selectedFormat}
+                        onValueChange={handleFormatChange}
+                        disabled={isRegeneratingLabel}
+                      >
+                        <SelectTrigger className="w-80">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-gray-200 shadow-lg z-[9999]">
+                          {labelFormats.map((format) => (
+                            <SelectItem key={format.value} value={format.value} className="hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <div className="font-medium">{format.label}</div>
+                                  <div className="text-xs text-gray-500">{format.description}</div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ) : isBatchPreview ? (
-                    `Consolidated PDF Preview for Batch (${labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})`
-                  ) : (
-                    labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'
-                  )}
+                    
+                    <Button
+                      onClick={handlePrint}
+                      disabled={isRegeneratingLabel || !currentPreviewUrl}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Print
+                    </Button>
+                  </div>
                 </div>
-                <div className={`mx-auto bg-white p-2 shadow-md ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-2xl'}`}>
-                  {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center">
+
+                {/* Full screen preview */}
+                <div className="flex-1 bg-gray-100 p-4">
+                  <div className="bg-white rounded-lg shadow-lg w-full h-full flex items-center justify-center">
+                    {isRegeneratingLabel ? (
                       <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
-                        <p className="text-purple-800">Regenerating label...</p>
+                        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+                        <p className="text-blue-800 text-lg">Regenerating label...</p>
+                      </div>
+                    ) : currentPreviewUrl ? (
+                      <iframe
+                        ref={iframeRef}
+                        src={currentPreviewUrl}
+                        className="w-full h-full border-0 rounded-lg"
+                        title="Label Preview"
+                        style={{ minHeight: '70vh' }}
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-500">Preview not available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Download button at bottom */}
+                <div className="p-6 bg-white border-t">
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleDownload}
+                      disabled={!currentPreviewUrl}
+                      className="bg-green-600 hover:bg-green-700 px-12 py-3 text-lg min-w-[300px]"
+                      size="lg"
+                    >
+                      <Download className="mr-2 h-5 w-5" />
+                      Download Label
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'email' && (
+              <div className="flex-1 p-8 bg-gray-50">
+                <div className="max-w-2xl mx-auto">
+                  <h2 className="text-2xl font-semibold mb-6">Email Label</h2>
+                  
+                  <div className="bg-white rounded-lg p-6 space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Email Addresses
+                        </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addEmailAddress}
+                          className="flex items-center gap-1"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Email
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {emailAddresses.map((email, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Input
+                              type="email"
+                              value={email}
+                              onChange={(e) => updateEmailAddress(index, e.target.value)}
+                              placeholder="Enter email address"
+                              className="flex-1"
+                            />
+                            {emailAddresses.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeEmailAddress(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : previewType === 'pdf' && currentPreviewUrl ? (
-                    <iframe ref={iframeRef} src={currentPreviewUrl} style={{ width: '100%', height: '600px', border: '1px solid #ccc' }} title="Label Preview"></iframe>
-                  ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500">
-                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
-                        ? 'A batch PDF is needed for preview.'
-                        : previewType === 'image' && currentPreviewUrl
-                          ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300" />
-                          : 'Preview not available.'
-                      }
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Subject Line
+                      </label>
+                      <Input
+                        type="text"
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                        placeholder="Your Shipping Label"
+                        className="w-full"
+                      />
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          {!isBatchPreview && (
-            <TabsContent value="individual">
-              <div className="space-y-6 p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Download Individual Label Formats</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEmailLabels(false)}
-                    className="border-blue-200 hover:bg-blue-50 text-blue-700"
-                    disabled={!labelUrls?.pdf && !(labelUrl && labelUrl.endsWith('.pdf'))}
-                  >
-                    <Mail className="h-4 w-4 mr-2" /> Email Label
-                  </Button>
-                </div>
-                <p className="text-sm text-gray-600 mb-6">
-                  Choose from different label formats for various printer types and requirements.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="border rounded-lg p-4 text-center hover:border-green-300 transition-colors">
-                    <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
-                    <h4 className="font-medium mb-2">PNG Format</h4>
-                    <p className="text-xs text-gray-500 mb-4">
-                      High-quality image format. Perfect for most standard printers and email attachments.
-                    </p>
-                    <Button
-                      onClick={() => handleDownloadIndividualFormat('png')}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      disabled={!(labelUrls?.png || (labelUrl && labelUrl.endsWith('.png')))}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PNG
-                    </Button>
-                  </div>
-
-                  <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
-                    <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
-                    <h4 className="font-medium mb-2">PDF Format</h4>
-                    <p className="text-xs text-gray-500 mb-4">
-                      Professional document format. Ideal for printing and archiving shipment records.
-                    </p>
-                    <Button
-                      onClick={() => handleDownloadIndividualFormat('pdf')}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      disabled={!(labelUrls?.pdf || (labelUrl && labelUrl.endsWith('.pdf')))}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PDF
-                    </Button>
-                  </div>
-
-                  <div className="border rounded-lg p-4 text-center hover:border-purple-300 transition-colors">
-                    <FileText className="h-12 w-12 mx-auto mb-3 text-purple-600" />
-                    <h4 className="font-medium mb-2">ZPL Format</h4>
-                    <p className="text-xs text-gray-500 mb-4">
-                      Zebra Programming Language. Optimized for thermal label printers and industrial use.
-                    </p>
-                    <Button
-                      onClick={() => handleDownloadIndividualFormat('zpl')}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                      disabled={!labelUrls?.zpl}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download ZPL
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">Format Recommendations:</h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• **PNG:** Best for standard office printers and sharing via email</li>
-                    <li>• **PDF:** Professional format for documentation and multi-page printing</li>
-                    <li>• **ZPL:** Required for Zebra thermal printers and warehouse operations</li>
-                  </ul>
-                </div>
-              </div>
-            </TabsContent>
-          )}
-
-          {isBatchPreview && (
-            <TabsContent value="batch">
-              <div className="space-y-6 p-4">
-                {/* Consolidated batch action buttons moved to the top */}
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                  <div className="flex-grow w-full sm:w-auto">
-                    <Button
-                      onClick={handleDownloadAllBatchLabels}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-md flex items-center justify-center text-md font-semibold"
-                      disabled={!hasBatchDownloads}
-                    >
-                      <Files className="mr-3 h-5 w-5" />
-                      Download All Labels
-                    </Button>
-                  </div>
-                  <div className="flex-grow w-full sm:w-auto">
-                    <Button
-                      onClick={handleDownloadManifest}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-md flex items-center justify-center text-md font-semibold"
-                      disabled={!batchResult?.scanFormUrl}
-                    >
-                      <FileArchive className="mr-3 h-5 w-5" />
-                      Download Manifest
-                    </Button>
-                  </div>
-                  <div className="flex-grow w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() => handleEmailLabels(true)}
-                      className="w-full border-blue-600 hover:bg-blue-100 text-blue-700 py-3 rounded-md flex items-center justify-center text-md font-semibold"
-                      disabled={!hasBatchDownloads}
-                    >
-                      <Mail className="h-5 w-5 mr-3" /> Email Batch Labels
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Batch Download Options</h3>
-                  <p className="text-sm text-gray-600 mb-6">
-                    Download consolidated files for all shipments in this batch.
-                  </p>
-                </div>
-
-                {hasBatchDownloads ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(batchResult?.consolidatedLabelUrls?.pdf || batchResult?.consolidatedLabelUrls?.pdfZip) && (
-                        <div className="border rounded-lg p-4 text-center hover:border-indigo-300 transition-colors">
-                          <Briefcase className="h-10 w-10 mx-auto mb-2 text-indigo-600" />
-                          <h4 className="font-medium mb-2">Batch PDF</h4>
-                          <p className="text-xs text-gray-500 mb-3">
-                            {batchResult?.consolidatedLabelUrls?.pdf ? "Consolidated PDF file." : "ZIP archive of all PDF labels."}
-                          </p>
-                          <Button
-                            onClick={() => handleDownloadBatchFormat(batchResult?.consolidatedLabelUrls?.pdf ? 'pdf' : 'pdfZip')}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700"
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF {batchResult?.consolidatedLabelUrls?.pdf ? "" : "ZIP"}
-                          </Button>
-                        </div>
-                      )}
-                      {(batchResult?.consolidatedLabelUrls?.zpl || batchResult?.consolidatedLabelUrls?.zplZip) && (
-                        <div className="border rounded-lg p-4 text-center hover:border-teal-300 transition-colors">
-                          <Briefcase className="h-10 w-10 mx-auto mb-2 text-teal-600" />
-                          <h4 className="font-medium mb-2">Batch ZPL</h4>
-                          <p className="text-xs text-gray-500 mb-3">
-                            {batchResult?.consolidatedLabelUrls?.zpl ? "Consolidated ZPL file." : "ZIP archive of all ZPL labels."}
-                          </p>
-                          <Button
-                            onClick={() => handleDownloadBatchFormat(batchResult?.consolidatedLabelUrls?.zpl ? 'zpl' : 'zplZip')}
-                            className="w-full bg-teal-600 hover:bg-teal-700"
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Download ZPL {batchResult?.consolidatedLabelUrls?.zpl ? "" : "ZIP"}
-                          </Button>
-                        </div>
-                      )}
-                      {(batchResult?.consolidatedLabelUrls?.epl || batchResult?.consolidatedLabelUrls?.eplZip) && (
-                        <div className="border rounded-lg p-4 text-center hover:border-cyan-300 transition-colors">
-                          <Briefcase className="h-10 w-10 mx-auto mb-2 text-cyan-600" />
-                          <h4 className="font-medium mb-2">Batch EPL</h4>
-                          <p className="text-xs text-gray-500 mb-3">
-                            {batchResult?.consolidatedLabelUrls?.epl ? "Consolidated EPL file." : "ZIP archive of all EPL labels."}
-                          </p>
-                          <Button
-                            onClick={() => handleDownloadBatchFormat(batchResult?.consolidatedLabelUrls?.epl ? 'epl' : 'eplZip')}
-                            className="w-full bg-cyan-600 hover:bg-cyan-700"
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Download EPL {batchResult?.consolidatedLabelUrls?.epl ? "" : "ZIP"}
-                          </Button>
-                        </div>
-                      )}
+                    
+                    <div className="text-center pt-4">
+                      <Button
+                        onClick={handleEmailSend}
+                        disabled={isSendingEmail || emailAddresses.every(email => !email.trim())}
+                        className="bg-blue-600 hover:bg-blue-700 px-12 py-3 text-lg"
+                        size="lg"
+                      >
+                        <Mail className="mr-2 h-5 w-5" />
+                        {isSendingEmail ? 'Sending...' : 'Send Email'}
+                      </Button>
                     </div>
-                  </>
-                ) : (
-                  <div className="text-center py-8">
-                    <Package className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                    <h4 className="font-medium text-gray-600 mb-2">No Batch Downloads Available</h4>
-                    <p className="text-sm text-gray-500">
-                      Batch download options will be available after batch processing.
-                    </p>
                   </div>
-                )}
+                </div>
               </div>
-            </TabsContent>
-          )}
-
-          <TabsContent value="print_settings">
-            <div className="space-y-4 p-4">
-              <h3 className="text-lg font-semibold">Print Output</h3>
-              {(isBatchPreview || !isBatchPreview) && (
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isRegeneratingLabel}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Print Layout" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value}>
-                        {format.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <p className="text-sm text-gray-600">
-                {isBatchPreview
-                  ? "Select a page layout for the batch PDF preview above. Use your browser's print dialog for final print settings."
-                  : "Configure your print settings for optimal label output. The selected layout above will be applied."
-                }
-              </p>
-
-              <Button
-                onClick={handlePrint}
-                className="w-full h-12 bg-purple-600 hover:bg-purple-700"
-                disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl}
-              >
-                <Printer className="mr-2 h-5 w-5" />
-                {isBatchPreview ? "Print Batch PDF (via Browser)" : "Print Label Now"}
-              </Button>
-              {(previewType !== 'pdf' || !currentPreviewUrl) && (
-                <p className="text-xs text-center text-red-500">A PDF preview URL must be available to print.</p>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-        <DialogFooter className="sm:justify-start pt-4">
-          <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-              Close
-            </Button>
-          </DialogClose>
-        </DialogFooter>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
