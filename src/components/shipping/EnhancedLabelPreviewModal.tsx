@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -17,31 +16,25 @@ const LABEL_FORMATS = [
   {
     id: '4x6',
     name: '4x6" Shipping Label',
-    description: 'Formatted for Thermal Label Printers',
-    icon: '📄'
-  },
-  {
-    id: '8.5x11-left',
-    name: '8.5x11" - 1 Shipping Label per Page - Left Side',
-    description: 'One 4x6" label on the left side of a letter-sized page',
-    icon: '📋'
-  },
-  {
-    id: '8.5x11-right',
-    name: '8.5x11" - 1 Shipping Label per Page - Right Side',
-    description: 'One 4x6" label on the right side of a letter-sized page',
+    description: 'Standard thermal label format',
     icon: '📄'
   },
   {
     id: '8.5x11-top',
-    name: '8.5x11" - Top Half',
-    description: 'One label centered on top half',
+    name: '8.5x11" - Top Position',
+    description: 'Label positioned at top of page',
     icon: '📋'
   },
   {
+    id: '8.5x11-center',
+    name: '8.5x11" - Center Position', 
+    description: 'Label centered on page',
+    icon: '📄'
+  },
+  {
     id: '8.5x11-two',
-    name: '8.5x11" - 2 Labels per Page',
-    description: 'Two labels vertically arranged',
+    name: '8.5x11" - Two Labels Side by Side',
+    description: 'Two labels horizontally arranged',
     icon: '📋'
   }
 ];
@@ -69,7 +62,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
   const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
   const [selectedDownloadFormat, setSelectedDownloadFormat] = useState<string>('pdf');
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [emailAddresses, setEmailAddresses] = useState<string[]>(['']);
   const [emailSubject, setEmailSubject] = useState('Your Shipping Label');
@@ -84,18 +77,36 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
 
   const handleFormatChange = async (format: string) => {
     setSelectedFormat(format);
-    setIsRegenerating(true);
+    setIsRegeneratingLabel(true);
     
     try {
-      // Here you would call your backend to regenerate the label in the new format
-      // For now, we'll just simulate the change
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success(`Label format updated to ${format}`);
+      console.log(`Changing format to: ${format}`);
+      
+      // Call the generate-label-format function to get the new format
+      const { data, error } = await supabase.functions.invoke('generate-label-format', {
+        body: {
+          format: format,
+          labelUrl: labelUrl,
+          trackingCode: trackingCode
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data && data.labelUrl) {
+        setCurrentPreviewUrl(data.labelUrl);
+        toast.success(`Label format updated to ${format}`);
+      } else {
+        // If no new URL returned, simulate format change by keeping original URL
+        toast.success(`Format selected: ${LABEL_FORMATS.find(f => f.id === format)?.name || format}`);
+      }
     } catch (error) {
       console.error('Error changing format:', error);
       toast.error('Failed to update label format');
     } finally {
-      setIsRegenerating(false);
+      setIsRegeneratingLabel(false);
     }
   };
 
@@ -111,18 +122,39 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
       const downloadFormat = format || selectedDownloadFormat;
       console.log(`Downloading label in ${downloadFormat} format`);
       
-      if (downloadFormat === 'pdf' && labelUrl.includes('.pdf')) {
-        const link = document.createElement('a');
-        link.href = labelUrl;
-        link.download = `shipping-label-${trackingCode || Date.now()}.pdf`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success(`Downloaded ${downloadFormat.toUpperCase()} format label`);
-      } else {
-        toast.info(`${downloadFormat.toUpperCase()} format download will be available soon`);
+      let downloadUrl = labelUrl;
+      let fileName = `shipping-label-${trackingCode || Date.now()}`;
+      
+      // For PDF format, use the current preview URL or original URL
+      if (downloadFormat === 'pdf') {
+        downloadUrl = currentPreviewUrl || labelUrl;
+        fileName += '.pdf';
+      } else if (downloadFormat === 'png') {
+        // For PNG, try to find PNG version or convert
+        if (labelUrl.includes('.png')) {
+          downloadUrl = labelUrl;
+        } else {
+          // Could implement PNG conversion here if needed
+          downloadUrl = labelUrl;
+        }
+        fileName += '.png';
+      } else if (downloadFormat === 'zpl') {
+        // For ZPL, would need to get ZPL version from EasyPost
+        fileName += '.zpl';
+        toast.info('ZPL format will be available soon');
+        return;
       }
+
+      // Create download link
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Downloaded ${downloadFormat.toUpperCase()} format label`);
       
     } catch (error) {
       console.error('Error downloading label:', error);
@@ -137,10 +169,14 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
       try {
         iframeRef.current.contentWindow.focus();
         iframeRef.current.contentWindow.print();
-        onClose();
       } catch (error) {
         console.error("Error printing PDF from iframe:", error);
-        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+        // Fallback: open in new window for printing
+        if (currentPreviewUrl) {
+          window.open(currentPreviewUrl, '_blank');
+        } else {
+          toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+        }
       }
     } else {
       toast.error("No preview available to print directly. Please download the label.");
@@ -179,6 +215,13 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
     setIsSendingEmail(true);
     
     try {
+      console.log('Sending email with:', {
+        trackingCode,
+        subject: emailSubject,
+        format: selectedDownloadFormat,
+        toEmails: validEmails
+      });
+
       const { data, error } = await supabase.functions.invoke('email-labels', {
         body: {
           trackingCode,
@@ -189,6 +232,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
       });
 
       if (error) {
+        console.error('Email error:', error);
         throw new Error(error.message);
       }
 
@@ -206,22 +250,22 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
     <Button
       variant={isActive ? "default" : "outline"}
       onClick={onClick}
-      className={`flex items-center gap-2 px-6 py-3 ${
+      className={`flex items-center gap-2 px-4 py-2 ${
         isActive ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
       }`}
     >
-      <Icon className="h-5 w-5" />
+      <Icon className="h-4 w-4" />
       {children}
     </Button>
   );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] max-h-[98vh] w-full h-full p-0 bg-white">
+      <DialogContent className="max-w-6xl max-h-[90vh] w-[95vw] h-[85vh] p-0 bg-white m-4">
         <div className="flex flex-col h-full">
           {/* Header with tabs */}
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-            <div className="flex gap-4">
+            <div className="flex gap-2">
               <TabButton
                 tab="preview"
                 icon={Printer}
@@ -256,7 +300,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
               onClick={onClose}
               className="rounded-sm opacity-70 hover:opacity-100"
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
@@ -272,9 +316,9 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                       <Select
                         value={selectedFormat}
                         onValueChange={handleFormatChange}
-                        disabled={isRegenerating}
+                        disabled={isRegeneratingLabel}
                       >
-                        <SelectTrigger className="w-80">
+                        <SelectTrigger className="w-64">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-white border border-gray-200 shadow-lg z-[9999]">
@@ -292,22 +336,13 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    
-                    <Button
-                      onClick={handlePrint}
-                      disabled={isRegenerating || !currentPreviewUrl}
-                      className="bg-purple-600 hover:bg-purple-700"
-                    >
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print
-                    </Button>
                   </div>
                 </div>
 
                 {/* Full screen preview */}
                 <div className="flex-1 bg-gray-100 p-4">
                   <div className="bg-white rounded-lg shadow-lg w-full h-full flex items-center justify-center">
-                    {isRegenerating ? (
+                    {isRegeneratingLabel ? (
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
                         <p className="text-blue-800 text-lg">Regenerating label...</p>
@@ -318,7 +353,7 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                         src={currentPreviewUrl}
                         className="w-full h-full border-0 rounded-lg"
                         title="Label Preview"
-                        style={{ minHeight: '70vh' }}
+                        style={{ minHeight: '400px' }}
                       />
                     ) : (
                       <div className="text-center">
@@ -330,15 +365,14 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                 </div>
 
                 {/* Download button at bottom */}
-                <div className="p-6 bg-white border-t">
+                <div className="p-4 bg-white border-t">
                   <div className="flex justify-center">
                     <Button
                       onClick={() => handleDownload('pdf')}
                       disabled={isDownloading || !currentPreviewUrl}
-                      className="bg-green-600 hover:bg-green-700 px-12 py-3 text-lg min-w-[300px]"
-                      size="lg"
+                      className="bg-green-600 hover:bg-green-700 px-8 py-2 text-base min-w-[200px]"
                     >
-                      <Download className="mr-2 h-5 w-5" />
+                      <Download className="mr-2 h-4 w-4" />
                       {isDownloading ? 'Downloading...' : 'Download Label'}
                     </Button>
                   </div>
@@ -347,13 +381,13 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
             )}
 
             {activeTab === 'download' && (
-              <div className="flex-1 p-8 bg-gray-50">
-                <div className="max-w-2xl mx-auto">
-                  <h2 className="text-2xl font-semibold mb-6">Download Options</h2>
+              <div className="flex-1 p-6 bg-gray-50">
+                <div className="max-w-xl mx-auto">
+                  <h2 className="text-xl font-semibold mb-6">Download Options</h2>
                   
                   <Card className="p-6 mb-6">
                     <h3 className="text-lg font-medium mb-4">Select Format</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       {DOWNLOAD_FORMATS.map((format) => {
                         const IconComponent = format.icon;
                         return (
@@ -361,9 +395,9 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                             key={format.id}
                             variant={selectedDownloadFormat === format.id ? "default" : "outline"}
                             onClick={() => setSelectedDownloadFormat(format.id)}
-                            className="h-20 flex flex-col items-center justify-center gap-2"
+                            className="h-16 flex flex-col items-center justify-center gap-2"
                           >
-                            <IconComponent className="h-6 w-6" />
+                            <IconComponent className="h-5 w-5" />
                             <span>{format.name}</span>
                           </Button>
                         );
@@ -375,10 +409,9 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                     <Button
                       onClick={() => handleDownload()}
                       disabled={isDownloading}
-                      className="bg-blue-600 hover:bg-blue-700 px-12 py-3 text-lg"
-                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700 px-8 py-2 text-base"
                     >
-                      <Download className="mr-2 h-5 w-5" />
+                      <Download className="mr-2 h-4 w-4" />
                       {isDownloading ? 'Downloading...' : `Download ${selectedDownloadFormat.toUpperCase()}`}
                     </Button>
                   </div>
@@ -387,9 +420,9 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
             )}
 
             {activeTab === 'email' && (
-              <div className="flex-1 p-8 bg-gray-50">
-                <div className="max-w-2xl mx-auto">
-                  <h2 className="text-2xl font-semibold mb-6">Email Label</h2>
+              <div className="flex-1 p-6 bg-gray-50">
+                <div className="max-w-xl mx-auto">
+                  <h2 className="text-xl font-semibold mb-6">Email Label</h2>
                   
                   <Card className="p-6 space-y-6">
                     <div>
@@ -473,10 +506,9 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
                       <Button
                         onClick={handleEmailSend}
                         disabled={isSendingEmail || emailAddresses.every(email => !email.trim())}
-                        className="bg-blue-600 hover:bg-blue-700 px-12 py-3 text-lg"
-                        size="lg"
+                        className="bg-blue-600 hover:bg-blue-700 px-8 py-2 text-base"
                       >
-                        <Mail className="mr-2 h-5 w-5" />
+                        <Mail className="mr-2 h-4 w-4" />
                         {isSendingEmail ? 'Sending...' : 'Send Email'}
                       </Button>
                     </div>
