@@ -113,7 +113,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const generateLabelPDF = async (fileBytes: ArrayBuffer, layoutOption: string): Promise<Uint8Array> => {
     try {
       const originalPdf = await PDFDocument.load(fileBytes);
-      const [labelPage] = await originalPdf.copyPages(originalPdf, [0]);
+      const outputPdf = await PDFDocument.create();
+
+      // Copy the first page from the original PDF
+      const [embeddedPage] = await outputPdf.copyPages(originalPdf, [0]);
 
       // Page sizes in points
       const letterWidth = 612;  // 8.5"
@@ -121,28 +124,26 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const labelWidth = 288;   // 4"
       const labelHeight = 432;  // 6"
 
-      const outputPdf = await PDFDocument.create();
-
       if (layoutOption === '4x6') {
         // Keep as original
         const page = outputPdf.addPage([labelWidth, labelHeight]);
-        page.drawPage(labelPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+        page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
 
       } else if (layoutOption === '8.5x11-2up') {
         // Two labels: top & bottom
         const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(labelPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight }); // top
-        page.drawPage(labelPage, { x: (letterWidth - labelWidth) / 2, y: 0, width: labelWidth, height: labelHeight });   // bottom
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight }); // top
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 0, width: labelWidth, height: labelHeight });   // bottom
 
       } else if (layoutOption === '8.5x11-top') {
         // Single label at top
         const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(labelPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight });
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 360, width: labelWidth, height: labelHeight });
 
       } else if (layoutOption === '8.5x11-center') {
         // Single label at center
         const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(labelPage, { x: (letterWidth - labelWidth) / 2, y: 180, width: labelWidth, height: labelHeight });
+        page.drawPage(embeddedPage, { x: (letterWidth - labelWidth) / 2, y: 180, width: labelWidth, height: labelHeight });
       }
 
       return await outputPdf.save();
