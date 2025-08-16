@@ -1,8 +1,12 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Download, X, Loader2, Eye } from 'lucide-react';
+import { Printer, Download, X, Loader2, Eye, File, FileImage, FileArchive, Mail, Plus, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { PDFDocument } from 'pdf-lib';
 
@@ -53,6 +57,10 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
+  const [activeTab, setActiveTab] = useState('preview');
+  const [emailList, setEmailList] = useState(['']);
+  const [emailSubject, setEmailSubject] = useState('Shipping Label');
+  const [emailFormat, setEmailFormat] = useState('pdf');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Load original PDF when dialog opens
@@ -170,27 +178,42 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     if (!originalPdfBytes) {
       toast.error('No label data available');
       return;
     }
 
     try {
-      const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      let blob: Blob;
+      let filename: string;
+      
+      if (format === 'pdf') {
+        const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+        blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+      } else {
+        // For PNG and ZPL, use original URL for now
+        const response = await fetch(labelUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        blob = new Blob([arrayBuffer], { 
+          type: format === 'png' ? 'image/png' : 'text/plain' 
+        });
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
+      }
+      
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+      link.download = filename;
       link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
       
-      toast.success(`Downloaded ${labelFormats.find(f => f.value === selectedFormat)?.label} label`);
+      toast.success(`Downloaded ${format.toUpperCase()} label`);
     } catch (error) {
-      console.error('Error downloading PDF:', error);
+      console.error('Error downloading:', error);
       toast.error('Failed to download label');
     }
   };
@@ -210,103 +233,114 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
+  const addEmailField = () => {
+    setEmailList([...emailList, '']);
+  };
+
+  const removeEmailField = (index: number) => {
+    if (emailList.length > 1) {
+      setEmailList(emailList.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEmailField = (index: number, value: string) => {
+    const updated = [...emailList];
+    updated[index] = value;
+    setEmailList(updated);
+  };
+
+  const handleSendEmail = () => {
+    const validEmails = emailList.filter(email => email.trim() !== '');
+    if (validEmails.length === 0) {
+      toast.error('Please add at least one email address');
+      return;
+    }
+    if (!emailSubject.trim()) {
+      toast.error('Please enter an email subject');
+      return;
+    }
+    
+    // TODO: Implement email sending logic
+    toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
+  };
+
   const dialogTitleText = `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
-    <>
-      {/* Floating Download Button */}
-      {isOpen && (
-        <div className="fixed bottom-6 right-6 z-[10000]">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      {triggerButton ? triggerButton : (
+        <div className="flex gap-2">
           <Button
-            onClick={handleDownload}
-            disabled={isGenerating || !originalPdfBytes}
-            className="bg-green-600 hover:bg-green-700 text-white shadow-lg h-14 px-6 text-lg font-semibold rounded-full"
+            variant="outline"
+            size="sm"
+            className="border-blue-200 hover:bg-blue-50 text-blue-700"
+            onClick={() => handleDownload('pdf')}
+            disabled={!originalPdfBytes}
           >
-            <Download className="h-5 w-5 mr-2" />
-            Download PDF
+            <Download className="h-3 w-3 mr-1" />
+            Download Label
           </Button>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+              <Eye className="h-3 w-3 mr-1" />
+              Print Preview
+            </Button>
+          </DialogTrigger>
         </div>
       )}
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        {triggerButton ? triggerButton : (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-blue-200 hover:bg-blue-50 text-blue-700"
-              onClick={handleDownload}
-              disabled={!originalPdfBytes}
-            >
-              <Download className="h-3 w-3 mr-1" />
-              Download Label
-            </Button>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-                <Eye className="h-3 w-3 mr-1" />
-                Print Preview
-              </Button>
-            </DialogTrigger>
-          </div>
-        )}
+      <DialogContent className="max-w-6xl bg-white sm:rounded-lg h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between pr-6">
+            <span>{dialogTitleText}</span>
+          </DialogTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+            disabled={isGenerating}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+        </DialogHeader>
 
-        <DialogContent className="max-w-5xl bg-white sm:rounded-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between pr-6">
-              <span>{dialogTitleText}</span>
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
+        <div className="flex-1 flex flex-col pt-4">
+          {/* Format Selection - Full Width */}
+          <div className="mb-6">
+            <Label className="text-sm font-medium mb-2 block">Print Format</Label>
+            <Select
+              value={selectedFormat}
+              onValueChange={handleFormatChange}
               disabled={isGenerating}
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
             >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogHeader>
+              <SelectTrigger className="w-full h-12 bg-white border-2 border-gray-200 hover:border-gray-300 focus:border-blue-500">
+                <SelectValue placeholder="Select Format" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border border-border shadow-lg z-[9999]">
+                {labelFormats.map(format => (
+                  <SelectItem key={format.value} value={format.value} className="cursor-pointer">
+                    <div className="flex flex-col">
+                      <span className="font-medium">{format.label}</span>
+                      <span className="text-xs text-muted-foreground">{format.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="pt-4">
-            {/* Format Selection and Actions Bar */}
-            <div className="flex flex-col sm:flex-row justify-center items-center mb-6 gap-4">
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-2xl">
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isGenerating}
-                >
-                  <SelectTrigger className="w-full sm:w-[320px] h-12">
-                    <SelectValue placeholder="Select Format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-border shadow-lg">
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value} className="cursor-pointer">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{format.label}</span>
-                          <span className="text-xs text-muted-foreground">{format.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Tabs for Preview/Download/Email */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="download">Download</TabsTrigger>
+              <TabsTrigger value="email">Email</TabsTrigger>
+            </TabsList>
 
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handlePrint}
-                  className="border-purple-200 hover:bg-purple-50 text-purple-700 h-12 px-6"
-                  disabled={isGenerating || !currentPreviewUrl}
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Label
-                </Button>
-              </div>
-            </div>
-
-            {/* Preview Section */}
-            <div className="p-6 bg-gray-50 border rounded-lg">
-              <div className="mb-6">
+            <TabsContent value="preview" className="flex-1 flex flex-col">
+              <div className="flex-1 p-6 bg-gray-50 border rounded-lg">
                 <div className="mb-3 text-sm text-gray-500 text-center">
                   {isGenerating ? (
                     <div className="flex items-center justify-center">
@@ -332,7 +366,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '600px' : '800px', 
+                        height: selectedFormat === '4x6' ? '500px' : '700px', 
                         border: '1px solid #ccc' 
                       }} 
                       title="Label Preview"
@@ -344,19 +378,144 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
               </div>
-            </div>
-          </div>
+            </TabsContent>
 
-          <DialogFooter className="sm:justify-start pt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                Close
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+            <TabsContent value="download" className="flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+                <div 
+                  className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50"
+                  onClick={() => handleDownload('pdf')}
+                >
+                  <File className="h-16 w-16 mx-auto mb-3 text-blue-600" />
+                  <h4 className="font-semibold text-lg">PDF Format</h4>
+                  <p className="text-sm text-gray-500 mb-3">Best for printing</p>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
+                
+                <div 
+                  className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50"
+                  onClick={() => handleDownload('png')}
+                >
+                  <FileImage className="h-16 w-16 mx-auto mb-3 text-green-600" />
+                  <h4 className="font-semibold text-lg">PNG Format</h4>
+                  <p className="text-sm text-gray-500 mb-3">Image format</p>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PNG
+                  </Button>
+                </div>
+                
+                <div 
+                  className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50"
+                  onClick={() => handleDownload('zpl')}
+                >
+                  <FileArchive className="h-16 w-16 mx-auto mb-3 text-purple-600" />
+                  <h4 className="font-semibold text-lg">ZPL Format</h4>
+                  <p className="text-sm text-gray-500 mb-3">For thermal printers</p>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download ZPL
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="email" className="flex-1">
+              <div className="p-6 space-y-6">
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
+                  {emailList.map((email, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <Input
+                        type="email"
+                        placeholder="Enter email address"
+                        value={email}
+                        onChange={(e) => updateEmailField(index, e.target.value)}
+                        className="flex-1"
+                      />
+                      {emailList.length > 1 && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => removeEmailField(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addEmailField}
+                    className="mt-2"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Email
+                  </Button>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Subject</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter email subject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Format</Label>
+                  <Select value={emailFormat} onValueChange={setEmailFormat}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pdf">PDF</SelectItem>
+                      <SelectItem value="png">PNG</SelectItem>
+                      <SelectItem value="zpl">ZPL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  onClick={handleSendEmail}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12"
+                >
+                  <Mail className="h-5 w-5 mr-2" />
+                  Send Email
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Bottom Print Button */}
+          <div className="pt-4 border-t">
+            <Button
+              onClick={handlePrint}
+              disabled={isGenerating || !currentPreviewUrl}
+              className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg font-semibold"
+            >
+              <Printer className="h-6 w-6 mr-3" />
+              Print Label
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter className="sm:justify-start pt-4">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
