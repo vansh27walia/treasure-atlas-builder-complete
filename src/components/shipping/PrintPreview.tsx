@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -6,7 +5,7 @@ import { Printer, Download, X, Eye, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFPage } from 'pdf-lib';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
@@ -134,10 +133,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
-      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      const page: PDFPage = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
     } else if (layoutOption === '8.5x11-2up') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
       // Draw first label (top half)
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
@@ -153,7 +152,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         height: labelHeight 
       });
     } else if (layoutOption === '8.5x11-top') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
       // This draws the label rotated 90 degrees to fit horizontally
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelHeight) / 2, // Swap dimensions for X and Y calculation
@@ -163,7 +162,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         rotate: { angle: Math.PI / 2 } // Rotate 90 degrees clockwise
       });
     } else if (layoutOption === '8.5x11-bottom') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
       // This draws the label rotated 90 degrees to fit horizontally
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelHeight) / 2,

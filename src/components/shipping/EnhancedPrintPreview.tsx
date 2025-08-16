@@ -1,11 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Printer, Download, X, Loader2, Eye } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFPage } from 'pdf-lib';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size (288x432 points)' },
@@ -92,7 +91,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     if (layoutOption === '4x6') {
       // Keep as original 4x6
-      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      const page: PDFPage = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
         y: 0, 
@@ -102,7 +101,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     } else if (layoutOption === '8.5x11-2up') {
       // Two labels: top & bottom
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
       // Top label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
@@ -120,7 +119,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     } else if (layoutOption === '8.5x11-top') {
       // Single label at top
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,  // 30 points from top
@@ -130,7 +129,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     } else if (layoutOption === '8.5x11-bottom') {
       // Single label at bottom
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,  // 30 points from bottom
