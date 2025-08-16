@@ -132,7 +132,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     
     // Copy pages from original to output PDF context - this returns PDFEmbeddedPage[]
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const labelPage = embeddedPages[0]; // This is now a PDFEmbeddedPage
+    const labelPage = embeddedPages[0]; // This is a PDFEmbeddedPage
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
