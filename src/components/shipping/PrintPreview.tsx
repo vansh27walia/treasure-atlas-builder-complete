@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Download, File, FileArchive, FileText, Mail, ExternalLink, Search, Eye, Package, Briefcase, Loader2, Files } from 'lucide-react';
+import { Printer, Download, File, FileArchive, FileText, Mail, ExternalLink, Search, Eye, Package, Briefcase, Loader2, Files, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
