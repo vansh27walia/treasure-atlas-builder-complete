@@ -89,7 +89,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     // Copy pages from original to output PDF context - this returns PDFEmbeddedPage[]
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const labelPage = embeddedPages[0]; // This is a PDFEmbeddedPage
+    const embeddedPage = embeddedPages[0]; // This is a PDFEmbeddedPage
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
@@ -100,7 +100,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     if (layoutOption === '4x6') {
       // Keep as original 4x6
       const page = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: 0, 
         y: 0, 
         width: labelWidth, 
@@ -111,14 +111,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       // Two labels: top & bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       // Top label
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,  // 30 points from top
         width: labelWidth, 
         height: labelHeight 
       });
       // Bottom label
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,  // 30 points from bottom
         width: labelWidth, 
@@ -128,7 +128,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     } else if (layoutOption === '8.5x11-top') {
       // Single label at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,  // 30 points from top
         width: labelWidth, 
@@ -138,7 +138,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     } else if (layoutOption === '8.5x11-bottom') {
       // Single label at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,  // 30 points from bottom
         width: labelWidth, 

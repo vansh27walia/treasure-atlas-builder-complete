@@ -132,7 +132,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     
     // Copy pages from original to output PDF context - this returns PDFEmbeddedPage[]
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const labelPage = embeddedPages[0]; // This is a PDFEmbeddedPage
+    const embeddedPage = embeddedPages[0]; // This is a PDFEmbeddedPage
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
@@ -142,16 +142,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(labelPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+      page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
     } else if (layoutOption === '8.5x11-2up') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,
         width: labelWidth, 
@@ -159,7 +159,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
     } else if (layoutOption === '8.5x11-top') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,
         width: labelWidth, 
@@ -167,7 +167,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
     } else if (layoutOption === '8.5x11-bottom') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(labelPage, { 
+      page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,
         width: labelWidth, 
