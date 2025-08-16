@@ -97,7 +97,6 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
       const originalPdf = await PDFDocument.load(fileBytes);
       const outputPdf = await PDFDocument.create();
 
-      // Copy pages from original PDF to get embeddable pages
       const copiedPages = await outputPdf.copyPages(originalPdf, [0]);
       const embeddedPage = copiedPages[0];
 
@@ -359,6 +358,9 @@ const EnhancedLabelPreviewModal: React.FC<EnhancedLabelPreviewModalProps> = ({
   };
 
   const hasIndividualDownloadFormats = !isBatchPreview && labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl || labelUrl);
+  const isPdfDownloadAvailable = isBatchPreview
+    ? !!batchResult?.consolidatedLabelUrls?.pdf
+    : (!!labelUrls?.pdf || (labelUrl && labelUrl.endsWith('.pdf')));
 
   const dialogTitleText = isBatchPreview
     ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
