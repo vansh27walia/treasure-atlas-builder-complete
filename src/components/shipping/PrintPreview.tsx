@@ -361,7 +361,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     if (pdfZip) {
       downloadFile(pdfZip, `batch_labels_${batchResult.batchId}_all_labels.zip`);
     } else if (zplZip) {
-      downloadFile(zrlZip, `batch_labels_${batchResult.batchId}_all_zpls.zip`);
+      downloadFile(zplZip, `batch_labels_${batchResult.batchId}_all_zpls.zip`);
     } else if (eplZip) {
       downloadFile(eplZip, `batch_labels_${batchResult.batchId}_all_epls.zip`);
     } else if (pdf) {
