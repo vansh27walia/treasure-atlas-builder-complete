@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -77,7 +78,10 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
   const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
     const originalPdf = await PDFDocument.load(fileBytes);
-    const pages = await originalPdf.copyPages(originalPdf, [0]);
+    const outputPdf = await PDFDocument.create();
+
+    // Copy pages from original to output PDF context
+    const pages = await outputPdf.copyPages(originalPdf, [0]);
     const [labelPage] = pages;
 
     // Page sizes in points (72 points per inch)
@@ -85,8 +89,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const letterHeight = 792; // 11"
     const labelWidth = 288;   // 4"
     const labelHeight = 432;  // 6"
-
-    const outputPdf = await PDFDocument.create();
 
     if (layoutOption === '4x6') {
       // Keep as original 4x6
