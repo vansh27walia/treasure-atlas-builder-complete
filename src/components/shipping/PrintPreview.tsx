@@ -280,7 +280,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const dialogTitleText = isBatchPreview
     ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
-    : `Shipping Label Formatter ${trackingCode ? `(${trackingCode})` : ''}`;
+    : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
     <>
@@ -300,16 +300,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               variant="outline"
               size="sm"
               className="border-blue-200 hover:bg-blue-50 text-blue-700"
-              onClick={handleDownload}
-              disabled={!originalPdfBytes}
+              onClick={() => setShowLabelFormatter(true)}
             >
               <Download className="h-3 w-3 mr-1" />
-              Download Label
+              Label Formatter
             </Button>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
                 <Eye className="h-3 w-3 mr-1" />
-                Label Formatter
+                Print Preview
               </Button>
             </DialogTrigger>
           </div>
@@ -333,74 +332,75 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </DialogHeader>
 
           <div className="pt-4">
-            {/* Format Selection - Show directly */}
+            {/* Enhanced Top Controls */}
             <div className="flex flex-col items-center mb-6 gap-4">
-              <div className="flex justify-center">
-                <Select value={selectedFormat} onValueChange={handleFormatChange} disabled={isRegeneratingLabel}>
-                  <SelectTrigger className="w-[400px] h-12">
-                    <SelectValue placeholder="Select Format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-[9999]">
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{format.label}</span>
-                          <span className="text-xs text-gray-500">{format.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  onClick={() => setShowLabelFormatter(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Advanced Formatter
+                </Button>
+                
+                <Button
+                  onClick={handlePrint}
+                  variant="outline"
+                  className="border-purple-200 hover:bg-purple-50 text-purple-700"
+                  disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
               </div>
             </div>
 
-            {/* Format Info Section - No Preview */}
+            {/* Preview Section */}
             <div className="p-6 bg-gray-50 border rounded-lg">
               <div className="mb-6">
                 <div className="mb-3 text-sm text-gray-500 text-center">
                   {isRegeneratingLabel ? (
                     <div className="flex items-center justify-center">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Preparing format...</span>
+                      <span>Processing...</span>
                     </div>
+                  ) : isBatchPreview ? (
+                    `Batch Preview`
                   ) : (
-                    `Selected Format: ${labelFormats.find(f => f.value === selectedFormat)?.description}`
+                    `Label Preview`
                   )}
                 </div>
-                <div className="mx-auto bg-white p-8 shadow-md max-w-md text-center border rounded-lg">
+                <div className="mx-auto bg-white p-2 shadow-md max-w-4xl">
                   {isRegeneratingLabel ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
-                      <p className="text-purple-800">Preparing format...</p>
+                    <div className="border border-gray-300 h-64 flex items-center justify-center">
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
+                        <p className="text-purple-800">Processing...</p>
+                      </div>
                     </div>
+                  ) : previewType === 'pdf' && currentPreviewUrl ? (
+                    <iframe 
+                      ref={iframeRef} 
+                      src={currentPreviewUrl} 
+                      style={{ 
+                        width: '100%', 
+                        height: '600px', 
+                        border: '1px solid #ccc' 
+                      }} 
+                      title="Label Preview"
+                    />
                   ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="text-4xl mb-4">📄</div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                        {labelFormats.find(f => f.value === selectedFormat)?.label}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        {labelFormats.find(f => f.value === selectedFormat)?.description}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Ready to download in selected format
-                      </p>
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500">
+                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
+                        ? 'Batch PDF needed for preview.'
+                        : previewType === 'image' && currentPreviewUrl
+                          ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300" />
+                          : 'Preview not available.'
+                      }
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Bottom Download Button */}
-            <div className="flex justify-center mt-6">
-              <Button
-                onClick={handleDownload}
-                disabled={isRegeneratingLabel}
-                className="bg-green-600 hover:bg-green-700 text-white h-12 px-8 text-lg font-semibold"
-              >
-                <Download className="h-5 w-5 mr-2" />
-                Download {labelFormats.find(f => f.value === selectedFormat)?.label || 'Label'}
-              </Button>
             </div>
           </div>
 

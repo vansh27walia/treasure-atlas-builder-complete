@@ -195,10 +195,39 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const dialogTitleText = `Shipping Label Formatter ${trackingCode ? `(${trackingCode})` : ''}`;
+  const handlePrint = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.focus();
+        iframeRef.current.contentWindow.print();
+        toast.success('Print dialog opened');
+      } catch (error) {
+        console.error("Error printing PDF:", error);
+        toast.error("Failed to open print dialog. Please try downloading and printing manually.");
+      }
+    } else {
+      toast.error("Print preview not available");
+    }
+  };
+
+  const dialogTitleText = `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
     <>
+      {/* Floating Download Button */}
+      {isOpen && (
+        <div className="fixed bottom-6 right-6 z-[10000]">
+          <Button
+            onClick={handleDownload}
+            disabled={isGenerating || !originalPdfBytes}
+            className="bg-green-600 hover:bg-green-700 text-white shadow-lg h-14 px-6 text-lg font-semibold rounded-full"
+          >
+            <Download className="h-5 w-5 mr-2" />
+            Download PDF
+          </Button>
+        </div>
+      )}
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         {triggerButton ? triggerButton : (
           <div className="flex gap-2">
@@ -215,7 +244,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
                 <Eye className="h-3 w-3 mr-1" />
-                Label Formatter
+                Print Preview
               </Button>
             </DialogTrigger>
           </div>
@@ -239,7 +268,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
           </DialogHeader>
 
           <div className="pt-4">
-            {/* Format Selection - Show directly without Advanced button */}
+            {/* Format Selection and Actions Bar */}
             <div className="flex flex-col sm:flex-row justify-center items-center mb-6 gap-4">
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-2xl">
                 <Select
@@ -261,10 +290,21 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handlePrint}
+                  className="border-purple-200 hover:bg-purple-50 text-purple-700 h-12 px-6"
+                  disabled={isGenerating || !currentPreviewUrl}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Label
+                </Button>
               </div>
             </div>
 
-            {/* Preview Section - No iframe, just format info */}
+            {/* Preview Section */}
             <div className="p-6 bg-gray-50 border rounded-lg">
               <div className="mb-6">
                 <div className="mb-3 text-sm text-gray-500 text-center">
@@ -274,44 +314,36 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label} format...</span>
                     </div>
                   ) : (
-                    `Selected Format: ${labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Format'}`
+                    `Preview: ${labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}`
                   )}
                 </div>
                 
-                <div className="mx-auto bg-white p-8 shadow-md max-w-md text-center border rounded-lg">
+                <div className={`mx-auto bg-white p-2 shadow-md ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-4xl'}`}>
                   {isGenerating ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
-                      <p className="text-purple-800">Preparing format...</p>
+                    <div className="border border-gray-300 h-96 flex items-center justify-center">
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
+                        <p className="text-purple-800">Generating label format...</p>
+                      </div>
                     </div>
+                  ) : currentPreviewUrl ? (
+                    <iframe 
+                      ref={iframeRef} 
+                      src={currentPreviewUrl} 
+                      style={{ 
+                        width: '100%', 
+                        height: selectedFormat === '4x6' ? '600px' : '800px', 
+                        border: '1px solid #ccc' 
+                      }} 
+                      title="Label Preview"
+                    />
                   ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="text-4xl mb-4">📄</div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                        {labelFormats.find(f => f.value === selectedFormat)?.label}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        {labelFormats.find(f => f.value === selectedFormat)?.description}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Ready to download in selected format
-                      </p>
+                    <div className="border border-gray-300 h-96 flex items-center justify-center text-gray-500">
+                      Loading label preview...
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Bottom Download Button */}
-            <div className="flex justify-center mt-6">
-              <Button
-                onClick={handleDownload}
-                disabled={isGenerating || !originalPdfBytes}
-                className="bg-green-600 hover:bg-green-700 text-white h-12 px-8 text-lg font-semibold"
-              >
-                <Download className="h-5 w-5 mr-2" />
-                Download {labelFormats.find(f => f.value === selectedFormat)?.label || 'Label'}
-              </Button>
             </div>
           </div>
 
