@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Download, X, Eye, Loader2 } from 'lucide-react';
+import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
-import { PDFDocument, PDFPage } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
@@ -76,6 +77,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
 
+  // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
@@ -121,55 +123,48 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    // Embed the original page - this returns an array of PDFEmbeddedPage objects
+    // Copy pages from original to output PDF context - this returns PDFEmbeddedPage[]
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0]; // This is now a PDFEmbeddedPage
+    const labelPage = embeddedPages[0]; // This is now a PDFEmbeddedPage
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
     const letterHeight = 792; // 11"
-    // The dimensions of the original label (4x6)
     const labelWidth = 288;   // 4"
     const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
-      const page: PDFPage = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      page.drawPage(labelPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
     } else if (layoutOption === '8.5x11-2up') {
-      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
-      // Draw first label (top half)
-      page.drawPage(embeddedPage, { 
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(labelPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30, // Adjusted Y for top placement with margin
+        y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
-      // Draw second label (bottom half)
-      page.drawPage(embeddedPage, { 
+      page.drawPage(labelPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30, // Adjusted Y for bottom placement with margin
+        y: 30,
         width: labelWidth, 
         height: labelHeight 
       });
     } else if (layoutOption === '8.5x11-top') {
-      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
-      // This draws the label rotated 90 degrees to fit horizontally
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelHeight) / 2, // Swap dimensions for X and Y calculation
-        y: letterHeight - labelWidth - 30, // Swap dimensions for X and Y calculation
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(labelPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30,
         width: labelWidth, 
-        height: labelHeight,
-        rotate: { angle: Math.PI / 2 } // Rotate 90 degrees clockwise
+        height: labelHeight 
       });
     } else if (layoutOption === '8.5x11-bottom') {
-      const page: PDFPage = outputPdf.addPage([letterWidth, letterHeight]);
-      // This draws the label rotated 90 degrees to fit horizontally
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelHeight) / 2,
-        y: 30, // Place at the bottom with margin
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(labelPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30,
         width: labelWidth, 
-        height: labelHeight,
-        rotate: { angle: Math.PI / 2 } // Rotate 90 degrees clockwise
+        height: labelHeight 
       });
     }
 
