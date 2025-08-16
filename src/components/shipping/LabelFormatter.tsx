@@ -70,7 +70,7 @@ const LabelFormatter: React.FC<LabelFormatterProps> = ({
     const outputPdf = await PDFDocument.create();
 
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const labelPage = embeddedPages[0]; // This is a PDFEmbeddedPage
+    const labelPage = embeddedPages[0];
 
     const letterWidth = 612;
     const letterHeight = 792;
