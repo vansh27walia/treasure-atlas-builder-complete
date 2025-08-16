@@ -122,8 +122,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    // Embed the original page once
-    const [embeddedPage] = await outputPdf.copyPages(originalPdf, [0]);
+    // Embed the original page - this returns an array of PDFEmbeddedPage objects
+    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
+    const embeddedPage = embeddedPages[0]; // This is now a PDFEmbeddedPage
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
@@ -137,14 +138,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
     } else if (layoutOption === '8.5x11-2up') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      // Draw first label (top half) - Not rotated
+      // Draw first label (top half)
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30, // Adjusted Y for top placement with margin
         width: labelWidth, 
         height: labelHeight 
       });
-      // Draw second label (bottom half) - Not rotated
+      // Draw second label (bottom half)
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30, // Adjusted Y for bottom placement with margin
