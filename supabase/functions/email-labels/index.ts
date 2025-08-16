@@ -10,7 +10,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -18,7 +17,6 @@ serve(async (req) => {
   try {
     console.log('Email function invoked with method:', req.method);
     
-    // Verify request method
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -56,7 +54,6 @@ serve(async (req) => {
 
     console.log('User authenticated successfully:', user.email);
 
-    // Parse request body
     let requestBody;
     try {
       requestBody = await req.json();
@@ -79,7 +76,6 @@ serve(async (req) => {
 
     console.log('Processing email request for:', { toEmails, subject, selectedFormats });
 
-    // Validate required fields
     if (!toEmails || toEmails.length === 0 || !subject) {
       console.error('Missing required fields:', { toEmails, subject });
       return new Response(JSON.stringify({ 
@@ -91,7 +87,6 @@ serve(async (req) => {
       });
     }
 
-    // Check Resend API key
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is missing from environment');
@@ -107,34 +102,11 @@ serve(async (req) => {
     console.log('Resend API key found, initializing Resend client');
     const resend = new Resend(resendApiKey);
 
-    // Prepare attachments based on selected formats
     const attachments = [];
     const labelsList = [];
 
     if (batchResult?.consolidatedLabelUrls) {
       for (const format of selectedFormats) {
-        if (format === 'scanForm' && batchResult.scanFormUrl) {
-          try {
-            console.log('Fetching scan form from:', batchResult.scanFormUrl);
-            const response = await fetch(batchResult.scanFormUrl);
-            if (response.ok) {
-              const buffer = await response.arrayBuffer();
-              attachments.push({
-                filename: `pickup_manifest_${Date.now()}.pdf`,
-                content: new Uint8Array(buffer),
-                contentType: 'application/pdf'
-              });
-              labelsList.push('• Pickup Manifest (Scan Form)');
-              console.log('Successfully attached scan form');
-            } else {
-              console.error('Failed to fetch scan form:', response.status, response.statusText);
-            }
-          } catch (error) {
-            console.error('Error fetching scan form:', error);
-          }
-          continue;
-        }
-
         const url = batchResult.consolidatedLabelUrls[format];
         if (url) {
           try {
@@ -142,17 +114,17 @@ serve(async (req) => {
             const response = await fetch(url);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
-              const filename = `consolidated_labels_${Date.now()}.${format}`;
+              const filename = `shipping_label_${Date.now()}.${format}`;
               
               attachments.push({
                 filename,
                 content: new Uint8Array(buffer),
                 contentType: format === 'pdf' ? 'application/pdf' : 
-                           format === 'zpl' || format === 'epl' ? 'text/plain' : 
+                           format === 'epl' ? 'text/plain' : 
                            'image/png'
               });
               
-              labelsList.push(`• Consolidated ${format.toUpperCase()} Labels`);
+              labelsList.push(`• ${format.toUpperCase()} Label`);
               console.log(`Successfully attached ${format} label`);
             } else {
               console.error(`Failed to fetch ${format} label: ${response.status} ${response.statusText}`);
@@ -175,7 +147,6 @@ serve(async (req) => {
       });
     }
 
-    // Prepare email content
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Shipping Labels</h2>
@@ -197,7 +168,6 @@ serve(async (req) => {
       </div>
     `;
 
-    // Convert single email to array if needed
     const emailArray = Array.isArray(toEmails) ? toEmails : [toEmails];
     
     console.log(`Preparing to send email to ${emailArray.length} recipients with ${attachments.length} attachments`);
