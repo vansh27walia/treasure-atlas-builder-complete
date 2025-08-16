@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -70,7 +69,7 @@ const LabelFormatter: React.FC<LabelFormatterProps> = ({
     const outputPdf = await PDFDocument.create();
 
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const labelPage = embeddedPages[0];
+    const labelPage = embeddedPages[0]; // This is a PDFEmbeddedPage
 
     const letterWidth = 612;
     const letterHeight = 792;
