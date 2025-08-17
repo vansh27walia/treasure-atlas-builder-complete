@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -63,7 +62,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   isBatchPreview = false
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
-  const isOpen = isOpenProp !== undefined ? isOpenProp : internalMain;
+  const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
   const setIsOpen = (open: boolean) => {
     if (onOpenChangeProp) {
       onOpenChangeProp(open);
@@ -130,7 +129,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    // Copy the first page from the original PDF
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
