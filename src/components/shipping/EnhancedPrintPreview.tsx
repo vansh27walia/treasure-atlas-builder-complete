@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -87,10 +86,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Get the first page from the original PDF
-    const firstPage = originalPdf.getPages()[0];
-    
-    // Copy the page to the new document 
+    // Copy the first page from the original PDF
     const [embeddedPage] = await outputPdf.copyPages(originalPdf, [0]);
 
     // Page sizes in points (72 points per inch)

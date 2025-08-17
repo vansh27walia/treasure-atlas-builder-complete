@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -141,16 +140,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+      page.drawPage(embeddedPage[0], { x: 0, y: 0, width: labelWidth, height: labelHeight });
     } else if (layoutOption === '8.5x11-2up') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
+      page.drawPage(embeddedPage[0], { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
-      page.drawPage(embeddedPage, { 
+      page.drawPage(embeddedPage[0], { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,
         width: labelWidth, 
@@ -158,7 +157,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
     } else if (layoutOption === '8.5x11-top') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
+      page.drawPage(embeddedPage[0], { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 30,
         width: labelWidth, 
@@ -166,7 +165,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
     } else if (layoutOption === '8.5x11-bottom') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
+      page.drawPage(embeddedPage[0], { 
         x: (letterWidth - labelWidth) / 2, 
         y: 30,
         width: labelWidth, 
@@ -268,6 +267,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
+  // Email helper functions (placed after return but inside component)
   const addEmailField = () => {
     setEmailList([...emailList, '']);
   };
@@ -582,6 +582,38 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       </DialogContent>
     </Dialog>
   );
+
+  // Email helper functions (placed after return but inside component)
+  const addEmailField = () => {
+    setEmailList([...emailList, '']);
+  };
+
+  const removeEmailField = (index: number) => {
+    if (emailList.length > 1) {
+      setEmailList(emailList.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEmailField = (index: number, value: string) => {
+    const updated = [...emailList];
+    updated[index] = value;
+    setEmailList(updated);
+  };
+
+  const handleSendEmail = () => {
+    const validEmails = emailList.filter(email => email.trim() !== '');
+    if (validEmails.length === 0) {
+      toast.error('Please add at least one email address');
+      return;
+    }
+    if (!emailSubject.trim()) {
+      toast.error('Please enter an email subject');
+      return;
+    }
+    
+    // TODO: Implement email sending logic
+    toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
+  };
 };
 
 export default PrintPreview;
