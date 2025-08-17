@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -256,7 +257,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.target = '_blank';
-      document.body.appendChild(link);
+      document.body.appendChild(link);  
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
