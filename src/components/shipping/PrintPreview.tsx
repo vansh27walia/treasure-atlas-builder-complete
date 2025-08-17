@@ -63,7 +63,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   isBatchPreview = false
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
-  const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
+  const isOpen = isOpenProp !== undefined ? isOpenProp : internalMain;
   const setIsOpen = (open: boolean) => {
     if (onOpenChangeProp) {
       onOpenChangeProp(open);
