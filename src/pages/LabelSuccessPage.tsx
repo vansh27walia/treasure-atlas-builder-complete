@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsContent, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import NormalShippingLabelOptions from '@/components/shipping/NormalShippingLabelOptions';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -112,43 +113,16 @@ const LabelSuccessPage: React.FC = () => {
             )}
           </p>
 
-          {/* Main Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <Button 
-              onClick={() => setIsLabelModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg font-semibold"
-            >
-              <FileText className="mr-2 h-6 w-6" /> 
-              View Label
-            </Button>
-            
-            <Button 
-              onClick={() => handleDownload('pdf')}
-              variant="outline"
-              className="border-green-300 hover:bg-green-50 h-14 text-lg font-semibold"
-            >
-              <Download className="mr-2 h-6 w-6" /> 
-              Download PDF
-            </Button>
-
-            <Button 
-              onClick={handlePrintLabel}
-              variant="outline"
-              className="border-purple-300 hover:bg-purple-50 h-14 text-lg font-semibold"
-            >
-              <Printer className="mr-2 h-6 w-6" /> 
-              Print Label
-            </Button>
-
-            <Button 
-              onClick={handleEmailLabel}
-              variant="outline"
-              className="border-orange-300 hover:bg-orange-50 h-14 text-lg font-semibold"
-            >
-              <Mail className="mr-2 h-6 w-6" /> 
-              Email Label
-            </Button>
-          </div>
+          {/* Updated Label Options */}
+          {labelUrl && (
+            <div className="max-w-sm mx-auto mb-8">
+              <NormalShippingLabelOptions
+                labelUrl={labelUrl}
+                trackingCode={trackingCode}
+                shipmentId={shipmentId}
+              />
+            </div>
+          )}
 
           {/* Tracking Search Bar */}
           <Card className="p-6 mb-8 bg-blue-50 border-blue-200">
