@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -588,4 +585,3 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 };
 
 export default PrintPreview;
-
