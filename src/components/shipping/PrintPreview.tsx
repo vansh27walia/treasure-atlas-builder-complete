@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -118,74 +117,64 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const loadPdfBytes = async (url: string) => {
     try {
-      console.log('Loading PDF bytes from:', url);
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
       setOriginalPdfBytes(new Uint8Array(arrayBuffer));
-      console.log('PDF bytes loaded successfully');
     } catch (error) {
       console.error('Error loading PDF bytes:', error);
     }
   };
 
   const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
-    try {
-      console.log('Generating PDF with layout:', layoutOption);
-      const originalPdf = await PDFDocument.load(fileBytes);
-      const outputPdf = await PDFDocument.create();
-      
-      // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
-      const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-      const embeddedPage = embeddedPages[0];
+    const originalPdf = await PDFDocument.load(fileBytes);
+    const outputPdf = await PDFDocument.create();
+    
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
+    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
+    const embeddedPage = embeddedPages[0];
 
-      // Page sizes in points (72 points per inch)
-      const letterWidth = 612;  // 8.5"
-      const letterHeight = 792; // 11"
-      const labelWidth = 288;   // 4"
-      const labelHeight = 432;  // 6"
+    // Page sizes in points (72 points per inch)
+    const letterWidth = 612;  // 8.5"
+    const letterHeight = 792; // 11"
+    const labelWidth = 288;   // 4"
+    const labelHeight = 432;  // 6"
 
-      if (layoutOption === '4x6') {
-        const page = outputPdf.addPage([labelWidth, labelHeight]);
-        page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
-      } else if (layoutOption === '8.5x11-2up') {
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: letterHeight - labelHeight - 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-      } else if (layoutOption === '8.5x11-top') {
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: letterHeight - labelHeight - 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-      } else if (layoutOption === '8.5x11-bottom') {
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-      }
-
-      const result = await outputPdf.save();
-      console.log('PDF generation completed successfully');
-      return result;
-    } catch (error) {
-      console.error('Error in generateLabelPDF:', error);
-      throw error;
+    if (layoutOption === '4x6') {
+      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+    } else if (layoutOption === '8.5x11-2up') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
+    } else if (layoutOption === '8.5x11-top') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
+    } else if (layoutOption === '8.5x11-bottom') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
     }
+
+    return await outputPdf.save();
   };
 
   const handlePrint = () => {
