@@ -267,25 +267,17 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? triggerButton : (
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-blue-200 hover:bg-blue-50 text-blue-700"
-            onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes}
-          >
-            <Download className="h-3 w-3 mr-1" />
-            Download
+      {triggerButton ? (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+            <Eye className="h-3 w-3 mr-1" />
+            Print Preview
           </Button>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
-            </Button>
-          </DialogTrigger>
-        </div>
+        </DialogTrigger>
       )}
 
       <DialogContent className="max-w-6xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
@@ -359,9 +351,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
                 
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg max-w-4xl">
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full h-full">
                   {isGenerating ? (
-                    <div className="border border-gray-300 h-96 flex items-center justify-center rounded-lg">
+                    <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                         <p className="text-purple-800">Generating label format...</p>
@@ -373,14 +365,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '500px' : '600px', 
+                        height: '100%',
+                        minHeight: '600px',
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
                       title="Label Preview"
                     />
                   ) : (
-                    <div className="border border-gray-300 h-96 flex items-center justify-center text-gray-500 rounded-lg">
+                    <div className="border border-gray-300 h-full flex items-center justify-center text-gray-500 rounded-lg">
                       <div className="text-center">
                         <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                         <p>Loading label preview...</p>
@@ -390,8 +383,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
               </div>
 
-              {/* Print Button - Only in Preview Tab */}
-              <div className="pt-4 border-t mt-4">
+              {/* Print Button and Download Options - Below Preview */}
+              <div className="pt-4 border-t mt-4 space-y-4">
                 <Button
                   onClick={handlePrint}
                   disabled={isGenerating || !currentPreviewUrl}
@@ -400,6 +393,34 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   <Printer className="h-5 w-5 mr-2" />
                   Print Label
                 </Button>
+
+                {/* Download Options Below Print Button */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    onClick={() => handleDownload('pdf')}
+                    disabled={isGenerating || !currentPreviewUrl}
+                    className="bg-red-600 hover:bg-red-700 text-white h-10"
+                  >
+                    <File className="h-4 w-4 mr-2" />
+                    PDF
+                  </Button>
+                  <Button
+                    onClick={() => handleDownload('png')}
+                    disabled={isGenerating}
+                    className="bg-green-600 hover:bg-green-700 text-white h-10"
+                  >
+                    <FileImage className="h-4 w-4 mr-2" />
+                    PNG
+                  </Button>
+                  <Button
+                    onClick={() => handleDownload('zpl')}
+                    disabled={isGenerating}
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-10"
+                  >
+                    <FileArchive className="h-4 w-4 mr-2" />
+                    ZPL
+                  </Button>
+                </div>
               </div>
             </TabsContent>
 

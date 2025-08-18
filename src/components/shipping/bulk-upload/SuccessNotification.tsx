@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye } from 'lucide-react';
+import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye, File, FileImage, FileArchive } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
@@ -140,113 +139,121 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Card>
       </div>
 
-      {/* Enhanced Batch Label Actions */}
+      {/* Enhanced Batch Label Actions - Improved Layout */}
       {hasLabels && results.batchResult && (
         <Card className="p-8 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-indigo-200 shadow-xl">
-          {/* Print Preview Section - Top Priority */}
-          <div className="mb-8">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
-                <Eye className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Batch Print Preview</h2>
-                <p className="text-gray-600 text-sm">Preview and print all labels with format options</p>
-              </div>
-            </div>
-            
-            {results.batchResult?.consolidatedLabelUrls?.pdf && (
-              <EnhancedPrintPreview
-                labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
-                trackingCode={`Batch-${results.batchResult.batchId}`}
-                shipmentId={results.batchResult.batchId}
-                triggerButton={
-                  <Button 
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
-                  >
-                    <Eye className="mr-2 h-5 w-5" />
-                    Print Preview All Labels
-                  </Button>
-                }
-              />
-            )}
-          </div>
-
           <div className="flex items-center mb-6">
             <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center mr-4">
               <Sparkles className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Batch Label Downloads</h2>
-              <p className="text-gray-600">Download all your labels in various formats or send via email</p>
-            </div>
-          </div>
-          
-          {/* Consolidated Download Grid */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Consolidated Label Downloads</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Button 
-                onClick={() => handleDownloadConsolidated('pdf')} 
-                className="bg-red-600 hover:bg-red-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
-                disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
-              >
-                <Download className="h-6 w-6 mb-2" />
-                <div className="text-center">
-                  <div className="font-bold">PDF</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
-
-              <Button 
-                onClick={() => handleDownloadConsolidated('zpl')} 
-                className="bg-blue-600 hover:bg-blue-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
-                disabled={!results.batchResult?.consolidatedLabelUrls?.zpl}
-              >
-                <Download className="h-6 w-6 mb-2" />
-                <div className="text-center">
-                  <div className="font-bold">ZPL</div>
-                  <div className="text-xs opacity-90">Thermal</div>
-                </div>
-              </Button>
-
-              <Button 
-                onClick={() => handleDownloadConsolidated('epl')} 
-                className="bg-orange-600 hover:bg-orange-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
-                disabled={!results.batchResult?.consolidatedLabelUrls?.epl}
-              >
-                <Download className="h-6 w-6 mb-2" />
-                <div className="text-center">
-                  <div className="font-bold">EPL</div>
-                  <div className="text-xs opacity-90">Thermal</div>
-                </div>
-              </Button>
+              <h2 className="text-2xl font-bold text-gray-900">Batch Label Management</h2>
+              <p className="text-gray-600">Download, print, or email all your labels</p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4">
-            <Button 
-              onClick={() => setShowEmailModal(true)} 
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg" 
-              size="lg"
-            >
-              <Mail className="mr-2 h-5 w-5" />
-              Email Labels
-            </Button>
-
-            {results.batchResult?.scanFormUrl && (
+          {/* Print Preview Section - Top Priority */}
+          <div className="mb-8 p-6 bg-white rounded-lg border border-purple-200">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Print Preview</h3>
+                <p className="text-gray-600 text-sm">Preview and print all labels with format options</p>
+              </div>
+            </div>
+            
+            {results.batchResult?.consolidatedLabelUrls?.pdf ? (
               <Button 
-                onClick={handleDownloadManifest} 
-                variant="outline" 
-                className="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 shadow-lg" 
-                size="lg"
+                onClick={() => setShowBatchPreview(true)}
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-14 text-lg font-semibold"
               >
-                <FileText className="mr-2 h-5 w-5" />
-                Download Manifest
+                <Eye className="mr-3 h-6 w-6" />
+                Print Preview All Labels
+              </Button>
+            ) : (
+              <Button disabled className="w-full h-14 text-lg">
+                <Eye className="mr-3 h-6 w-6" />
+                Print Preview Unavailable
               </Button>
             )}
           </div>
+
+          {/* Action Buttons Grid - Better Organization */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* PDF Download */}
+            <Button 
+              onClick={() => handleDownloadConsolidated('pdf')} 
+              className="bg-red-600 hover:bg-red-700 text-white h-16 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+              disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
+            >
+              <File className="h-6 w-6 mb-2" />
+              <div className="text-center">
+                <div className="font-bold">PDF</div>
+                <div className="text-xs opacity-90">All Labels</div>
+              </div>
+            </Button>
+
+            {/* ZPL Download */}
+            <Button 
+              onClick={() => handleDownloadConsolidated('zpl')} 
+              className="bg-blue-600 hover:bg-blue-700 text-white h-16 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+              disabled={!results.batchResult?.consolidatedLabelUrls?.zpl}
+            >
+              <FileArchive className="h-6 w-6 mb-2" />
+              <div className="text-center">
+                <div className="font-bold">ZPL</div>
+                <div className="text-xs opacity-90">Thermal</div>
+              </div>
+            </Button>
+
+            {/* EPL Download */}
+            <Button 
+              onClick={() => handleDownloadConsolidated('epl')} 
+              className="bg-orange-600 hover:bg-orange-700 text-white h-16 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+              disabled={!results.batchResult?.consolidatedLabelUrls?.epl}
+            >
+              <FileArchive className="h-6 w-6 mb-2" />
+              <div className="text-center">
+                <div className="font-bold">EPL</div>
+                <div className="text-xs opacity-90">Thermal</div>
+              </div>
+            </Button>
+
+            {/* Email Button */}
+            <Button 
+              onClick={() => setShowEmailModal(true)} 
+              className="bg-green-600 hover:bg-green-700 text-white h-16 flex-col shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Mail className="h-6 w-6 mb-2" />
+              <div className="text-center">
+                <div className="font-bold">Email</div>
+                <div className="text-xs opacity-90">Send Labels</div>
+              </div>
+            </Button>
+          </div>
+
+          {/* Manifest Download */}
+          {results.batchResult?.scanFormUrl && (
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FileText className="h-5 w-5 text-blue-600 mr-2" />
+                  <span className="font-medium text-blue-800">Pickup Manifest Available</span>
+                </div>
+                <Button 
+                  onClick={handleDownloadManifest} 
+                  variant="outline" 
+                  className="border-blue-300 text-blue-600 hover:bg-blue-100" 
+                  size="sm"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -321,6 +328,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Enhanced Batch Print Preview Modal */}
+      {results.batchResult?.consolidatedLabelUrls?.pdf && (
+        <EnhancedPrintPreview
+          isOpenProp={showBatchPreview}
+          onOpenChangeProp={setShowBatchPreview}
+          labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
+          trackingCode={`Batch-${results.batchResult.batchId}`}
+          shipmentId={results.batchResult.batchId}
+        />
       )}
 
       {/* Email Modal */}
