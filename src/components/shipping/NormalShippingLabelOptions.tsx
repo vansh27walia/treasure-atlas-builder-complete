@@ -41,8 +41,8 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-3 w-full">
-      {/* Print Preview Option - Top Priority */}
+    <div className="flex gap-3 w-full">
+      {/* Print Preview Button */}
       <EnhancedPrintPreview
         labelUrl={labelUrl}
         trackingCode={trackingCode}
@@ -51,7 +51,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         triggerButton={
           <Button
             variant="outline"
-            className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium"
+            className="flex-1 border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium"
           >
             <Eye className="h-4 w-4 mr-2" />
             Print Preview
@@ -59,26 +59,25 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         }
       />
 
-      {/* Download and Email Options - Side by Side */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          variant="outline"
-          onClick={handleDirectDownload}
-          className="border-blue-200 hover:bg-blue-50 text-blue-700 h-11 font-medium"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download
-        </Button>
+      {/* Download Button */}
+      <Button
+        variant="outline"
+        onClick={handleDirectDownload}
+        className="flex-1 border-blue-200 hover:bg-blue-50 text-blue-700 h-11 font-medium"
+      >
+        <Download className="h-4 w-4 mr-2" />
+        Download
+      </Button>
 
-        <Button
-          variant="outline"
-          onClick={handleEmailLabel}
-          className="border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium"
-        >
-          <Mail className="h-4 w-4 mr-2" />
-          Email
-        </Button>
-      </div>
+      {/* Email Button */}
+      <Button
+        variant="outline"
+        onClick={handleEmailLabel}
+        className="flex-1 border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium"
+      >
+        <Mail className="h-4 w-4 mr-2" />
+        Email
+      </Button>
     </div>
   );
 };
