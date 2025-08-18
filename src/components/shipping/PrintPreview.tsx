@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -117,6 +118,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const loadPdfBytes = async (url: string) => {
     try {
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`);
+      }
       const arrayBuffer = await response.arrayBuffer();
       setOriginalPdfBytes(new Uint8Array(arrayBuffer));
     } catch (error) {
@@ -125,53 +129,67 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
-    const originalPdf = await PDFDocument.load(fileBytes);
-    const outputPdf = await PDFDocument.create();
-    
-    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    try {
+      const originalPdf = await PDFDocument.load(fileBytes);
+      const outputPdf = await PDFDocument.create();
+      
+      const pages = await outputPdf.copyPages(originalPdf, [0]);
+      
+      if (!pages || pages.length === 0) {
+        throw new Error('Failed to copy page from original PDF');
+      }
+      
+      const embeddedPage = pages[0];
+      
+      if (!embeddedPage) {
+        throw new Error('Invalid embedded page object');
+      }
 
-    const letterWidth = 612;  // 8.5"
-    const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
+      const letterWidth = 612;  // 8.5"
+      const letterHeight = 792; // 11"
+      const labelWidth = 288;   // 4"
+      const labelHeight = 432;  // 6"
 
-    if (layoutOption === '4x6') {
-      const page = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
-    } else if (layoutOption === '8.5x11-2up') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,
-        width: labelWidth, 
-        height: labelHeight 
-      });
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: 30,
-        width: labelWidth, 
-        height: labelHeight 
-      });
-    } else if (layoutOption === '8.5x11-top') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,
-        width: labelWidth, 
-        height: labelHeight 
-      });
-    } else if (layoutOption === '8.5x11-bottom') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: 30,
-        width: labelWidth, 
-        height: labelHeight 
-      });
+      if (layoutOption === '4x6') {
+        const page = outputPdf.addPage([labelWidth, labelHeight]);
+        page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+      } else if (layoutOption === '8.5x11-2up') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { 
+          x: (letterWidth - labelWidth) / 2, 
+          y: letterHeight - labelHeight - 30,
+          width: labelWidth, 
+          height: labelHeight 
+        });
+        page.drawPage(embeddedPage, { 
+          x: (letterWidth - labelWidth) / 2, 
+          y: 30,
+          width: labelWidth, 
+          height: labelHeight 
+        });
+      } else if (layoutOption === '8.5x11-top') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { 
+          x: (letterWidth - labelWidth) / 2, 
+          y: letterHeight - labelHeight - 30,
+          width: labelWidth, 
+          height: labelHeight 
+        });
+      } else if (layoutOption === '8.5x11-bottom') {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, { 
+          x: (letterWidth - labelWidth) / 2, 
+          y: 30,
+          width: labelWidth, 
+          height: labelHeight 
+        });
+      }
+
+      return await outputPdf.save();
+    } catch (error) {
+      console.error('Error in generateLabelPDF:', error);
+      throw new Error(`PDF generation failed: ${error.message}`);
     }
-
-    return await outputPdf.save();
   };
 
   const handlePrint = () => {
@@ -320,7 +338,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-4xl bg-white sm:rounded-lg h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -378,6 +396,39 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
+              {/* Shipment Details Section */}
+              {shipmentDetails && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+                  <h4 className="font-medium text-gray-900 mb-2">Shipment Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div className="font-medium text-gray-700">From Address:</div>
+                      <div className="text-gray-600">{shipmentDetails.fromAddress}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">To Address:</div>
+                      <div className="text-gray-600">{shipmentDetails.toAddress}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Dimensions:</div>
+                      <div className="text-gray-600">{shipmentDetails.dimensions || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Weight:</div>
+                      <div className="text-gray-600">{shipmentDetails.weight}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Carrier:</div>
+                      <div className="text-gray-600">{shipmentDetails.carrier}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Service:</div>
+                      <div className="text-gray-600">{shipmentDetails.service}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
@@ -405,7 +456,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '400px' : '500px', 
+                        height: selectedFormat === '4x6' ? '350px' : '400px', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 

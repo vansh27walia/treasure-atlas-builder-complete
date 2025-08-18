@@ -41,37 +41,37 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   return (
-    <>
-      <div className="grid grid-cols-1 gap-3 w-full">
-        {/* Print Preview Button - Top Priority with Enhanced Modal */}
+    <div className="w-full">
+      {/* Side-by-side layout for Print Preview, Download, and Email */}
+      <div className="flex gap-3 w-full">
+        {/* Print Preview Button - Main action */}
         <Button
           onClick={() => setShowPrintPreview(true)}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 font-semibold"
+          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white h-12 font-semibold rounded-lg shadow-md"
         >
           <Eye className="h-4 w-4 mr-2" />
           Print Preview
         </Button>
 
-        {/* Download and Email Options - Side by Side */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={handleDirectDownload}
-            className="border-blue-200 hover:bg-blue-50 text-blue-700 h-11 font-medium"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download
-          </Button>
+        {/* Download Button */}
+        <Button
+          variant="outline"
+          onClick={handleDirectDownload}
+          className="flex-1 border-blue-200 hover:bg-blue-50 text-blue-700 h-12 font-medium rounded-lg"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Download
+        </Button>
 
-          <Button
-            variant="outline"
-            onClick={handleEmailLabel}
-            className="border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Email
-          </Button>
-        </div>
+        {/* Email Button */}
+        <Button
+          variant="outline"
+          onClick={handleEmailLabel}
+          className="flex-1 border-green-200 hover:bg-green-50 text-green-700 h-12 font-medium rounded-lg"
+        >
+          <Mail className="h-4 w-4 mr-2" />
+          Email
+        </Button>
       </div>
 
       {/* Enhanced Print Preview Modal */}
@@ -83,7 +83,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         shipmentId={shipmentId}
         shipmentDetails={shipmentDetails}
       />
-    </>
+    </div>
   );
 };
 
