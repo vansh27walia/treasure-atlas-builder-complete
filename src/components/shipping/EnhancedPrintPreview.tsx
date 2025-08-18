@@ -86,18 +86,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Copy pages from the original PDF - this returns an array of PDFEmbeddedPage
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
-    // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
     const letterHeight = 792; // 11"
     const labelWidth = 288;   // 4"
     const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
-      // Keep as original 4x6
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
@@ -107,39 +104,34 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       });
 
     } else if (layoutOption === '8.5x11-2up') {
-      // Two labels: top & bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      // Top label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
+        y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
-      // Bottom label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
+        y: 30,
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-top') {
-      // Single label at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
+        y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-bottom') {
-      // Single label at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
+        y: 30,
         width: labelWidth, 
         height: labelHeight 
       });
