@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -444,7 +443,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg" style={{ height: '350px' }}>
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg" style={{ height: '300px' }}>
                   {isRegeneratingLabel ? (
                     <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -502,30 +501,42 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             <TabsContent value="download" className="flex-1">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
                 >
-                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
-                  <h4 className="font-semibold mb-2">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">Best for printing</p>
+                  <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                  <h4 className="font-bold text-xl mb-3">PDF Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">Best for printing</p>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
                 </div>
                 
                 <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-green-500 bg-green-50 hover:bg-green-100"
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
                   onClick={() => handleDownload('png')}
                 >
-                  <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
-                  <h4 className="font-semibold mb-2">PNG Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">Image format</p>
+                  <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                  <h4 className="font-bold text-xl mb-3">PNG Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">Image format</p>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PNG
+                  </Button>
                 </div>
                 
                 <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-purple-500 bg-purple-50 hover:bg-purple-100"
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
                   onClick={() => handleDownload('zpl')}
                 >
-                  <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
-                  <h4 className="font-semibold mb-2">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
+                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                  <h4 className="font-bold text-xl mb-3">ZPL Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download ZPL
+                  </Button>
                 </div>
               </div>
             </TabsContent>
