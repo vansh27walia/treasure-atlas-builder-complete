@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -90,13 +91,13 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       const originalPdf = await PDFDocument.load(fileBytes);
       const outputPdf = await PDFDocument.create();
 
-      const pages = await outputPdf.copyPages(originalPdf, [0]);
+      const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
       
-      if (!pages || pages.length === 0) {
+      if (!embeddedPages || embeddedPages.length === 0) {
         throw new Error('Failed to copy page from original PDF');
       }
       
-      const embeddedPage = pages[0];
+      const embeddedPage = embeddedPages[0];
       
       if (!embeddedPage) {
         throw new Error('Invalid embedded page object');
@@ -286,7 +287,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </DialogTrigger>
       )}
 
-      <DialogContent className="max-w-4xl bg-white sm:rounded-lg h-[80vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -345,30 +346,32 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               {shipmentDetails && (
                 <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
                   <h4 className="font-medium text-gray-900 mb-2">Shipment Details</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 gap-3 text-sm">
                     <div>
-                      <div className="font-medium text-gray-700">From Address:</div>
-                      <div className="text-gray-600">{shipmentDetails.fromAddress}</div>
+                      <div className="font-medium text-gray-700 mb-1">From Address:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.fromAddress}</div>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-700">To Address:</div>
-                      <div className="text-gray-600">{shipmentDetails.toAddress}</div>
+                      <div className="font-medium text-gray-700 mb-1">To Address:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.toAddress}</div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="font-medium text-gray-700 mb-1">Weight:</div>
+                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.weight}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-700 mb-1">Dimensions:</div>
+                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.dimensions || 'Not specified'}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-700 mb-1">Carrier:</div>
+                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.carrier}</div>
+                      </div>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-700">Dimensions:</div>
-                      <div className="text-gray-600">{shipmentDetails.dimensions || 'Not specified'}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Weight:</div>
-                      <div className="text-gray-600">{shipmentDetails.weight}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Carrier:</div>
-                      <div className="text-gray-600">{shipmentDetails.carrier}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Service:</div>
-                      <div className="text-gray-600">{shipmentDetails.service}</div>
+                      <div className="font-medium text-gray-700 mb-1">Service:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.service}</div>
                     </div>
                   </div>
                 </div>
@@ -388,7 +391,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
                 
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full h-full">
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full" style={{ height: '350px' }}>
                   {isGenerating ? (
                     <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -402,8 +405,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: '400px',
-                        minHeight: '400px',
+                        height: '100%',
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
@@ -420,11 +422,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
               </div>
 
-              <div className="pt-4 border-t mt-4 space-y-4">
+              <div className="pt-4 border-t mt-4 space-y-3">
                 <Button
                   onClick={handlePrint}
                   disabled={isGenerating || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-11 font-semibold rounded-lg shadow-md"
                 >
                   <Printer className="h-5 w-5 mr-2" />
                   Print Label
@@ -434,7 +436,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   <Button
                     onClick={() => handleDownload('pdf')}
                     disabled={isGenerating || !currentPreviewUrl}
-                    className="bg-red-600 hover:bg-red-700 text-white h-10"
+                    className="bg-red-600 hover:bg-red-700 text-white h-9"
                   >
                     <File className="h-4 w-4 mr-2" />
                     PDF
@@ -442,7 +444,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   <Button
                     onClick={() => handleDownload('png')}
                     disabled={isGenerating}
-                    className="bg-green-600 hover:bg-green-700 text-white h-10"
+                    className="bg-green-600 hover:bg-green-700 text-white h-9"
                   >
                     <FileImage className="h-4 w-4 mr-2" />
                     PNG
@@ -450,7 +452,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   <Button
                     onClick={() => handleDownload('zpl')}
                     disabled={isGenerating}
-                    className="bg-purple-600 hover:bg-purple-700 text-white h-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-9"
                   >
                     <FileArchive className="h-4 w-4 mr-2" />
                     ZPL
@@ -460,41 +462,41 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsContent>
 
             <TabsContent value="download" className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
+                  className="p-4 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
                 >
-                  <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
                   <h4 className="font-bold text-lg mb-2">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Best for printing and archiving</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
+                  <p className="text-sm text-gray-600 mb-3">Best for printing and archiving</p>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
                   </Button>
                 </div>
                 
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
+                  className="p-4 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
                   onClick={() => handleDownload('png')}
                 >
-                  <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                  <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
                   <h4 className="font-bold text-lg mb-2">PNG Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Image format for viewing</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
+                  <p className="text-sm text-gray-600 mb-3">Image format for viewing</p>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download PNG
                   </Button>
                 </div>
                 
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
+                  className="p-4 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
                   onClick={() => handleDownload('zpl')}
                 >
-                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                  <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
                   <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
+                  <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download ZPL
                   </Button>
@@ -503,10 +505,10 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsContent>
 
             <TabsContent value="email" className="flex-1">
-              <div className="p-6 space-y-6 max-w-xl mx-auto">
+              <div className="p-4 space-y-4 max-w-xl mx-auto">
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {emailList.map((email, index) => (
                       <div key={index} className="flex gap-2">
                         <Input
@@ -514,14 +516,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                           placeholder="Enter email address"
                           value={email}
                           onChange={(e) => updateEmailField(index, e.target.value)}
-                          className="flex-1 h-10"
+                          className="flex-1 h-9"
                         />
                         {emailList.length > 1 && (
                           <Button
                             variant="outline"
                             size="icon"
                             onClick={() => removeEmailField(index)}
-                            className="text-red-600 hover:text-red-700 h-10 w-10"
+                            className="text-red-600 hover:text-red-700 h-9 w-9"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -532,7 +534,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   <Button
                     variant="outline"
                     onClick={addEmailField}
-                    className="mt-3 h-10"
+                    className="mt-2 h-9"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Email Address
@@ -546,14 +548,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                     placeholder="Enter email subject"
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
-                    className="h-10"
+                    className="h-9"
                   />
                 </div>
 
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Format</Label>
                   <Select value={emailFormat} onValueChange={setEmailFormat}>
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -566,7 +568,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
                 <Button
                   onClick={handleSendEmail}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-semibold"
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   Send Email
@@ -578,7 +580,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
         <DialogFooter className="sm:justify-start pt-3">
           <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-10 px-6">
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
               Close
             </Button>
           </DialogClose>

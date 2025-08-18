@@ -133,13 +133,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const originalPdf = await PDFDocument.load(fileBytes);
       const outputPdf = await PDFDocument.create();
       
-      const pages = await outputPdf.copyPages(originalPdf, [0]);
+      const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
       
-      if (!pages || pages.length === 0) {
+      if (!embeddedPages || embeddedPages.length === 0) {
         throw new Error('Failed to copy page from original PDF');
       }
       
-      const embeddedPage = pages[0];
+      const embeddedPage = embeddedPages[0];
       
       if (!embeddedPage) {
         throw new Error('Invalid embedded page object');
@@ -338,7 +338,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-4xl bg-white sm:rounded-lg h-[80vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -400,30 +400,32 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               {shipmentDetails && (
                 <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
                   <h4 className="font-medium text-gray-900 mb-2">Shipment Details</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 gap-3 text-sm">
                     <div>
-                      <div className="font-medium text-gray-700">From Address:</div>
-                      <div className="text-gray-600">{shipmentDetails.fromAddress}</div>
+                      <div className="font-medium text-gray-700 mb-1">From Address:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.fromAddress}</div>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-700">To Address:</div>
-                      <div className="text-gray-600">{shipmentDetails.toAddress}</div>
+                      <div className="font-medium text-gray-700 mb-1">To Address:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.toAddress}</div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="font-medium text-gray-700 mb-1">Weight:</div>
+                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.weight}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-700 mb-1">Dimensions:</div>
+                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.dimensions || 'Not specified'}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-700 mb-1">Carrier:</div>
+                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.carrier}</div>
+                      </div>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-700">Dimensions:</div>
-                      <div className="text-gray-600">{shipmentDetails.dimensions || 'Not specified'}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Weight:</div>
-                      <div className="text-gray-600">{shipmentDetails.weight}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Carrier:</div>
-                      <div className="text-gray-600">{shipmentDetails.carrier}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Service:</div>
-                      <div className="text-gray-600">{shipmentDetails.service}</div>
+                      <div className="font-medium text-gray-700 mb-1">Service:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.service}</div>
                     </div>
                   </div>
                 </div>
@@ -442,9 +444,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg" style={{ height: '350px' }}>
                   {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
+                    <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                         <p className="text-purple-800">Regenerating label...</p>
@@ -456,14 +458,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '350px' : '400px', 
+                        height: '100%',
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
                       title="Label Preview"
                     />
                   ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                    <div className="border border-gray-300 h-full flex items-center justify-center text-gray-500 rounded-lg">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
                         ? (
                           <div className="text-center">
@@ -489,7 +491,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 <Button
                   onClick={handlePrint}
                   disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-11 font-semibold rounded-lg shadow-md"
                 >
                   <Printer className="h-5 w-5 mr-2" />
                   Print Label
@@ -506,10 +508,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
                   <h4 className="font-semibold mb-2">PDF Format</h4>
                   <p className="text-sm text-gray-600 mb-3">Best for printing</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
                 </div>
                 
                 <div 
@@ -519,10 +517,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
                   <h4 className="font-semibold mb-2">PNG Format</h4>
                   <p className="text-sm text-gray-600 mb-3">Image format</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PNG
-                  </Button>
                 </div>
                 
                 <div 
@@ -532,10 +526,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
                   <h4 className="font-semibold mb-2">ZPL Format</h4>
                   <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download ZPL
-                  </Button>
                 </div>
               </div>
             </TabsContent>
