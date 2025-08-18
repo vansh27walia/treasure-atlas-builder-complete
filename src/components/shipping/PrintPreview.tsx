@@ -83,6 +83,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
+  // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
@@ -117,9 +118,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const loadPdfBytes = async (url: string) => {
     try {
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`);
-      }
       const arrayBuffer = await response.arrayBuffer();
       setOriginalPdfBytes(new Uint8Array(arrayBuffer));
     } catch (error) {
@@ -128,67 +126,55 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
-    try {
-      const originalPdf = await PDFDocument.load(fileBytes);
-      const outputPdf = await PDFDocument.create();
-      
-      const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-      
-      if (!embeddedPages || embeddedPages.length === 0) {
-        throw new Error('Failed to copy page from original PDF');
-      }
-      
-      const embeddedPage = embeddedPages[0];
-      
-      if (!embeddedPage) {
-        throw new Error('Invalid embedded page object');
-      }
+    const originalPdf = await PDFDocument.load(fileBytes);
+    const outputPdf = await PDFDocument.create();
+    
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
+    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
+    const embeddedPage = embeddedPages[0];
 
-      const letterWidth = 612;  // 8.5"
-      const letterHeight = 792; // 11"
-      const labelWidth = 288;   // 4"
-      const labelHeight = 432;  // 6"
+    // Page sizes in points (72 points per inch)
+    const letterWidth = 612;  // 8.5"
+    const letterHeight = 792; // 11"
+    const labelWidth = 288;   // 4"
+    const labelHeight = 432;  // 6"
 
-      if (layoutOption === '4x6') {
-        const page = outputPdf.addPage([labelWidth, labelHeight]);
-        page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
-      } else if (layoutOption === '8.5x11-2up') {
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: letterHeight - labelHeight - 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-      } else if (layoutOption === '8.5x11-top') {
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: letterHeight - labelHeight - 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-      } else if (layoutOption === '8.5x11-bottom') {
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, { 
-          x: (letterWidth - labelWidth) / 2, 
-          y: 30,
-          width: labelWidth, 
-          height: labelHeight 
-        });
-      }
-
-      return await outputPdf.save();
-    } catch (error) {
-      console.error('Error in generateLabelPDF:', error);
-      throw new Error(`PDF generation failed: ${error.message}`);
+    if (layoutOption === '4x6') {
+      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
+    } else if (layoutOption === '8.5x11-2up') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
+    } else if (layoutOption === '8.5x11-top') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
+    } else if (layoutOption === '8.5x11-bottom') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30,
+        width: labelWidth, 
+        height: labelHeight 
+      });
     }
+
+    return await outputPdf.save();
   };
 
   const handlePrint = () => {
@@ -212,6 +198,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     try {
       if (originalPdfBytes) {
+        // Client-side PDF conversion
         const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -250,6 +237,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
+        // Fallback to direct download
         const url = labelUrls?.[format] || labelUrl;
         if (!url) {
           toast.error(`${format.toUpperCase()} format not available`);
@@ -307,6 +295,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       return;
     }
     
+    // TODO: Implement email sending logic
     toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
   };
 
@@ -337,7 +326,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -355,6 +344,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
+          {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
@@ -372,6 +362,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
+              {/* Format Selection - Only in Preview Tab */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
@@ -395,41 +386,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
-              {/* Shipment Details Section */}
-              {shipmentDetails && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
-                  <h4 className="font-medium text-gray-900 mb-2">Shipment Details</h4>
-                  <div className="grid grid-cols-1 gap-3 text-sm">
-                    <div>
-                      <div className="font-medium text-gray-700 mb-1">From Address:</div>
-                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.fromAddress}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700 mb-1">To Address:</div>
-                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.toAddress}</div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <div className="font-medium text-gray-700 mb-1">Weight:</div>
-                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.weight}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-700 mb-1">Dimensions:</div>
-                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.dimensions || 'Not specified'}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-700 mb-1">Carrier:</div>
-                        <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.carrier}</div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700 mb-1">Service:</div>
-                      <div className="text-gray-600 bg-white p-2 rounded border">{shipmentDetails.service}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
@@ -443,9 +399,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg" style={{ height: '300px' }}>
+                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
                   {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
+                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                         <p className="text-purple-800">Regenerating label...</p>
@@ -457,14 +413,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: '100%',
+                        height: selectedFormat === '4x6' ? '400px' : '500px', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
                       title="Label Preview"
                     />
                   ) : (
-                    <div className="border border-gray-300 h-full flex items-center justify-center text-gray-500 rounded-lg">
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
                         ? (
                           <div className="text-center">
@@ -486,11 +442,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               </div>
 
+              {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
                   disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-11 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
                 >
                   <Printer className="h-5 w-5 mr-2" />
                   Print Label
@@ -501,39 +458,39 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             <TabsContent value="download" className="flex-1">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
+                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
                 >
-                  <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
-                  <h4 className="font-bold text-xl mb-3">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Best for printing</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
+                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+                  <h4 className="font-semibold mb-2">PDF Format</h4>
+                  <p className="text-sm text-gray-600 mb-3">Best for printing</p>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
                   </Button>
                 </div>
                 
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
+                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-green-500 bg-green-50 hover:bg-green-100"
                   onClick={() => handleDownload('png')}
                 >
-                  <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
-                  <h4 className="font-bold text-xl mb-3">PNG Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Image format</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
+                  <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
+                  <h4 className="font-semibold mb-2">PNG Format</h4>
+                  <p className="text-sm text-gray-600 mb-3">Image format</p>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download PNG
                   </Button>
                 </div>
                 
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
+                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-purple-500 bg-purple-50 hover:bg-purple-100"
                   onClick={() => handleDownload('zpl')}
                 >
-                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
-                  <h4 className="font-bold text-xl mb-3">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
+                  <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
+                  <h4 className="font-semibold mb-2">ZPL Format</h4>
+                  <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download ZPL
                   </Button>
