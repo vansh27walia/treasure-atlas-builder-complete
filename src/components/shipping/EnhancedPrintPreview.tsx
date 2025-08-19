@@ -166,7 +166,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' | 'epl' = 'pdf') => {
+  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     if (!originalPdfBytes && format === 'pdf') {
       toast.error('No label data available');
       return;
@@ -393,7 +393,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             <TabsContent value="download" className="flex-1">
               <div className="p-6 space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Download Label Formats</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="border-2 border-red-200 bg-red-50 rounded-xl p-6 text-center hover:shadow-lg transition-all cursor-pointer">
                     <File className="h-16 w-16 mx-auto mb-4 text-red-600" />
                     <h4 className="font-bold text-lg mb-2 text-red-800">PDF Format</h4>
@@ -431,19 +431,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Download ZPL
-                    </Button>
-                  </div>
-
-                  <div className="border-2 border-orange-200 bg-orange-50 rounded-xl p-6 text-center hover:shadow-lg transition-all cursor-pointer">
-                    <FileArchive className="h-16 w-16 mx-auto mb-4 text-orange-600" />
-                    <h4 className="font-bold text-lg mb-2 text-orange-800">EPL Format</h4>
-                    <p className="text-sm text-orange-600 mb-4">For EPL thermal printers</p>
-                    <Button 
-                      onClick={() => handleDownload('epl')} 
-                      className="bg-orange-600 hover:bg-orange-700 text-white w-full h-10"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download EPL
                     </Button>
                   </div>
                 </div>

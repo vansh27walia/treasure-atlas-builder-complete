@@ -222,7 +222,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' | 'epl' = 'pdf') => {
+  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     try {
       let blob: Blob;
       let filename: string;
@@ -446,7 +446,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </TabsContent>
 
             <TabsContent value="download" className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div 
                   className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
@@ -483,19 +483,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download ZPL
-                  </Button>
-                </div>
-
-                <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-orange-500 bg-orange-50 hover:bg-orange-100"
-                  onClick={() => handleDownload('epl')}
-                >
-                  <FileArchive className="h-12 w-12 mx-auto mb-3 text-orange-600" />
-                  <h4 className="font-semibold mb-2">EPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">For EPL thermal printers</p>
-                  <Button className="bg-orange-600 hover:bg-orange-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download EPL
                   </Button>
                 </div>
               </div>
@@ -539,7 +526,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Subject Line</Label>
+                  <Label className="text-sm font-medium mb-2 block">Subject</Label>
                   <Input
                     type="text"
                     placeholder="Enter email subject"
@@ -550,22 +537,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Email Format</Label>
+                  <Label className="text-sm font-medium mb-2 block">Format</Label>
                   <Select value={emailFormat} onValueChange={setEmailFormat}>
                     <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pdf">PDF Attachment</SelectItem>
-                      <SelectItem value="png">PNG Image</SelectItem>
-                      <SelectItem value="zpl">ZPL Code</SelectItem>
+                      <SelectItem value="pdf">PDF</SelectItem>
+                      <SelectItem value="png">PNG</SelectItem>
+                      <SelectItem value="zpl">ZPL</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <Button
                   onClick={handleSendEmail}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-semibold"
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   Send Email
@@ -577,7 +564,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
         <DialogFooter className="sm:justify-start pt-3">
           <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-10 px-6">
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
               Close
             </Button>
           </DialogClose>
