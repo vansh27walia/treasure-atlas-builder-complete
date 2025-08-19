@@ -85,8 +85,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    const [embeddedPage] = await outputPdf.copyPages(originalPdf, [0]);
 
     const letterWidth = 612;
     const letterHeight = 792;
