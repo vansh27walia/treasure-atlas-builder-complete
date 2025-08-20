@@ -86,7 +86,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
+    // Copy the first page from the original PDF and get the embedded pages
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
@@ -178,7 +178,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (!originalPdfBytes) {
+    if (!originalPdfBytes && !labelUrl) {
       toast.error('No label data available');
       return;
     }
@@ -188,8 +188,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf') {
-        const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-        blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        if (originalPdfBytes) {
+          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+          blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        } else {
+          // Fallback to direct download
+          const response = await fetch(labelUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        }
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
         // For PNG and ZPL, use original URL for now
@@ -274,7 +281,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes}
+            disabled={!originalPdfBytes && !labelUrl}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
@@ -306,7 +313,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
-          {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
@@ -324,7 +330,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              {/* Format Selection - Only in Preview Tab */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
@@ -393,7 +398,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
               </div>
 
-              {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
