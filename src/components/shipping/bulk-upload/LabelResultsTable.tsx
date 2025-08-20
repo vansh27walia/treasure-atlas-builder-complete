@@ -1,167 +1,162 @@
-
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Package, AlertCircle, CheckCircle } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import EnhancedPrintPreview from '@/components/shipping/EnhancedPrintPreview';
-
+import PrintPreview from '@/components/shipping/PrintPreview';
 interface LabelResultsTableProps {
-  shipments: BulkShipment[];
-  onDownloadLabel: (labelUrl: string, format?: string) => void;
+  shipments: any[];
+  onDownloadLabel: (url: string) => void;
 }
-
-const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ 
-  shipments, 
-  onDownloadLabel 
+const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
+  shipments,
+  onDownloadLabel
 }) => {
-  
-  const handleDownloadPDF = (shipment: BulkShipment) => {
-    // Priority order: label_urls.pdf > label_url > label_urls.png
-    const pdfUrl = shipment.label_urls?.pdf || shipment.label_url;
-    
-    if (pdfUrl && pdfUrl.trim() !== '') {
-      // Create a temporary link for PDF download
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = `shipping_label_${shipment.tracking_code || shipment.id}_${Date.now()}.pdf`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('PDF label downloaded');
-    } else {
-      toast.error('PDF label not available for this shipment');
+  const handleDownload = (shipment: any, format: string = 'png') => {
+    console.log('Attempting download for:', {
+      format,
+      shipmentId: shipment.id,
+      labelUrls: shipment.label_urls
+    });
+    let url = shipment.label_urls?.[format];
+    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
+    if (!url && format === 'png') {
+      url = shipment.label_url;
+    }
+    if (!url) {
+      toast.error(`${format.toUpperCase()} label not available for this shipment.`);
+      console.error('URL not found for download:', {
+        format,
+        shipment
+      });
+      return;
+    }
+    onDownloadLabel(url);
+  };
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Pending';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Pending';
     }
   };
+  if (!shipments || shipments.length === 0) {
+    return <Card className="p-8 text-center">
+        <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No Labels Generated</h3>
+        <p className="text-gray-500">No shipping labels have been created yet.</p>
+      </Card>;
+  }
+  return <Card className="overflow-hidden">
+      <div className="px-6 py-4 border-b bg-gray-50">
+        <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
+        <p className="text-sm text-gray-600 mt-1">
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
+        </p>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tracking
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Carrier & Drop-off Details
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Dimensions & Weight
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Label Formats
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {shipments.map((shipment, index) => {
+            // Only use PDF URL for print preview - do not fallback to PNG
+            const pdfUrl = shipment.label_urls?.pdf;
+            console.log('Individual shipment PDF URL check:', {
+              shipmentId: shipment.id,
+              pdfUrl: pdfUrl,
+              hasPDF: !!pdfUrl,
+              willShowPrintPreview: !!pdfUrl
+            });
+            return <tr key={shipment.id || shipment.original_shipment_id || index} className="hover:bg-gray-50">
+                  {/* Tracking */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Truck className="h-4 w-4 text-blue-500 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {shipment.tracking_code || shipment.tracking_number || 'Pending'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {shipment.status === 'success' || shipment.status === 'completed' ? <Badge className="bg-green-100 text-green-800">Completed</Badge> : <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
 
-  const handleDownloadPNG = (shipment: BulkShipment) => {
-    const pngUrl = shipment.label_urls?.png || shipment.label_url;
-    
-    if (pngUrl && pngUrl.trim() !== '') {
-      onDownloadLabel(pngUrl, 'png');
-    } else {
-      toast.error('PNG label not available for this shipment');
-    }
-  };
+                  {/* Carrier & Drop-off Details */}
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-gray-900">
+                        {shipment.carrier || 'Unknown Carrier'}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {shipment.customer_name || shipment.recipient || 'No recipient name'}
+                      </div>
+                      <div className="text-xs text-gray-500 max-w-xs">
+                        {shipment.customer_address || 'No address available'}
+                      </div>
+                    </div>
+                  </td>
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Completed</Badge>;
-      case 'failed':
-        return <Badge className="bg-red-100 text-red-800"><AlertCircle className="h-3 w-3 mr-1" />Failed</Badge>;
-      case 'processing':
-        return <Badge className="bg-yellow-100 text-yellow-800"><Package className="h-3 w-3 mr-1" />Processing</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
-    }
-  };
+                  {/* Dimensions & Weight */}
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm text-gray-900">
+                        {shipment.details?.length && shipment.details?.width && shipment.details?.height ? <span>{shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"</span> : <span className="text-gray-400">No dimensions</span>}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {shipment.details?.weight ? <span>{shipment.details.weight} lbs</span> : <span className="text-gray-400">No weight</span>}
+                      </div>
+                    </div>
+                  </td>
 
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Customer</TableHead>
-            <TableHead>Tracking Code</TableHead>
-            <TableHead>Service</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Rate</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {shipments.map((shipment, index) => {
-            const hasLabel = !!(shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.png);
-            const labelUrl = shipment.label_urls?.pdf || shipment.label_url || shipment.label_urls?.png || '';
-            
-            return (
-              <TableRow key={shipment.id || index}>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{shipment.customer_name || `Customer ${index + 1}`}</div>
-                    <div className="text-sm text-gray-500">{shipment.toAddress?.city}, {shipment.toAddress?.state}</div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="font-mono text-sm">
-                    {shipment.tracking_code || 'N/A'}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">
-                    {shipment.carrier} {shipment.service}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {getStatusBadge(shipment.status || 'processing')}
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium">
-                    ${shipment.rate?.toFixed(2) || '0.00'}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {hasLabel ? (
-                      <>
-                        {/* Print Preview Button */}
-                        <EnhancedPrintPreview
-                          labelUrl={labelUrl}
-                          trackingCode={shipment.tracking_code}
-                          shipmentId={shipment.id}
-                          triggerButton={
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-purple-200 hover:bg-purple-50 text-purple-700 h-8"
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              Preview
-                            </Button>
-                          }
-                        />
-                        
-                        {/* PDF Download Button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadPDF(shipment)}
-                          className="border-blue-200 hover:bg-blue-50 text-blue-700 h-8"
-                          disabled={!shipment.label_urls?.pdf && !shipment.label_url}
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          PDF
-                        </Button>
-                        
-                        {/* PNG Download Button */}
-                        {(shipment.label_urls?.png || shipment.label_url) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownloadPNG(shipment)}
-                            className="border-green-200 hover:bg-green-50 text-green-700 h-8"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            PNG
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-sm text-gray-500">No label available</div>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
+                  {/* Label Formats */}
+                  
+
+                  {/* Actions */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex space-x-2">
+                      {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
+                      {pdfUrl && <PrintPreview labelUrl={pdfUrl} trackingCode={shipment.tracking_code || shipment.tracking_number || ''} labelUrls={shipment.label_urls} shipmentDetails={{
+                    fromAddress: 'Your Saved Pickup Address',
+                    toAddress: shipment.customer_address || '',
+                    weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
+                    dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
+                    service: shipment.service || 'N/A',
+                    carrier: shipment.carrier || 'N/A'
+                  }} shipmentId={shipment.id || shipment.original_shipment_id} />}
+                    </div>
+                  </td>
+                </tr>;
           })}
-        </TableBody>
-      </Table>
-    </div>
-  );
+          </tbody>
+        </table>
+      </div>
+    </Card>;
 };
-
 export default LabelResultsTable;

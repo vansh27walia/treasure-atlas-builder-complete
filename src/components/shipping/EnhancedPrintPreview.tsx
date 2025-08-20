@@ -178,7 +178,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (!originalPdfBytes && !labelUrl) {
+    if (!originalPdfBytes) {
       toast.error('No label data available');
       return;
     }
@@ -188,18 +188,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf') {
-        if (originalPdfBytes) {
-          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-          blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        } else {
-          // Fallback to direct download
-          const response = await fetch(labelUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        }
+        const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+        blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
-        // For PNG and ZPL, use original URL
+        // For PNG and ZPL, use original URL for now
         const response = await fetch(labelUrl);
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
@@ -281,7 +274,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes && !labelUrl}
+            disabled={!originalPdfBytes}
           >
             <Download className="h-3 w-3 mr-1" />
             Download
