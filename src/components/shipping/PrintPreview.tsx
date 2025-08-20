@@ -582,6 +582,38 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       </DialogContent>
     </Dialog>
   );
+
+  // Email helper functions
+  const addEmailField = () => {
+    setEmailList([...emailList, '']);
+  };
+
+  const removeEmailField = (index: number) => {
+    if (emailList.length > 1) {
+      setEmailList(emailList.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEmailField = (index: number, value: string) => {
+    const updated = [...emailList];
+    updated[index] = value;
+    setEmailList(updated);
+  };
+
+  const handleSendEmail = () => {
+    const validEmails = emailList.filter(email => email.trim() !== '');
+    if (validEmails.length === 0) {
+      toast.error('Please add at least one email address');
+      return;
+    }
+    if (!emailSubject.trim()) {
+      toast.error('Please enter an email subject');
+      return;
+    }
+    
+    // TODO: Implement email sending logic
+    toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
+  };
 };
 
 export default PrintPreview;

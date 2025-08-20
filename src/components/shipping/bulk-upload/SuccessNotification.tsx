@@ -151,7 +151,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Batch Print Preview</h2>
-                <p className="text-gray-600 text-sm">Preview and print all labels with format options</p>
+                <p className="text-gray-600 text-sm">Preview and print all consolidated labels with format options</p>
               </div>
             </div>
             
@@ -219,6 +219,18 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 <div className="text-center">
                   <div className="font-bold">EPL</div>
                   <div className="text-xs opacity-90">Thermal</div>
+                </div>
+              </Button>
+
+              <Button 
+                onClick={() => handleDownloadConsolidated('png')} 
+                className="bg-green-600 hover:bg-green-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+                disabled={!results.batchResult?.consolidatedLabelUrls?.png}
+              >
+                <Download className="h-6 w-6 mb-2" />
+                <div className="text-center">
+                  <div className="font-bold">PNG</div>
+                  <div className="text-xs opacity-90">Image</div>
                 </div>
               </Button>
             </div>
