@@ -128,13 +128,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    const [embeddedPage] = await outputPdf.copyPages(originalPdf, [0]);
 
-    const letterWidth = 612;  // 8.5"
-    const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
+    const letterWidth = 612;
+    const letterHeight = 792;
+    const labelWidth = 288;
+    const labelHeight = 432;
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
@@ -306,7 +305,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes && !labelUrls?.pdf && !labelUrl}
+            disabled={!originalPdfBytes && !labelUrls?.pdf}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
