@@ -117,9 +117,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const loadPdfBytes = async (url: string) => {
     try {
+      console.log('Loading PDF bytes from:', url);
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`);
+      }
       const arrayBuffer = await response.arrayBuffer();
       setOriginalPdfBytes(new Uint8Array(arrayBuffer));
+      console.log('PDF bytes loaded successfully');
     } catch (error) {
       console.error('Error loading PDF bytes:', error);
     }
@@ -129,7 +134,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
+    // Copy the first page from the original PDF
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
@@ -245,6 +250,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         }
         
         const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${format.toUpperCase()}`);
+        }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
           type: format === 'pdf' ? 'application/pdf' : format === 'png' ? 'image/png' : 'text/plain'

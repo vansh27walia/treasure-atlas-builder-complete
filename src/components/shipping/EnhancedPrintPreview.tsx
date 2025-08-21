@@ -71,11 +71,16 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
   const loadOriginalPdf = async () => {
     try {
+      console.log('Loading PDF from URL:', labelUrl);
       const response = await fetch(labelUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`);
+      }
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       setOriginalPdfBytes(bytes);
       setCurrentPreviewUrl(labelUrl); // Start with original
+      console.log('PDF loaded successfully');
     } catch (error) {
       console.error('Error loading original PDF:', error);
       toast.error('Failed to load label PDF');
@@ -86,7 +91,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
+    // Copy the first page from the original PDF
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
@@ -178,8 +183,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (!originalPdfBytes) {
-      toast.error('No label data available');
+    if (!originalPdfBytes && format === 'pdf') {
+      toast.error('No PDF data available');
       return;
     }
 
@@ -187,13 +192,16 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let blob: Blob;
       let filename: string;
       
-      if (format === 'pdf') {
+      if (format === 'pdf' && originalPdfBytes) {
         const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
-        // For PNG and ZPL, use original URL for now
+        // For PNG and ZPL, use original URL
         const response = await fetch(labelUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${format.toUpperCase()}`);
+        }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
           type: format === 'png' ? 'image/png' : 'text/plain' 
@@ -263,11 +271,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
-  const dialogTitleText = `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
+  const dialogTitleText = `Print Preview - All Labels ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? triggerButton : (
+      {triggerButton ? (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      ) : (
         <div className="flex gap-3">
           <Button
             variant="outline"
@@ -277,7 +289,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             disabled={!originalPdfBytes}
           >
             <Download className="h-3 w-3 mr-1" />
-            Download
+            Download PDF
           </Button>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
