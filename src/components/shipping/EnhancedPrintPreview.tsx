@@ -10,10 +10,10 @@ import { toast } from 'sonner';
 import { PDFDocument } from 'pdf-lib';
 
 const labelFormats = [
-  { value: '4x6', label: '4x6" Thermal', description: 'Standard thermal label size (288x432 points)' },
-  { value: '8.5x11-2up', label: '8.5x11" - 2-up', description: 'Two labels per page - top and bottom' },
-  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'One label at top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'One label at bottom of letter page' }
+  { value: '4x6', label: '4x6" Thermal', description: 'Standard thermal label size (288x432 points) - Horizontal' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2-up', description: 'Two labels per page - top and bottom (horizontal)' },
+  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'One label at top of letter page (horizontal)' },
+  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'One label at bottom of letter page (horizontal)' }
 ];
 
 interface EnhancedPrintPreviewProps {
@@ -31,6 +31,8 @@ interface EnhancedPrintPreviewProps {
     carrier: string;
   };
   shipmentId?: string;
+  isConsolidated?: boolean;
+  consolidatedLabels?: any[];
 }
 
 const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
@@ -40,7 +42,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   labelUrl,
   trackingCode,
   shipmentDetails,
-  shipmentId
+  shipmentId,
+  isConsolidated = false,
+  consolidatedLabels = []
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
@@ -100,11 +104,13 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
     const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
+    
+    // For 4x6 labels, use HORIZONTAL orientation (landscape)
+    const labelWidth = 432;   // 6" (was 4")
+    const labelHeight = 288;  // 4" (was 6") - HORIZONTAL orientation
 
     if (layoutOption === '4x6') {
-      // Keep as original 4x6
+      // 4x6 in HORIZONTAL orientation (landscape)
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
@@ -114,39 +120,41 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       });
 
     } else if (layoutOption === '8.5x11-2up') {
-      // Two labels: top & bottom
+      // Two labels: top & bottom - HORIZONTAL orientation
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      // Top label
+      
+      // Top label - horizontal
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
+        y: letterHeight - labelHeight - 50,  // 50 points from top
         width: labelWidth, 
         height: labelHeight 
       });
-      // Bottom label
+      
+      // Bottom label - horizontal  
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
+        y: 50,  // 50 points from bottom
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-top') {
-      // Single label at top
+      // Single label at top - HORIZONTAL orientation
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
+        y: letterHeight - labelHeight - 50,  // 50 points from top
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-bottom') {
-      // Single label at bottom
+      // Single label at bottom - HORIZONTAL orientation
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
+        y: 50,  // 50 points from bottom
         width: labelWidth, 
         height: labelHeight 
       });
@@ -155,8 +163,97 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     return await outputPdf.save();
   };
 
+  // Special handling for consolidated labels
+  const generateConsolidatedLabelPDF = async (layoutOption: string): Promise<Uint8Array> => {
+    if (!consolidatedLabels.length) {
+      throw new Error('No consolidated labels available');
+    }
+
+    const outputPdf = await PDFDocument.create();
+    const letterWidth = 612;  // 8.5"
+    const letterHeight = 792; // 11"
+    const labelWidth = 432;   // 6" horizontal
+    const labelHeight = 288;  // 4" horizontal
+
+    if (layoutOption === '8.5x11-2up') {
+      // For consolidated labels, put one label per page in 2-up format
+      for (let i = 0; i < consolidatedLabels.length; i += 2) {
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        
+        // First label (top)
+        if (consolidatedLabels[i] && consolidatedLabels[i].labelUrl) {
+          try {
+            const response = await fetch(consolidatedLabels[i].labelUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const labelPdf = await PDFDocument.load(arrayBuffer);
+            const labelPage = labelPdf.getPage(0);
+            const embeddedPage = await outputPdf.embedPage(labelPage);
+            
+            page.drawPage(embeddedPage, {
+              x: (letterWidth - labelWidth) / 2,
+              y: letterHeight - labelHeight - 50,
+              width: labelWidth,
+              height: labelHeight
+            });
+          } catch (error) {
+            console.error('Error loading label:', error);
+          }
+        }
+
+        // Second label (bottom)
+        if (consolidatedLabels[i + 1] && consolidatedLabels[i + 1].labelUrl) {
+          try {
+            const response = await fetch(consolidatedLabels[i + 1].labelUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const labelPdf = await PDFDocument.load(arrayBuffer);
+            const labelPage = labelPdf.getPage(0);
+            const embeddedPage = await outputPdf.embedPage(labelPage);
+            
+            page.drawPage(embeddedPage, {
+              x: (letterWidth - labelWidth) / 2,
+              y: 50,
+              width: labelWidth,
+              height: labelHeight
+            });
+          } catch (error) {
+            console.error('Error loading label:', error);
+          }
+        }
+      }
+    } else if (layoutOption === '8.5x11-top' || layoutOption === '8.5x11-bottom') {
+      // One label per page
+      for (const label of consolidatedLabels) {
+        if (label.labelUrl) {
+          try {
+            const response = await fetch(label.labelUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const labelPdf = await PDFDocument.load(arrayBuffer);
+            const labelPage = labelPdf.getPage(0);
+            const embeddedPage = await outputPdf.embedPage(labelPage);
+            
+            const page = outputPdf.addPage([letterWidth, letterHeight]);
+            const yPosition = layoutOption === '8.5x11-top' 
+              ? letterHeight - labelHeight - 50 
+              : 50;
+              
+            page.drawPage(embeddedPage, {
+              x: (letterWidth - labelWidth) / 2,
+              y: yPosition,
+              width: labelWidth,
+              height: labelHeight
+            });
+          } catch (error) {
+            console.error('Error loading label:', error);
+          }
+        }
+      }
+    }
+
+    return await outputPdf.save();
+  };
+
   const handleFormatChange = async (format: string) => {
-    if (!originalPdfBytes) {
+    if (!originalPdfBytes && !isConsolidated) {
       toast.error('Original PDF not loaded');
       return;
     }
@@ -165,7 +262,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     setIsGenerating(true);
 
     try {
-      const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
+      let pdfBytes: Uint8Array;
+      
+      if (isConsolidated) {
+        pdfBytes = await generateConsolidatedLabelPDF(format);
+      } else {
+        pdfBytes = await generateLabelPDF(originalPdfBytes!, format);
+      }
+      
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
@@ -185,7 +289,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (!originalPdfBytes && format === 'pdf') {
+    if (!originalPdfBytes && format === 'pdf' && !isConsolidated) {
       toast.error('No PDF data available');
       return;
     }
@@ -194,8 +298,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let blob: Blob;
       let filename: string;
       
-      if (format === 'pdf' && originalPdfBytes) {
-        const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+      if (format === 'pdf') {
+        let pdfBytes: Uint8Array;
+        
+        if (isConsolidated) {
+          pdfBytes = await generateConsolidatedLabelPDF(selectedFormat);
+        } else {
+          pdfBytes = await generateLabelPDF(originalPdfBytes!, selectedFormat);
+        }
+        
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
@@ -235,7 +346,16 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         toast.success('Print dialog opened');
       } catch (error) {
         console.error("Error printing PDF:", error);
-        toast.error("Failed to open print dialog. Please try downloading and printing manually.");
+        // Fallback: open in new window for printing
+        if (currentPreviewUrl) {
+          const printWindow = window.open(currentPreviewUrl, '_blank');
+          if (printWindow) {
+            printWindow.onload = () => {
+              printWindow.print();
+            };
+          }
+        }
+        toast.error("Print dialog issue. Opening in new window...");
       }
     } else {
       toast.error("Print preview not available");
@@ -273,7 +393,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
-  const dialogTitleText = `Print Preview - All Labels ${trackingCode ? `(${trackingCode})` : ''}`;
+  const dialogTitleText = isConsolidated 
+    ? `Print Preview - All Labels (${consolidatedLabels.length} labels)`
+    : `Print Preview - ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -288,7 +410,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes}
+            disabled={!originalPdfBytes && !isConsolidated}
           >
             <Download className="h-3 w-3 mr-1" />
             Download PDF

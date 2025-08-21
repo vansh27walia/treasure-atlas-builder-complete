@@ -11,10 +11,10 @@ import { ConsolidatedLabelUrls } from '@/types/shipping';
 import { PDFDocument } from 'pdf-lib';
 
 const labelFormats = [
-  { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
-  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels (2-up)', description: 'Two labels per page - top and bottom' },
-  { value: '8.5x11-top', label: '8.5x11" - Single (Top)', description: 'One label at top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Single (Bottom)', description: 'One label at bottom of letter page' }
+  { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size - Horizontal orientation' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels (2-up)', description: 'Two labels per page - top and bottom (horizontal)' },
+  { value: '8.5x11-top', label: '8.5x11" - Single (Top)', description: 'One label at top of letter page (horizontal)' },
+  { value: '8.5x11-bottom', label: '8.5x11" - Single (Bottom)', description: 'One label at bottom of letter page (horizontal)' }
 ];
 
 interface PrintPreviewProps {
@@ -143,39 +143,49 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
     const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
+    
+    // For 4x6 labels, use HORIZONTAL orientation (landscape)
+    const labelWidth = 432;   // 6" (was 4")
+    const labelHeight = 288;  // 4" (was 6") - HORIZONTAL orientation
 
     if (layoutOption === '4x6') {
+      // 4x6 in HORIZONTAL orientation (landscape)
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { x: 0, y: 0, width: labelWidth, height: labelHeight });
     } else if (layoutOption === '8.5x11-2up') {
+      // Two labels: top & bottom - HORIZONTAL orientation
       const page = outputPdf.addPage([letterWidth, letterHeight]);
+      
+      // Top label - horizontal
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,
+        y: letterHeight - labelHeight - 50,  // 50 points from top
         width: labelWidth, 
         height: labelHeight 
       });
+      
+      // Bottom label - horizontal
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,
+        y: 50,  // 50 points from bottom
         width: labelWidth, 
         height: labelHeight 
       });
     } else if (layoutOption === '8.5x11-top') {
+      // Single label at top - HORIZONTAL orientation
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,
+        y: letterHeight - labelHeight - 50,  // 50 points from top
         width: labelWidth, 
         height: labelHeight 
       });
     } else if (layoutOption === '8.5x11-bottom') {
+      // Single label at bottom - HORIZONTAL orientation
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,
+        y: 50,  // 50 points from bottom
         width: labelWidth, 
         height: labelHeight 
       });
@@ -192,7 +202,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         setIsOpen(false);
       } catch (error) {
         console.error("Error printing PDF from iframe:", error);
-        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+        // Fallback: open in new window for printing
+        if (currentPreviewUrl) {
+          const printWindow = window.open(currentPreviewUrl, '_blank');
+          if (printWindow) {
+            printWindow.onload = () => {
+              printWindow.print();
+            };
+          }
+        }
+        toast.error("Print dialog issue. Opening in new window...");
       }
     } else {
       toast.error("No PDF preview available to print directly. Please download the label.");
