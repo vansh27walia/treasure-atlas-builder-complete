@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,14 +6,34 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
+import EnhancedPrintPreview from '@/components/shipping/EnhancedPrintPreview';
+
 interface LabelResultsTableProps {
   shipments: any[];
   onDownloadLabel: (url: string) => void;
 }
+
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
+  const handleDirectDownload = (shipment: any) => {
+    const pdfUrl = shipment.label_urls?.pdf || shipment.label_url;
+    if (!pdfUrl) {
+      toast.error('PDF label not available for this shipment.');
+      return;
+    }
+    
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `shipping_label_${shipment.tracking_code || shipment.id || Date.now()}.pdf`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('PDF label downloaded successfully');
+  };
+
   const handleDownload = (shipment: any, format: string = 'png') => {
     console.log('Attempting download for:', {
       format,
@@ -34,6 +55,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
     }
     onDownloadLabel(url);
   };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Pending';
     try {
@@ -46,6 +68,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       return 'Pending';
     }
   };
+
   if (!shipments || shipments.length === 0) {
     return <Card className="p-8 text-center">
         <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -53,6 +76,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
         <p className="text-gray-500">No shipping labels have been created yet.</p>
       </Card>;
   }
+
   return <Card className="overflow-hidden">
       <div className="px-6 py-4 border-b bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
@@ -75,15 +99,15 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 Dimensions & Weight
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Label Formats
+                Actions
               </th>
-              
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => {
             // Only use PDF URL for print preview - do not fallback to PNG
             const pdfUrl = shipment.label_urls?.pdf;
+            const hasPdf = !!pdfUrl;
             console.log('Individual shipment PDF URL check:', {
               shipmentId: shipment.id,
               pdfUrl: pdfUrl,
@@ -133,21 +157,41 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Label Formats */}
-                  
-
                   {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex space-x-2">
-                      {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
-                      {pdfUrl && <PrintPreview labelUrl={pdfUrl} trackingCode={shipment.tracking_code || shipment.tracking_number || ''} labelUrls={shipment.label_urls} shipmentDetails={{
-                    fromAddress: 'Your Saved Pickup Address',
-                    toAddress: shipment.customer_address || '',
-                    weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
-                    dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
-                    service: shipment.service || 'N/A',
-                    carrier: shipment.carrier || 'N/A'
-                  }} shipmentId={shipment.id || shipment.original_shipment_id} />}
+                      {/* Direct Download Button */}
+                      <Button
+                        onClick={() => handleDirectDownload(shipment)}
+                        disabled={!hasPdf}
+                        variant="outline"
+                        size="sm"
+                        className="border-green-200 hover:bg-green-50 text-green-700"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Download Label
+                      </Button>
+
+                      {/* Enhanced Print Preview for individual label */}
+                      {pdfUrl && <EnhancedPrintPreview 
+                        labelUrl={pdfUrl} 
+                        trackingCode={shipment.tracking_code || shipment.tracking_number || ''} 
+                        shipmentDetails={{
+                          fromAddress: 'Your Saved Pickup Address',
+                          toAddress: shipment.customer_address || '',
+                          weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
+                          dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
+                          service: shipment.service || 'N/A',
+                          carrier: shipment.carrier || 'N/A'
+                        }} 
+                        shipmentId={shipment.id || shipment.original_shipment_id}
+                        triggerButton={
+                          <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+                            <Eye className="h-3 w-3 mr-1" />
+                            Print Preview
+                          </Button>
+                        }
+                      />}
                     </div>
                   </td>
                 </tr>;
@@ -157,4 +201,5 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       </div>
     </Card>;
 };
+
 export default LabelResultsTable;

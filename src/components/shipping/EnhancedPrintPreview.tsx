@@ -177,7 +177,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' | 'epl' = 'pdf') => {
     if (!originalPdfBytes) {
       toast.error('No label data available');
       return;
@@ -192,7 +192,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
-        // For PNG and ZPL, use original URL for now
+        // For PNG, ZPL, and EPL, use original URL for now
         const response = await fetch(labelUrl);
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
@@ -419,28 +419,28 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
                 
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
-                  onClick={() => handleDownload('png')}
-                >
-                  <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
-                  <h4 className="font-bold text-lg mb-2">PNG Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Image format for viewing</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PNG
-                  </Button>
-                </div>
-                
-                <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-orange-500 bg-orange-50 hover:bg-orange-100"
                   onClick={() => handleDownload('zpl')}
                 >
-                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-orange-600" />
                   <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
+                  <Button className="bg-orange-600 hover:bg-orange-700 text-white w-full h-10">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download ZPL
+                  </Button>
+                </div>
+
+                <div 
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
+                  onClick={() => handleDownload('epl')}
+                >
+                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                  <h4 className="font-bold text-lg mb-2">EPL Format</h4>
                   <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
                   <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
                     <Download className="h-4 w-4 mr-2" />
-                    Download ZPL
+                    Download EPL
                   </Button>
                 </div>
               </div>
