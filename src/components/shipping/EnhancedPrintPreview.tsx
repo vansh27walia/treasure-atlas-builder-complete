@@ -178,7 +178,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' | 'epl' = 'pdf') => {
-    if (!labelUrl) {
+    if (!labelUrl && !originalPdfBytes) {
       toast.error('No label data available');
       return;
     }
@@ -283,7 +283,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!labelUrl}
+            disabled={!labelUrl && !originalPdfBytes}
           >
             <Download className="h-3 w-3 mr-1" />
             Download
