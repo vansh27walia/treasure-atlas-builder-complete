@@ -129,9 +129,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    // Copy the first page from the original PDF
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    const embeddedPage = embeddedPages[0]; // Get the first (and only) embedded page
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"

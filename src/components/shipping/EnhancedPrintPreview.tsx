@@ -88,7 +88,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    const embeddedPage = embeddedPages[0]; // Get the first (and only) embedded page
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
@@ -404,7 +404,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsContent>
 
             <TabsContent value="download" className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
                 <div 
                   className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
@@ -419,12 +419,25 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
                 
                 <div 
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
+                  onClick={() => handleDownload('png')}
+                >
+                  <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                  <h4 className="font-bold text-lg mb-2">PNG Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">Image format for viewing</p>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PNG
+                  </Button>
+                </div>
+                
+                <div 
                   className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-orange-500 bg-orange-50 hover:bg-orange-100"
                   onClick={() => handleDownload('zpl')}
                 >
                   <FileArchive className="h-16 w-16 mx-auto mb-4 text-orange-600" />
                   <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
+                  <p className="text-sm text-gray-600 mb-4">For Zebra thermal printers</p>
                   <Button className="bg-orange-600 hover:bg-orange-700 text-white w-full h-10">
                     <Download className="h-4 w-4 mr-2" />
                     Download ZPL
@@ -437,7 +450,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 >
                   <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
                   <h4 className="font-bold text-lg mb-2">EPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
+                  <p className="text-sm text-gray-600 mb-4">For Eltron thermal printers</p>
                   <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
                     <Download className="h-4 w-4 mr-2" />
                     Download EPL
@@ -504,6 +517,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       <SelectItem value="pdf">PDF</SelectItem>
                       <SelectItem value="png">PNG</SelectItem>
                       <SelectItem value="zpl">ZPL</SelectItem>
+                      <SelectItem value="epl">EPL</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
