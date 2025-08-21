@@ -178,7 +178,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' | 'epl' = 'pdf') => {
-    if (!originalPdfBytes) {
+    if (!labelUrl) {
       toast.error('No label data available');
       return;
     }
@@ -187,33 +187,42 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let blob: Blob;
       let filename: string;
       
-      if (format === 'pdf') {
+      if (format === 'pdf' && originalPdfBytes) {
+        // Use generated PDF with current format
         const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
-        // For PNG, ZPL, and EPL, use original URL for now
+        // For other formats or fallback, download directly from URL
         const response = await fetch(labelUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
-          type: format === 'png' ? 'image/png' : 'text/plain' 
+          type: format === 'pdf' ? 'application/pdf' : format === 'png' ? 'image/png' : 'text/plain' 
         });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
       }
       
+      // Create download link
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.target = '_blank';
+      
+      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
       
-      toast.success(`Downloaded ${format.toUpperCase()} label`);
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      
+      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
     } catch (error) {
       console.error('Error downloading:', error);
-      toast.error('Failed to download label');
+      toast.error(`Failed to download ${format.toUpperCase()} label. Please try again.`);
     }
   };
 
@@ -274,7 +283,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes}
+            disabled={!labelUrl}
           >
             <Download className="h-3 w-3 mr-1" />
             Download
