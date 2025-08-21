@@ -62,6 +62,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   const [emailFormat, setEmailFormat] = useState('pdf');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Load original PDF when dialog opens
   useEffect(() => {
     if (isOpen && labelUrl && !originalPdfBytes) {
       loadOriginalPdf();
@@ -74,7 +75,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       setOriginalPdfBytes(bytes);
-      setCurrentPreviewUrl(labelUrl);
+      setCurrentPreviewUrl(labelUrl); // Start with original
     } catch (error) {
       console.error('Error loading original PDF:', error);
       toast.error('Failed to load label PDF');
@@ -85,15 +86,18 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
-    const letterWidth = 612;
-    const letterHeight = 792;
-    const labelWidth = 288;
-    const labelHeight = 432;
+    // Page sizes in points (72 points per inch)
+    const letterWidth = 612;  // 8.5"
+    const letterHeight = 792; // 11"
+    const labelWidth = 288;   // 4"
+    const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
+      // Keep as original 4x6
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
@@ -103,34 +107,39 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       });
 
     } else if (layoutOption === '8.5x11-2up') {
+      // Two labels: top & bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
+      // Top label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,
+        y: letterHeight - labelHeight - 30,  // 30 points from top
         width: labelWidth, 
         height: labelHeight 
       });
+      // Bottom label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,
+        y: 30,  // 30 points from bottom
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-top') {
+      // Single label at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,
+        y: letterHeight - labelHeight - 30,  // 30 points from top
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-bottom') {
+      // Single label at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,
+        y: 30,  // 30 points from bottom
         width: labelWidth, 
         height: labelHeight 
       });
@@ -153,6 +162,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
+      // Clean up previous URL
       if (currentPreviewUrl && currentPreviewUrl !== labelUrl) {
         URL.revokeObjectURL(currentPreviewUrl);
       }
@@ -167,8 +177,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' | 'epl' = 'pdf') => {
-    if (!labelUrl && !originalPdfBytes) {
+  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    if (!originalPdfBytes) {
       toast.error('No label data available');
       return;
     }
@@ -177,18 +187,16 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let blob: Blob;
       let filename: string;
       
-      if (format === 'pdf' && originalPdfBytes) {
+      if (format === 'pdf') {
         const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
+        // For PNG and ZPL, use original URL for now
         const response = await fetch(labelUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
-          type: format === 'pdf' ? 'application/pdf' : format === 'png' ? 'image/png' : 'text/plain' 
+          type: format === 'png' ? 'image/png' : 'text/plain' 
         });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
       }
@@ -197,17 +205,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.target = '_blank';
-      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
       
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      
-      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
+      toast.success(`Downloaded ${format.toUpperCase()} label`);
     } catch (error) {
       console.error('Error downloading:', error);
-      toast.error(`Failed to download ${format.toUpperCase()} label. Please try again.`);
+      toast.error('Failed to download label');
     }
   };
 
@@ -253,6 +259,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       return;
     }
     
+    // TODO: Implement email functionality - requires backend integration
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
@@ -267,7 +274,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!labelUrl && !originalPdfBytes}
+            disabled={!originalPdfBytes}
           >
             <Download className="h-3 w-3 mr-1" />
             Download
@@ -299,6 +306,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
+          {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
@@ -316,6 +324,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
+              {/* Format Selection - Compact dropdown */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
@@ -381,6 +390,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
               </div>
 
+              {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
@@ -394,7 +404,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsContent>
 
             <TabsContent value="download" className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
                 <div 
                   className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
@@ -422,28 +432,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
                 
                 <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-orange-500 bg-orange-50 hover:bg-orange-100"
+                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
                   onClick={() => handleDownload('zpl')}
                 >
-                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-orange-600" />
-                  <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For Zebra thermal printers</p>
-                  <Button className="bg-orange-600 hover:bg-orange-700 text-white w-full h-10">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download ZPL
-                  </Button>
-                </div>
-
-                <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
-                  onClick={() => handleDownload('epl')}
-                >
                   <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
-                  <h4 className="font-bold text-lg mb-2">EPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For Eltron thermal printers</p>
+                  <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
                   <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
                     <Download className="h-4 w-4 mr-2" />
-                    Download EPL
+                    Download ZPL
                   </Button>
                 </div>
               </div>
@@ -507,7 +504,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       <SelectItem value="pdf">PDF</SelectItem>
                       <SelectItem value="png">PNG</SelectItem>
                       <SelectItem value="zpl">ZPL</SelectItem>
-                      <SelectItem value="epl">EPL</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

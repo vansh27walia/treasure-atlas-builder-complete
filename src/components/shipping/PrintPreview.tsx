@@ -83,6 +83,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
+  // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
@@ -128,13 +129,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
-    const letterWidth = 612;
-    const letterHeight = 792;
-    const labelWidth = 288;
-    const labelHeight = 432;
+    // Page sizes in points (72 points per inch)
+    const letterWidth = 612;  // 8.5"
+    const letterHeight = 792; // 11"
+    const labelWidth = 288;   // 4"
+    const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
@@ -179,7 +182,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       try {
         iframeRef.current.contentWindow.focus();
         iframeRef.current.contentWindow.print();
-        toast.success('Print dialog opened');
+        setIsOpen(false);
       } catch (error) {
         console.error("Error printing PDF from iframe:", error);
         toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
@@ -195,6 +198,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     try {
       if (originalPdfBytes) {
+        // Client-side PDF conversion
         const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -227,14 +231,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     try {
       let blob: Blob;
       let filename: string;
-      let downloadUrl: string;
       
       if (format === 'pdf' && originalPdfBytes) {
         const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
-        downloadUrl = URL.createObjectURL(blob);
       } else {
+        // Fallback to direct download
         const url = labelUrls?.[format] || labelUrl;
         if (!url) {
           toast.error(`${format.toUpperCase()} format not available`);
@@ -242,32 +245,26 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         }
         
         const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
           type: format === 'pdf' ? 'application/pdf' : format === 'png' ? 'image/png' : 'text/plain'
         });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
-        downloadUrl = URL.createObjectURL(blob);
       }
       
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.target = '_blank';
-      
-      document.body.appendChild(link);
+      document.body.appendChild(link);  
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
       
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-      
-      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
+      toast.success(`Downloaded ${format.toUpperCase()} label`);
     } catch (error) {
       console.error('Error downloading:', error);
-      toast.error(`Failed to download ${format.toUpperCase()} label. Please try again.`);
+      toast.error('Failed to download label');
     }
   };
 
@@ -298,6 +295,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       return;
     }
     
+    // TODO: Implement email sending logic
     toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
   };
 
@@ -314,7 +312,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes && !labelUrls?.pdf && !labelUrl}
+            disabled={!originalPdfBytes && !labelUrls?.pdf}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
@@ -346,6 +344,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
+          {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
@@ -363,6 +362,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
+              {/* Format Selection - Only in Preview Tab */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
@@ -442,6 +442,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               </div>
 
+              {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
