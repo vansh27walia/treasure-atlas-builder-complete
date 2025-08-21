@@ -316,9 +316,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           throw new Error(`Failed to fetch ${format.toUpperCase()}`);
         }
         const arrayBuffer = await response.arrayBuffer();
-        blob = new Blob([arrayBuffer], { 
-          type: format === 'pdf' ? 'application/pdf' : format === 'png' ? 'image/png' : 'text/plain'
-        });
+        
+        // Fix the type comparison issue
+        const mimeType = format === 'png' ? 'image/png' : 'text/plain';
+        blob = new Blob([arrayBuffer], { type: mimeType });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
       }
       
