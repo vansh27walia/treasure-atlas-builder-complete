@@ -131,10 +131,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
     const embeddedPage = embeddedPages[0];
 
-    const letterWidth = 612;  // 8.5"
-    const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
+    const letterWidth = 612;
+    const letterHeight = 792;
+    const labelWidth = 288;
+    const labelHeight = 432;
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);

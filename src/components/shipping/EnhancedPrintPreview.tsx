@@ -62,7 +62,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   const [emailFormat, setEmailFormat] = useState('pdf');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Load original PDF when dialog opens
   useEffect(() => {
     if (isOpen && labelUrl && !originalPdfBytes) {
       loadOriginalPdf();
@@ -75,7 +74,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       setOriginalPdfBytes(bytes);
-      setCurrentPreviewUrl(labelUrl); // Start with original
+      setCurrentPreviewUrl(labelUrl);
     } catch (error) {
       console.error('Error loading original PDF:', error);
       toast.error('Failed to load label PDF');
@@ -86,18 +85,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Copy the first page from the original PDF to get embedded pages
     const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0]; // Get the embedded page
+    const embeddedPage = embeddedPages[0];
 
-    // Page sizes in points (72 points per inch)
-    const letterWidth = 612;  // 8.5"
-    const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
+    const letterWidth = 612;
+    const letterHeight = 792;
+    const labelWidth = 288;
+    const labelHeight = 432;
 
     if (layoutOption === '4x6') {
-      // Keep as original 4x6
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
@@ -107,39 +103,34 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       });
 
     } else if (layoutOption === '8.5x11-2up') {
-      // Two labels: top & bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      // Top label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
+        y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
-      // Bottom label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
+        y: 30,
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-top') {
-      // Single label at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
+        y: letterHeight - labelHeight - 30,
         width: labelWidth, 
         height: labelHeight 
       });
 
     } else if (layoutOption === '8.5x11-bottom') {
-      // Single label at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
+        y: 30,
         width: labelWidth, 
         height: labelHeight 
       });
@@ -162,7 +153,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
-      // Clean up previous URL
       if (currentPreviewUrl && currentPreviewUrl !== labelUrl) {
         URL.revokeObjectURL(currentPreviewUrl);
       }
@@ -188,12 +178,10 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf' && originalPdfBytes) {
-        // Use generated PDF with current format
         const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
-        // For other formats or fallback, download directly from URL
         const response = await fetch(labelUrl);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -205,18 +193,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
       }
       
-      // Create download link
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.target = '_blank';
       
-      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      // Clean up
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       
       toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
@@ -268,7 +253,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       return;
     }
     
-    // TODO: Implement email functionality - requires backend integration
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
@@ -315,7 +299,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
-          {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
@@ -333,7 +316,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              {/* Format Selection - Compact dropdown */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
@@ -399,7 +381,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
               </div>
 
-              {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
