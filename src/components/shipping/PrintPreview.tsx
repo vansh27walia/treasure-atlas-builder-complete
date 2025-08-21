@@ -83,6 +83,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
+  // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
@@ -128,12 +129,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
     
-    const [embeddedPage] = await outputPdf.copyPages(originalPdf, [0]);
+    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
+    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
+    const embeddedPage = embeddedPages[0];
 
-    const letterWidth = 612;
-    const letterHeight = 792;
-    const labelWidth = 288;
-    const labelHeight = 432;
+    // Page sizes in points (72 points per inch)
+    const letterWidth = 612;  // 8.5"
+    const letterHeight = 792; // 11"
+    const labelWidth = 288;   // 4"
+    const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
@@ -194,6 +198,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     try {
       if (originalPdfBytes) {
+        // Client-side PDF conversion
         const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -232,6 +237,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         blob = new Blob([pdfBytes], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
+        // Fallback to direct download
         const url = labelUrls?.[format] || labelUrl;
         if (!url) {
           toast.error(`${format.toUpperCase()} format not available`);
@@ -289,6 +295,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       return;
     }
     
+    // TODO: Implement email sending logic
     toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
   };
 
@@ -337,6 +344,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
+          {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
@@ -354,6 +362,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
+              {/* Format Selection - Only in Preview Tab */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
@@ -433,6 +442,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               </div>
 
+              {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
