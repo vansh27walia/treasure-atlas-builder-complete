@@ -47,6 +47,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
+          isNormalShipping={true}
           triggerButton={
             <Button
               variant="outline"

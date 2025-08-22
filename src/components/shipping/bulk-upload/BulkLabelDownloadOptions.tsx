@@ -82,7 +82,6 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                   shipmentId={batchResult.batchId}
                   isConsolidated={true}
                   consolidatedLabels={processedLabels}
-                  onEmailLabels={onEmailLabels}
                 />
                 
                 <Button

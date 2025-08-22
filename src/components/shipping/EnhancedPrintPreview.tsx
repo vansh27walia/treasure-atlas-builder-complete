@@ -16,10 +16,17 @@ const individualLabelFormats = [
   { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'Convert to horizontal and place at bottom of letter page' }
 ];
 
+// Normal shipping formats - simpler version
+const normalShippingFormats = [
+  { value: '4x6', label: '4x6" Thermal', description: 'Keep original 4x6 size as-is' },
+  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels', description: 'Convert labels to horizontal format on letter page' }
+];
+
 // Consolidated label formats - for batch labels
 const consolidatedLabelFormats = [
-  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels per Sheet', description: 'Rotate entire sheet from vertical to horizontal layout' },
-  { value: '4x6-individual', label: '4x6" Individual Pages', description: 'Each label on separate 4x6 page from individual label URLs' }
+  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels per Sheet', description: 'Keep entire sheets as-is but rotate to vertical orientation' },
+  { value: '4x6-individual', label: '4x6" Individual Pages', description: 'Each label on separate 4x6 page from individual label URLs' },
+  { value: 'pdf2-merged', label: 'PDF2 - Merged Individual Labels', description: 'All individual labels merged into single PDF file' }
 ];
 
 interface EnhancedPrintPreviewProps {
@@ -38,6 +45,7 @@ interface EnhancedPrintPreviewProps {
   };
   shipmentId?: string;
   isConsolidated?: boolean;
+  isNormalShipping?: boolean;
   consolidatedLabels?: any[];
   onEmailLabels?: () => void;
 }
@@ -51,6 +59,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   shipmentDetails,
   shipmentId,
   isConsolidated = false,
+  isNormalShipping = false,
   consolidatedLabels = [],
   onEmailLabels
 }) => {
@@ -64,7 +73,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const [selectedFormat, setSelectedFormat] = useState(isConsolidated ? '8.5x11-2-labels' : '4x6');
+  // Set default format based on type
+  const getDefaultFormat = () => {
+    if (isNormalShipping) return '4x6';
+    if (isConsolidated) return '8.5x11-2-labels';
+    return '4x6';
+  };
+
+  const [selectedFormat, setSelectedFormat] = useState(getDefaultFormat());
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
@@ -108,39 +124,91 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     const letterWidth = 612;  // 8.5"
     const letterHeight = 792; // 11"
-    const labelWidth = 432;   // 6" horizontal
-    const labelHeight = 288;  // 4" horizontal
+    const labelWidth = 432;   // 6" horizontal (rotated from 4x6)
+    const labelHeight = 288;  // 4" horizontal (rotated from 4x6)
 
     if (layoutOption === '4x6') {
       // Keep 4x6 as-is, no conversion needed
-      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      const page = outputPdf.addPage([288, 432]); // 4x6 vertical
       page.drawPage(embeddedPage, { 
         x: 0, 
         y: 0, 
-        width: labelWidth, 
-        height: labelHeight 
+        width: 288, 
+        height: 432 
       });
     } else if (layoutOption === '8.5x11-top') {
       // Convert vertical label to horizontal and place at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Draw the label horizontally at top
+      // Draw the label horizontally at top (rotated 90 degrees)
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 50,
         width: labelWidth, 
-        height: labelHeight
+        height: labelHeight,
+        rotate: degrees(90)
       });
     } else if (layoutOption === '8.5x11-bottom') {
       // Convert vertical label to horizontal and place at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Draw the label horizontally at bottom
+      // Draw the label horizontally at bottom (rotated 90 degrees)
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 50,
         width: labelWidth, 
-        height: labelHeight
+        height: labelHeight,
+        rotate: degrees(90)
+      });
+    }
+
+    return await outputPdf.save();
+  };
+
+  // For normal shipping labels
+  const generateNormalShippingPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
+    const originalPdf = await PDFDocument.load(fileBytes);
+    const outputPdf = await PDFDocument.create();
+
+    if (layoutOption === '4x6') {
+      // Keep original as-is
+      const originalPage = originalPdf.getPage(0);
+      const embeddedPage = await outputPdf.embedPage(originalPage);
+      const page = outputPdf.addPage([288, 432]); // 4x6 vertical
+      page.drawPage(embeddedPage, { 
+        x: 0, 
+        y: 0, 
+        width: 288, 
+        height: 432 
+      });
+    } else if (layoutOption === '8.5x11-2-labels') {
+      // Create 8.5x11 with 2 labels horizontally oriented
+      const originalPage = originalPdf.getPage(0);
+      const embeddedPage = await outputPdf.embedPage(originalPage);
+      
+      const letterWidth = 612;  // 8.5"
+      const letterHeight = 792; // 11"
+      const labelWidth = 288;   // 4" horizontal
+      const labelHeight = 432;  // 6" horizontal
+      
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      
+      // Draw first label at top (rotated to horizontal)
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelHeight) / 2, 
+        y: letterHeight - labelWidth - 50,
+        width: labelHeight, 
+        height: labelWidth,
+        rotate: degrees(90)
+      });
+      
+      // Draw another copy at bottom (rotated to horizontal)
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelHeight) / 2, 
+        y: 50,
+        width: labelHeight, 
+        height: labelWidth,
+        rotate: degrees(90)
       });
     }
 
@@ -156,28 +224,36 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(originalPdfBytes);
     const outputPdf = await PDFDocument.create();
 
-    const letterWidth = 612;  // 8.5"
-    const letterHeight = 792; // 11"
-    const labelWidth = 432;   // 6" horizontal
-    const labelHeight = 288;  // 4" horizontal
-
     if (layoutOption === '8.5x11-2-labels') {
-      // Rotate entire sheet from vertical to horizontal (landscape)
+      // Keep all sheets as-is but rotate to vertical (portrait) orientation
       for (let i = 0; i < originalPdf.getPageCount(); i++) {
         const originalPage = originalPdf.getPage(i);
         const embeddedPage = await outputPdf.embedPage(originalPage);
         
-        // Create horizontal page (landscape) - swap dimensions
-        const page = outputPdf.addPage([letterHeight, letterWidth]);
+        // Get original page dimensions
+        const { width: origWidth, height: origHeight } = originalPage.getSize();
         
-        // Draw the page rotated 90 degrees to make it horizontal
-        page.drawPage(embeddedPage, {
-          x: 0,
-          y: letterWidth,
-          width: letterHeight,
-          height: letterWidth,
-          rotate: degrees(90)
-        });
+        // Create vertical page (portrait) - ensure it's vertical
+        const page = outputPdf.addPage([Math.min(origWidth, origHeight), Math.max(origWidth, origHeight)]);
+        
+        // If original is landscape, rotate to portrait
+        if (origWidth > origHeight) {
+          page.drawPage(embeddedPage, {
+            x: 0,
+            y: Math.max(origWidth, origHeight),
+            width: Math.max(origWidth, origHeight),
+            height: Math.min(origWidth, origHeight),
+            rotate: degrees(90)
+          });
+        } else {
+          // Already portrait, keep as-is
+          page.drawPage(embeddedPage, {
+            x: 0,
+            y: 0,
+            width: origWidth,
+            height: origHeight
+          });
+        }
       }
     } else if (layoutOption === '4x6-individual') {
       // Create individual 4x6 pages from each label
@@ -194,31 +270,48 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               const embeddedPage = await outputPdf.embedPage(labelPage);
 
               // Create 4x6 page for each label (keep as-is)
-              const page = outputPdf.addPage([labelWidth, labelHeight]);
+              const page = outputPdf.addPage([288, 432]); // 4x6 vertical
               page.drawPage(embeddedPage, {
                 x: 0,
                 y: 0,
-                width: labelWidth,
-                height: labelHeight
+                width: 288,
+                height: 432
               });
             } catch (error) {
               console.error('Error processing individual label:', error);
             }
           }
         }
-      } else {
-        // Fallback: try to extract from consolidated PDF
-        for (let i = 0; i < originalPdf.getPageCount(); i++) {
-          const originalPage = originalPdf.getPage(i);
-          const embeddedPage = await outputPdf.embedPage(originalPage);
-          
-          const page = outputPdf.addPage([labelWidth, labelHeight]);
-          page.drawPage(embeddedPage, {
-            x: 0,
-            y: 0,
-            width: labelWidth,
-            height: labelHeight
-          });
+      }
+    } else if (layoutOption === 'pdf2-merged') {
+      // Merge all individual PDFs into one
+      if (isConsolidated && consolidatedLabels.length > 0) {
+        for (const label of consolidatedLabels) {
+          if (label.labelUrl || label.label_urls?.pdf || label.label_url) {
+            try {
+              const labelUrl = label.labelUrl || label.label_urls?.pdf || label.label_url;
+              const response = await fetch(labelUrl);
+              const arrayBuffer = await response.arrayBuffer();
+              const labelPdf = await PDFDocument.load(arrayBuffer);
+              
+              // Copy all pages from this PDF
+              for (let i = 0; i < labelPdf.getPageCount(); i++) {
+                const labelPage = labelPdf.getPage(i);
+                const embeddedPage = await outputPdf.embedPage(labelPage);
+                const { width, height } = labelPage.getSize();
+                
+                const page = outputPdf.addPage([width, height]);
+                page.drawPage(embeddedPage, {
+                  x: 0,
+                  y: 0,
+                  width: width,
+                  height: height
+                });
+              }
+            } catch (error) {
+              console.error('Error processing PDF for merge:', error);
+            }
+          }
         }
       }
     }
@@ -238,7 +331,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     try {
       let pdfBytes: Uint8Array;
       
-      if (isConsolidated) {
+      if (isNormalShipping) {
+        pdfBytes = await generateNormalShippingPDF(originalPdfBytes!, format);
+      } else if (isConsolidated) {
         pdfBytes = await generateConsolidatedLabelPDF(format);
       } else {
         pdfBytes = await generateIndividualLabelPDF(originalPdfBytes!, format);
@@ -254,9 +349,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       
       setCurrentPreviewUrl(url);
       
-      const formatLabel = isConsolidated ? 
-        consolidatedLabelFormats.find(f => f.value === format)?.label :
-        individualLabelFormats.find(f => f.value === format)?.label;
+      const availableFormats = isNormalShipping ? normalShippingFormats : 
+                              isConsolidated ? consolidatedLabelFormats : 
+                              individualLabelFormats;
+      
+      const formatLabel = availableFormats.find(f => f.value === format)?.label;
       
       toast.success(`Label format updated to ${formatLabel}`);
     } catch (error) {
@@ -281,7 +378,13 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        
+        // Special filename for PDF2
+        if (selectedFormat === 'pdf2-merged') {
+          filename = `shipping_labels_merged_pdf2_${Date.now()}.pdf`;
+        } else {
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        }
       } else {
         // For PNG and ZPL, use original URL
         const response = await fetch(labelUrl);
@@ -303,7 +406,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
       
-      toast.success(`Downloaded ${format.toUpperCase()} label`);
+      const formatName = selectedFormat === 'pdf2-merged' ? 'PDF2 Merged' : format.toUpperCase();
+      toast.success(`Downloaded ${formatName} label`);
     } catch (error) {
       console.error('Error downloading:', error);
       toast.error('Failed to download label');
@@ -367,9 +471,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const availableFormats = isConsolidated ? consolidatedLabelFormats : individualLabelFormats;
+  const availableFormats = isNormalShipping ? normalShippingFormats : 
+                          isConsolidated ? consolidatedLabelFormats : 
+                          individualLabelFormats;
+  
   const dialogTitleText = isConsolidated 
     ? `Print Preview - All Labels (${consolidatedLabels.length} labels)`
+    : isNormalShipping
+    ? `Print Preview - Normal Shipping`
     : `Print Preview - ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
@@ -492,7 +601,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   ) : currentPreviewUrl ? (
                     <iframe 
                       ref={iframeRef} 
-                      src={currentPreviewUrl} 
+                      src={`${currentPreviewUrl}#toolbar=0&navpanes=0&scrollbar=0`}
                       className="w-full h-full border border-gray-300 rounded-lg"
                       title="Label Preview"
                       style={{ minHeight: '500px' }}
@@ -527,11 +636,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   onClick={() => handleDownload('pdf')}
                 >
                   <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
-                  <h4 className="font-bold text-lg mb-2">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Best for printing and archiving</p>
+                  <h4 className="font-bold text-lg mb-2">
+                    {selectedFormat === 'pdf2-merged' ? 'PDF2 Format' : 'PDF Format'}
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {selectedFormat === 'pdf2-merged' ? 'Merged individual labels' : 'Best for printing and archiving'}
+                  </p>
                   <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
                     <Download className="h-4 w-4 mr-2" />
-                    Download PDF
+                    {selectedFormat === 'pdf2-merged' ? 'Download PDF2' : 'Download PDF'}
                   </Button>
                 </div>
                 
@@ -621,6 +734,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       <SelectItem value="pdf">PDF</SelectItem>
                       <SelectItem value="png">PNG</SelectItem>
                       <SelectItem value="zpl">ZPL</SelectItem>
+                      {selectedFormat === 'pdf2-merged' && (
+                        <SelectItem value="pdf2">PDF2 (Merged)</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
