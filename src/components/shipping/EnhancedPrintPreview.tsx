@@ -19,14 +19,13 @@ const individualLabelFormats = [
 // Normal shipping formats - simpler version
 const normalShippingFormats = [
   { value: '4x6', label: '4x6" Thermal', description: 'Keep original 4x6 size as-is' },
-  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels', description: 'Convert labels to horizontal format on letter page' }
+  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'Convert to horizontal and place at top of letter page' },
+  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'Convert to horizontal and place at bottom of letter page' }
 ];
 
-// Consolidated label formats - for batch labels
+// Consolidated label formats - for batch labels (simplified to single option)
 const consolidatedLabelFormats = [
-  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels per Sheet', description: 'Keep entire sheets as-is but rotate to vertical orientation' },
-  { value: '4x6-individual', label: '4x6" Individual Pages', description: 'Each label on separate 4x6 page from individual label URLs' },
-  { value: 'pdf2-merged', label: 'PDF2 - Merged Individual Labels', description: 'All individual labels merged into single PDF file' }
+  { value: '8.5x11-as-is', label: '8.5x11" - As-Is from Backend', description: 'Display sheets exactly as received from backend without any modifications' }
 ];
 
 interface EnhancedPrintPreviewProps {
@@ -75,9 +74,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
   // Set default format based on type
   const getDefaultFormat = () => {
-    if (isNormalShipping) return '4x6';
-    if (isConsolidated) return '8.5x11-2-labels';
-    return '4x6';
+    if (isConsolidated) return '8.5x11-as-is'; // Simplified for consolidated
+    return '4x6'; // Default for individual and normal shipping
   };
 
   const [selectedFormat, setSelectedFormat] = useState(getDefaultFormat());
@@ -165,158 +163,14 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     return await outputPdf.save();
   };
 
-  // For normal shipping labels
-  const generateNormalShippingPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
-    const originalPdf = await PDFDocument.load(fileBytes);
-    const outputPdf = await PDFDocument.create();
-
-    if (layoutOption === '4x6') {
-      // Keep original as-is
-      const originalPage = originalPdf.getPage(0);
-      const embeddedPage = await outputPdf.embedPage(originalPage);
-      const page = outputPdf.addPage([288, 432]); // 4x6 vertical
-      page.drawPage(embeddedPage, { 
-        x: 0, 
-        y: 0, 
-        width: 288, 
-        height: 432 
-      });
-    } else if (layoutOption === '8.5x11-2-labels') {
-      // Create 8.5x11 with 2 labels horizontally oriented
-      const originalPage = originalPdf.getPage(0);
-      const embeddedPage = await outputPdf.embedPage(originalPage);
-      
-      const letterWidth = 612;  // 8.5"
-      const letterHeight = 792; // 11"
-      const labelWidth = 288;   // 4" horizontal
-      const labelHeight = 432;  // 6" horizontal
-      
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      
-      // Draw first label at top (rotated to horizontal)
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelHeight) / 2, 
-        y: letterHeight - labelWidth - 50,
-        width: labelHeight, 
-        height: labelWidth,
-        rotate: degrees(90)
-      });
-      
-      // Draw another copy at bottom (rotated to horizontal)
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelHeight) / 2, 
-        y: 50,
-        width: labelHeight, 
-        height: labelWidth,
-        rotate: degrees(90)
-      });
-    }
-
-    return await outputPdf.save();
-  };
-
-  // For consolidated labels - handle different formatting options
+  // For consolidated labels - display as-is from backend
   const generateConsolidatedLabelPDF = async (layoutOption: string): Promise<Uint8Array> => {
     if (!originalPdfBytes) {
       throw new Error('No PDF data available for consolidated labels');
     }
 
-    const originalPdf = await PDFDocument.load(originalPdfBytes);
-    const outputPdf = await PDFDocument.create();
-
-    if (layoutOption === '8.5x11-2-labels') {
-      // Keep all sheets as-is but rotate to vertical (portrait) orientation
-      for (let i = 0; i < originalPdf.getPageCount(); i++) {
-        const originalPage = originalPdf.getPage(i);
-        const embeddedPage = await outputPdf.embedPage(originalPage);
-        
-        // Get original page dimensions
-        const { width: origWidth, height: origHeight } = originalPage.getSize();
-        
-        // Create vertical page (portrait) - ensure it's vertical
-        const page = outputPdf.addPage([Math.min(origWidth, origHeight), Math.max(origWidth, origHeight)]);
-        
-        // If original is landscape, rotate to portrait
-        if (origWidth > origHeight) {
-          page.drawPage(embeddedPage, {
-            x: 0,
-            y: Math.max(origWidth, origHeight),
-            width: Math.max(origWidth, origHeight),
-            height: Math.min(origWidth, origHeight),
-            rotate: degrees(90)
-          });
-        } else {
-          // Already portrait, keep as-is
-          page.drawPage(embeddedPage, {
-            x: 0,
-            y: 0,
-            width: origWidth,
-            height: origHeight
-          });
-        }
-      }
-    } else if (layoutOption === '4x6-individual') {
-      // Create individual 4x6 pages from each label
-      if (isConsolidated && consolidatedLabels.length > 0) {
-        // Use individual label URLs if available
-        for (const label of consolidatedLabels) {
-          if (label.labelUrl || label.label_urls?.pdf || label.label_url) {
-            try {
-              const labelUrl = label.labelUrl || label.label_urls?.pdf || label.label_url;
-              const response = await fetch(labelUrl);
-              const arrayBuffer = await response.arrayBuffer();
-              const labelPdf = await PDFDocument.load(arrayBuffer);
-              const labelPage = labelPdf.getPage(0);
-              const embeddedPage = await outputPdf.embedPage(labelPage);
-
-              // Create 4x6 page for each label (keep as-is)
-              const page = outputPdf.addPage([288, 432]); // 4x6 vertical
-              page.drawPage(embeddedPage, {
-                x: 0,
-                y: 0,
-                width: 288,
-                height: 432
-              });
-            } catch (error) {
-              console.error('Error processing individual label:', error);
-            }
-          }
-        }
-      }
-    } else if (layoutOption === 'pdf2-merged') {
-      // Merge all individual PDFs into one
-      if (isConsolidated && consolidatedLabels.length > 0) {
-        for (const label of consolidatedLabels) {
-          if (label.labelUrl || label.label_urls?.pdf || label.label_url) {
-            try {
-              const labelUrl = label.labelUrl || label.label_urls?.pdf || label.label_url;
-              const response = await fetch(labelUrl);
-              const arrayBuffer = await response.arrayBuffer();
-              const labelPdf = await PDFDocument.load(arrayBuffer);
-              
-              // Copy all pages from this PDF
-              for (let i = 0; i < labelPdf.getPageCount(); i++) {
-                const labelPage = labelPdf.getPage(i);
-                const embeddedPage = await outputPdf.embedPage(labelPage);
-                const { width, height } = labelPage.getSize();
-                
-                const page = outputPdf.addPage([width, height]);
-                page.drawPage(embeddedPage, {
-                  x: 0,
-                  y: 0,
-                  width: width,
-                  height: height
-                });
-              }
-            } catch (error) {
-              console.error('Error processing PDF for merge:', error);
-            }
-          }
-        }
-      }
-    }
-
-    return await outputPdf.save();
+    // For consolidated labels, always return as-is from backend
+    return originalPdfBytes;
   };
 
   const handleFormatChange = async (format: string) => {
@@ -331,11 +185,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     try {
       let pdfBytes: Uint8Array;
       
-      if (isNormalShipping) {
-        pdfBytes = await generateNormalShippingPDF(originalPdfBytes!, format);
-      } else if (isConsolidated) {
+      if (isConsolidated) {
+        // For consolidated labels, always show as-is from backend
         pdfBytes = await generateConsolidatedLabelPDF(format);
       } else {
+        // For individual and normal shipping labels
         pdfBytes = await generateIndividualLabelPDF(originalPdfBytes!, format);
       }
       
@@ -349,8 +203,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       
       setCurrentPreviewUrl(url);
       
-      const availableFormats = isNormalShipping ? normalShippingFormats : 
-                              isConsolidated ? consolidatedLabelFormats : 
+      const availableFormats = isConsolidated ? consolidatedLabelFormats : 
+                              isNormalShipping ? normalShippingFormats : 
                               individualLabelFormats;
       
       const formatLabel = availableFormats.find(f => f.value === format)?.label;
@@ -378,13 +232,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         }
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        
-        // Special filename for PDF2
-        if (selectedFormat === 'pdf2-merged') {
-          filename = `shipping_labels_merged_pdf2_${Date.now()}.pdf`;
-        } else {
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
-        }
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
       } else {
         // For PNG and ZPL, use original URL
         const response = await fetch(labelUrl);
@@ -406,8 +254,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
       
-      const formatName = selectedFormat === 'pdf2-merged' ? 'PDF2 Merged' : format.toUpperCase();
-      toast.success(`Downloaded ${formatName} label`);
+      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
     } catch (error) {
       console.error('Error downloading:', error);
       toast.error('Failed to download label');
@@ -471,8 +318,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const availableFormats = isNormalShipping ? normalShippingFormats : 
-                          isConsolidated ? consolidatedLabelFormats : 
+  const availableFormats = isConsolidated ? consolidatedLabelFormats : 
+                          isNormalShipping ? normalShippingFormats : 
                           individualLabelFormats;
   
   const dialogTitleText = isConsolidated 
@@ -553,77 +400,88 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              <div className="mb-4">
-                <Label className="text-sm font-medium mb-2 block">Print Format</Label>
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isGenerating}
-                >
-                  <SelectTrigger className="w-full h-9 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
-                    <SelectValue placeholder="Select Format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
-                    {availableFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value} className="cursor-pointer py-3 hover:bg-gray-50 text-sm">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{format.label}</span>
-                          <span className="text-xs text-gray-500">{format.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Format Selection - Only show if not consolidated or has options */}
+              {!isConsolidated && (
+                <div className="mb-4">
+                  <Label className="text-sm font-medium mb-2 block">Print Format</Label>
+                  <Select
+                    value={selectedFormat}
+                    onValueChange={handleFormatChange}
+                    disabled={isGenerating}
+                  >
+                    <SelectTrigger className="w-full h-9 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
+                      <SelectValue placeholder="Select Format" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
+                      {availableFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value} className="cursor-pointer py-3 hover:bg-gray-50 text-sm">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{format.label}</span>
+                            <span className="text-xs text-gray-500">{format.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
-                <div className="mb-3 text-center">
+              {/* Enhanced Preview Section */}
+              <div className="flex-1 p-6 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl overflow-hidden shadow-inner">
+                <div className="mb-4 text-center">
                   {isGenerating ? (
                     <div className="flex items-center justify-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Generating {availableFormats.find(f => f.value === selectedFormat)?.label} format...</span>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin text-blue-600" />
+                      <span className="text-blue-800 font-medium">Generating {availableFormats.find(f => f.value === selectedFormat)?.label} format...</span>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-600">
-                      Preview: {availableFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}
-                    </p>
+                    <div className="bg-white px-4 py-2 rounded-lg shadow-sm border">
+                      <p className="text-sm text-gray-700 font-medium">
+                        {isConsolidated ? 'Consolidated Labels - As received from backend' : 
+                         `Preview: ${availableFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}`}
+                      </p>
+                    </div>
                   )}
                 </div>
                 
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full" style={{ height: 'calc(100% - 60px)' }}>
+                {/* Preview Container */}
+                <div className="mx-auto bg-white rounded-xl shadow-2xl border-4 border-gray-300 overflow-hidden" style={{ height: 'calc(100% - 80px)' }}>
                   {isGenerating ? (
-                    <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
-                        <p className="text-purple-800">Generating label format...</p>
+                    <div className="h-full flex items-center justify-center bg-gray-50">
+                      <div className="flex flex-col items-center p-8">
+                        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+                        <p className="text-blue-800 font-semibold text-lg">Generating label format...</p>
+                        <p className="text-gray-600 text-sm mt-2">Please wait while we prepare your label</p>
                       </div>
                     </div>
                   ) : currentPreviewUrl ? (
                     <iframe 
                       ref={iframeRef} 
-                      src={`${currentPreviewUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                      className="w-full h-full border border-gray-300 rounded-lg"
+                      src={`${currentPreviewUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                      className="w-full h-full border-0"
                       title="Label Preview"
-                      style={{ minHeight: '500px' }}
+                      style={{ minHeight: '600px' }}
                     />
                   ) : (
-                    <div className="border border-gray-300 h-full flex items-center justify-center text-gray-500 rounded-lg">
-                      <div className="text-center">
-                        <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <p>Loading label preview...</p>
+                    <div className="h-full flex items-center justify-center text-gray-500 bg-gray-50">
+                      <div className="text-center p-8">
+                        <Eye className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                        <p className="text-lg font-medium">Loading label preview...</p>
+                        <p className="text-sm text-gray-400 mt-2">Please wait while we prepare your label</p>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="pt-4 border-t mt-4">
+              {/* Enhanced Print Button */}
+              <div className="pt-6 border-t mt-6 bg-white rounded-lg">
                 <Button
                   onClick={handlePrint}
                   disabled={isGenerating || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white h-14 font-bold text-lg rounded-xl shadow-lg transform transition-all hover:scale-105 disabled:transform-none disabled:opacity-50"
                 >
-                  <Printer className="h-5 w-5 mr-2" />
+                  <Printer className="h-6 w-6 mr-3" />
                   Print Label
                 </Button>
               </div>
@@ -636,15 +494,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   onClick={() => handleDownload('pdf')}
                 >
                   <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
-                  <h4 className="font-bold text-lg mb-2">
-                    {selectedFormat === 'pdf2-merged' ? 'PDF2 Format' : 'PDF Format'}
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {selectedFormat === 'pdf2-merged' ? 'Merged individual labels' : 'Best for printing and archiving'}
-                  </p>
+                  <h4 className="font-bold text-lg mb-2">PDF Format</h4>
+                  <p className="text-sm text-gray-600 mb-4">Best for printing and archiving</p>
                   <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
                     <Download className="h-4 w-4 mr-2" />
-                    {selectedFormat === 'pdf2-merged' ? 'Download PDF2' : 'Download PDF'}
+                    Download PDF
                   </Button>
                 </div>
                 
@@ -734,9 +588,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       <SelectItem value="pdf">PDF</SelectItem>
                       <SelectItem value="png">PNG</SelectItem>
                       <SelectItem value="zpl">ZPL</SelectItem>
-                      {selectedFormat === 'pdf2-merged' && (
-                        <SelectItem value="pdf2">PDF2 (Merged)</SelectItem>
-                      )}
                     </SelectContent>
                   </Select>
                 </div>
