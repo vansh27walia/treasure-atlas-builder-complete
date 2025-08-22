@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -17,10 +16,11 @@ const individualLabelFormats = [
 ];
 
 const consolidatedLabelFormats = [
-  { value: 'horizontal-sheet', label: '8.5x11" - Horizontal Sheet', description: 'Rotate entire sheet to horizontal layout' },
+  { value: 'horizontal-sheet', label: '8.5x11" - Horizontal Sheet', description: 'Rotate entire sheet from vertical to horizontal layout' },
+  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels per Sheet', description: 'Keep original backend format with 2 labels per sheet' },
   { value: '4x6-individual', label: '4x6" Individual Pages', description: 'Each label on separate 4x6 page' },
-  { value: '8.5x11-top', label: '8.5x11" - Top Position', description: 'Each label horizontally on top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Bottom Position', description: 'Each label horizontally on bottom of letter page' }
+  { value: '8.5x11-top-individual', label: '8.5x11" - Top Position Individual', description: 'Each label horizontally positioned at top of separate letter pages' },
+  { value: '8.5x11-bottom-individual', label: '8.5x11" - Bottom Position Individual', description: 'Each label horizontally positioned at bottom of separate letter pages' }
 ];
 
 interface EnhancedPrintPreviewProps {
@@ -40,6 +40,7 @@ interface EnhancedPrintPreviewProps {
   shipmentId?: string;
   isConsolidated?: boolean;
   consolidatedLabels?: any[];
+  onEmailLabels?: () => void;
 }
 
 const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
@@ -51,7 +52,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   shipmentDetails,
   shipmentId,
   isConsolidated = false,
-  consolidatedLabels = []
+  consolidatedLabels = [],
+  onEmailLabels
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
@@ -73,7 +75,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   const [emailFormat, setEmailFormat] = useState('pdf');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Load original PDF when dialog opens
   useEffect(() => {
     if (isOpen && labelUrl && !originalPdfBytes) {
       loadOriginalPdf();
@@ -90,7 +91,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       setOriginalPdfBytes(bytes);
-      setCurrentPreviewUrl(labelUrl); // Start with original
+      setCurrentPreviewUrl(labelUrl);
       console.log('PDF loaded successfully');
     } catch (error) {
       console.error('Error loading original PDF:', error);
@@ -112,7 +113,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const labelHeight = 288;  // 4" horizontal
 
     if (layoutOption === '4x6') {
-      // Single 4x6 horizontal label
+      // Keep 4x6 as-is, no changes needed
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
@@ -124,25 +125,25 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       // Convert vertical label to horizontal and place at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Rotate and position the label horizontally at top
+      // Position the label horizontally at top
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 50,
         width: labelWidth, 
         height: labelHeight,
-        rotate: degrees(0) // Already handling horizontal conversion
+        rotate: degrees(90) // Rotate to make it horizontal
       });
     } else if (layoutOption === '8.5x11-bottom') {
       // Convert vertical label to horizontal and place at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Rotate and position the label horizontally at bottom
+      // Position the label horizontally at bottom
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 50,
         width: labelWidth, 
         height: labelHeight,
-        rotate: degrees(0) // Already handling horizontal conversion
+        rotate: degrees(90) // Rotate to make it horizontal
       });
     }
 
@@ -164,13 +165,13 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const labelHeight = 288;  // 4" horizontal
 
     if (layoutOption === 'horizontal-sheet') {
-      // Rotate entire sheet from vertical to horizontal
+      // Rotate entire sheet from vertical to horizontal (landscape)
       for (let i = 0; i < originalPdf.getPageCount(); i++) {
         const originalPage = originalPdf.getPage(i);
         const embeddedPage = await outputPdf.embedPage(originalPage);
         
-        // Create horizontal page (landscape)
-        const page = outputPdf.addPage([letterHeight, letterWidth]); // Swapped dimensions for landscape
+        // Create horizontal page (landscape) - swap dimensions
+        const page = outputPdf.addPage([letterHeight, letterWidth]);
         
         // Draw the page rotated 90 degrees to make it horizontal
         page.drawPage(embeddedPage, {
@@ -178,9 +179,21 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
           y: letterWidth / 2,
           width: letterHeight,
           height: letterWidth,
-          rotate: degrees(90),
-          xSkew: degrees(0),
-          ySkew: degrees(0)
+          rotate: degrees(90)
+        });
+      }
+    } else if (layoutOption === '8.5x11-2-labels') {
+      // Keep as-is from backend - no transformation needed
+      for (let i = 0; i < originalPdf.getPageCount(); i++) {
+        const originalPage = originalPdf.getPage(i);
+        const embeddedPage = await outputPdf.embedPage(originalPage);
+        
+        const page = outputPdf.addPage([letterWidth, letterHeight]);
+        page.drawPage(embeddedPage, {
+          x: 0,
+          y: 0,
+          width: letterWidth,
+          height: letterHeight
         });
       }
     } else if (layoutOption === '4x6-individual') {
@@ -225,8 +238,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
           });
         }
       }
-    } else if (layoutOption === '8.5x11-top' || layoutOption === '8.5x11-bottom') {
-      // Each label on separate letter page, positioned top or bottom
+    } else if (layoutOption === '8.5x11-top-individual' || layoutOption === '8.5x11-bottom-individual') {
+      // Each label on separate letter page, positioned top or bottom horizontally
       if (isConsolidated && consolidatedLabels.length > 0) {
         for (const label of consolidatedLabels) {
           if (label.labelUrl || label.label_urls?.pdf || label.label_url) {
@@ -239,14 +252,16 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               const embeddedPage = await outputPdf.embedPage(labelPage);
 
               const page = outputPdf.addPage([letterWidth, letterHeight]);
-              const yPosition = layoutOption === '8.5x11-top' ? 
+              const yPosition = layoutOption === '8.5x11-top-individual' ? 
                 letterHeight - labelHeight - 50 : 50;
               
+              // Place label horizontally
               page.drawPage(embeddedPage, {
                 x: (letterWidth - labelWidth) / 2,
                 y: yPosition,
                 width: labelWidth,
-                height: labelHeight
+                height: labelHeight,
+                rotate: degrees(90) // Rotate to horizontal
               });
             } catch (error) {
               console.error('Error processing individual label:', error);
@@ -393,7 +408,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       return;
     }
     
-    toast.info('Email functionality requires backend setup. Labels will be sent in the selected format.');
+    if (onEmailLabels) {
+      onEmailLabels();
+    } else {
+      toast.info('Email functionality requires backend setup. Labels will be sent in the selected format.');
+    }
   };
 
   const availableFormats = isConsolidated ? consolidatedLabelFormats : individualLabelFormats;
@@ -424,6 +443,17 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               Print Preview
             </Button>
           </DialogTrigger>
+          {isConsolidated && onEmailLabels && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-indigo-200 hover:bg-indigo-50 text-indigo-700"
+              onClick={onEmailLabels}
+            >
+              <Mail className="h-3 w-3 mr-1" />
+              Email All Labels
+            </Button>
+          )}
         </div>
       )}
 
@@ -499,7 +529,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
                 
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full h-full">
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full" style={{ height: 'calc(100% - 60px)' }}>
                   {isGenerating ? (
                     <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -513,6 +543,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       className="w-full h-full border border-gray-300 rounded-lg"
                       title="Label Preview"
+                      style={{ minHeight: '500px' }}
                     />
                   ) : (
                     <div className="border border-gray-300 h-full flex items-center justify-center text-gray-500 rounded-lg">
@@ -537,7 +568,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="download" className="flex-1">
+            <TabsContent value="download" className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
                 <div 
                   className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
@@ -580,7 +611,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="email" className="flex-1">
+            <TabsContent value="email" className="flex-1 overflow-y-auto">
               <div className="p-6 space-y-6 max-w-xl mx-auto">
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>

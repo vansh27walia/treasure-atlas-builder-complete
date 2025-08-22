@@ -68,28 +68,31 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 Download PDF
               </Button>
               
-              <EnhancedPrintPreview
-                triggerButton={
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print Preview All Labels
-                  </Button>
-                }
-                labelUrl={batchResult.consolidatedLabelUrls.pdf!}
-                trackingCode={null}
-                shipmentId={batchResult.batchId}
-                isConsolidated={true}
-                consolidatedLabels={processedLabels}
-              />
-              
-              <Button
-                onClick={onEmailLabels}
-                variant="outline"
-                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Email All Labels
-              </Button>
+              <div className="flex gap-2">
+                <EnhancedPrintPreview
+                  triggerButton={
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print Preview All Labels
+                    </Button>
+                  }
+                  labelUrl={batchResult.consolidatedLabelUrls.pdf!}
+                  trackingCode={null}
+                  shipmentId={batchResult.batchId}
+                  isConsolidated={true}
+                  consolidatedLabels={processedLabels}
+                  onEmailLabels={onEmailLabels}
+                />
+                
+                <Button
+                  onClick={onEmailLabels}
+                  variant="outline"
+                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email All Labels
+                </Button>
+              </div>
             </div>
 
             {/* Pickup Manifest */}
