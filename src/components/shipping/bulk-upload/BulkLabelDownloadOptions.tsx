@@ -68,6 +68,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 Download PDF
               </Button>
               
+              {/* Side by side: Print Preview All Labels and Email All Labels */}
               <div className="flex gap-2">
                 <EnhancedPrintPreview
                   triggerButton={
@@ -86,8 +87,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 
                 <Button
                   onClick={onEmailLabels}
-                  variant="outline"
-                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   Email All Labels

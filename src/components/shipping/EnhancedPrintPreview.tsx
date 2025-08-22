@@ -9,18 +9,17 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { PDFDocument, degrees } from 'pdf-lib';
 
+// Individual label formats - for single labels
 const individualLabelFormats = [
-  { value: '4x6', label: '4x6" Thermal', description: 'Single horizontal label per page' },
-  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'One horizontal label at top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'One horizontal label at bottom of letter page' }
+  { value: '4x6', label: '4x6" Thermal', description: 'Keep original 4x6 size as-is' },
+  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'Convert to horizontal and place at top of letter page' },
+  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'Convert to horizontal and place at bottom of letter page' }
 ];
 
+// Consolidated label formats - for batch labels
 const consolidatedLabelFormats = [
-  { value: 'horizontal-sheet', label: '8.5x11" - Horizontal Sheet', description: 'Rotate entire sheet from vertical to horizontal layout' },
-  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels per Sheet', description: 'Keep original backend format with 2 labels per sheet' },
-  { value: '4x6-individual', label: '4x6" Individual Pages', description: 'Each label on separate 4x6 page' },
-  { value: '8.5x11-top-individual', label: '8.5x11" - Top Position Individual', description: 'Each label horizontally positioned at top of separate letter pages' },
-  { value: '8.5x11-bottom-individual', label: '8.5x11" - Bottom Position Individual', description: 'Each label horizontally positioned at bottom of separate letter pages' }
+  { value: '8.5x11-2-labels', label: '8.5x11" - 2 Labels per Sheet', description: 'Rotate entire sheet from vertical to horizontal layout' },
+  { value: '4x6-individual', label: '4x6" Individual Pages', description: 'Each label on separate 4x6 page from individual label URLs' }
 ];
 
 interface EnhancedPrintPreviewProps {
@@ -65,7 +64,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const [selectedFormat, setSelectedFormat] = useState(isConsolidated ? 'horizontal-sheet' : '4x6');
+  const [selectedFormat, setSelectedFormat] = useState(isConsolidated ? '8.5x11-2-labels' : '4x6');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
@@ -99,7 +98,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  // For individual labels - convert vertical label to horizontal and position
+  // For individual labels - handle format conversion
   const generateIndividualLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
@@ -113,7 +112,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const labelHeight = 288;  // 4" horizontal
 
     if (layoutOption === '4x6') {
-      // Keep 4x6 as-is, no changes needed
+      // Keep 4x6 as-is, no conversion needed
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage, { 
         x: 0, 
@@ -125,25 +124,23 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       // Convert vertical label to horizontal and place at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Position the label horizontally at top
+      // Draw the label horizontally at top
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: letterHeight - labelHeight - 50,
         width: labelWidth, 
-        height: labelHeight,
-        rotate: degrees(90) // Rotate to make it horizontal
+        height: labelHeight
       });
     } else if (layoutOption === '8.5x11-bottom') {
       // Convert vertical label to horizontal and place at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Position the label horizontally at bottom
+      // Draw the label horizontally at bottom
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
         y: 50,
         width: labelWidth, 
-        height: labelHeight,
-        rotate: degrees(90) // Rotate to make it horizontal
+        height: labelHeight
       });
     }
 
@@ -164,7 +161,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const labelWidth = 432;   // 6" horizontal
     const labelHeight = 288;  // 4" horizontal
 
-    if (layoutOption === 'horizontal-sheet') {
+    if (layoutOption === '8.5x11-2-labels') {
       // Rotate entire sheet from vertical to horizontal (landscape)
       for (let i = 0; i < originalPdf.getPageCount(); i++) {
         const originalPage = originalPdf.getPage(i);
@@ -175,29 +172,15 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         
         // Draw the page rotated 90 degrees to make it horizontal
         page.drawPage(embeddedPage, {
-          x: letterHeight / 2,
-          y: letterWidth / 2,
+          x: 0,
+          y: letterWidth,
           width: letterHeight,
           height: letterWidth,
           rotate: degrees(90)
         });
       }
-    } else if (layoutOption === '8.5x11-2-labels') {
-      // Keep as-is from backend - no transformation needed
-      for (let i = 0; i < originalPdf.getPageCount(); i++) {
-        const originalPage = originalPdf.getPage(i);
-        const embeddedPage = await outputPdf.embedPage(originalPage);
-        
-        const page = outputPdf.addPage([letterWidth, letterHeight]);
-        page.drawPage(embeddedPage, {
-          x: 0,
-          y: 0,
-          width: letterWidth,
-          height: letterHeight
-        });
-      }
     } else if (layoutOption === '4x6-individual') {
-      // Extract individual labels and create separate 4x6 pages
+      // Create individual 4x6 pages from each label
       if (isConsolidated && consolidatedLabels.length > 0) {
         // Use individual label URLs if available
         for (const label of consolidatedLabels) {
@@ -210,7 +193,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               const labelPage = labelPdf.getPage(0);
               const embeddedPage = await outputPdf.embedPage(labelPage);
 
-              // Create 4x6 page for each label
+              // Create 4x6 page for each label (keep as-is)
               const page = outputPdf.addPage([labelWidth, labelHeight]);
               page.drawPage(embeddedPage, {
                 x: 0,
@@ -236,37 +219,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             width: labelWidth,
             height: labelHeight
           });
-        }
-      }
-    } else if (layoutOption === '8.5x11-top-individual' || layoutOption === '8.5x11-bottom-individual') {
-      // Each label on separate letter page, positioned top or bottom horizontally
-      if (isConsolidated && consolidatedLabels.length > 0) {
-        for (const label of consolidatedLabels) {
-          if (label.labelUrl || label.label_urls?.pdf || label.label_url) {
-            try {
-              const labelUrl = label.labelUrl || label.label_urls?.pdf || label.label_url;
-              const response = await fetch(labelUrl);
-              const arrayBuffer = await response.arrayBuffer();
-              const labelPdf = await PDFDocument.load(arrayBuffer);
-              const labelPage = labelPdf.getPage(0);
-              const embeddedPage = await outputPdf.embedPage(labelPage);
-
-              const page = outputPdf.addPage([letterWidth, letterHeight]);
-              const yPosition = layoutOption === '8.5x11-top-individual' ? 
-                letterHeight - labelHeight - 50 : 50;
-              
-              // Place label horizontally
-              page.drawPage(embeddedPage, {
-                x: (letterWidth - labelWidth) / 2,
-                y: yPosition,
-                width: labelWidth,
-                height: labelHeight,
-                rotate: degrees(90) // Rotate to horizontal
-              });
-            } catch (error) {
-              console.error('Error processing individual label:', error);
-            }
-          }
         }
       }
     }
