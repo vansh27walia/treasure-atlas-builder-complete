@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, Package, Mail, Printer } from 'lucide-react';
+import EnhancedPrintPreview from '../EnhancedPrintPreview';
 
 interface BulkLabelDownloadOptionsProps {
   batchResult?: {
@@ -67,13 +68,19 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 Download PDF
               </Button>
               
-              <Button
-                onClick={onPrintPreview}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print Preview
-              </Button>
+              <EnhancedPrintPreview
+                triggerButton={
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Preview All Labels
+                  </Button>
+                }
+                labelUrl={batchResult.consolidatedLabelUrls.pdf!}
+                trackingCode={null}
+                shipmentId={batchResult.batchId}
+                isConsolidated={true}
+                consolidatedLabels={processedLabels}
+              />
               
               <Button
                 onClick={onEmailLabels}
@@ -81,7 +88,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
               >
                 <Mail className="h-4 w-4 mr-2" />
-                Email Labels
+                Email All Labels
               </Button>
             </div>
 
