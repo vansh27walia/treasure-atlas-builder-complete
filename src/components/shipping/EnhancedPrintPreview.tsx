@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -11,16 +12,16 @@ import { PDFDocument, degrees } from 'pdf-lib';
 
 // Individual label formats - for single labels
 const individualLabelFormats = [
-  { value: '4x6', label: '4x6" Thermal', description: 'Keep original 4x6 size as-is' },
-  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'Convert to vertical and place at top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'Convert to vertical and place at bottom of letter page' }
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-top', label: '8.5x11" - 1 Shipping Label per Page - Top', description: 'One 4x6" label at the top of a letter-sized page' },
+  { value: '8.5x11-bottom', label: '8.5x11" - 1 Shipping Label per Page - Bottom', description: 'One 4x6" label at the bottom of a letter-sized page' }
 ];
 
 // Normal shipping formats - simpler version
 const normalShippingFormats = [
-  { value: '4x6', label: '4x6" Thermal', description: 'Keep original 4x6 size as-is' },
-  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'Convert to vertical and place at top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'Convert to vertical and place at bottom of letter page' }
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-top', label: '8.5x11" - 1 Shipping Label per Page - Top', description: 'One 4x6" label at the top of a letter-sized page' },
+  { value: '8.5x11-bottom', label: '8.5x11" - 1 Shipping Label per Page - Bottom', description: 'One 4x6" label at the bottom of a letter-sized page' }
 ];
 
 // Consolidated label formats - for batch labels (simplified to single option)
@@ -74,8 +75,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
   // Set default format based on type
   const getDefaultFormat = () => {
-    if (isConsolidated) return '8.5x11-as-is'; // Simplified for consolidated
-    return '4x6'; // Default for individual and normal shipping
+    if (isConsolidated) return '8.5x11-as-is';
+    return '4x6';
   };
 
   const [selectedFormat, setSelectedFormat] = useState(getDefaultFormat());
@@ -222,8 +223,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf') {
-        // Use current preview URL for PDF (with formatting applied) or fallback to original
-        const downloadUrl = currentPreviewUrl || labelUrl;
+        // Use the ORIGINAL labelUrl for download - this is the key fix!
+        const downloadUrl = labelUrl; // Always use the original URL from backend
         const response = await fetch(downloadUrl);
         if (!response.ok) {
           throw new Error(`Failed to fetch PDF: ${response.status}`);
@@ -363,8 +364,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-4xl bg-white sm:rounded-lg h-[80vh] flex flex-col overflow-hidden">
-        <DialogHeader className="pb-3">
+      <DialogContent className="max-w-4xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center justify-between pr-6 text-lg">
             <span>{dialogTitleText}</span>
           </DialogTitle>
@@ -398,7 +399,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              {/* Format Selection - Only show if not consolidated or has options */}
+              {/* Format Selection */}
               {!isConsolidated && (
                 <div className="mb-3">
                   <Label className="text-sm font-medium mb-1 block">Print Format</Label>
@@ -424,16 +425,16 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 </div>
               )}
 
-              {/* Compact Preview Section */}
-              <div className="flex-1 p-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="mb-3 text-center">
+              {/* PDF Preview Section - Optimized for proper sizing */}
+              <div className="flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="p-2 bg-gray-100 border-b border-gray-200 text-center">
                   {isGenerating ? (
                     <div className="flex items-center justify-center">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-600" />
                       <span className="text-blue-800 font-medium text-sm">Generating {availableFormats.find(f => f.value === selectedFormat)?.label} format...</span>
                     </div>
                   ) : (
-                    <div className="bg-white px-3 py-1.5 rounded-md shadow-sm border text-xs">
+                    <div className="text-xs">
                       <p className="text-gray-700 font-medium">
                         {isConsolidated ? 'Consolidated Labels - As received from backend' : 
                          `Preview: ${availableFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}`}
@@ -442,42 +443,44 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
                 
-                {/* Compact Preview Container */}
-                <div className="mx-auto bg-white rounded-lg shadow-lg border-2 border-gray-300 overflow-hidden" style={{ height: 'calc(100% - 60px)' }}>
+                {/* PDF Preview Container - Fixed sizing */}
+                <div className="h-full overflow-hidden bg-gray-50" style={{ height: 'calc(100% - 40px)' }}>
                   {isGenerating ? (
-                    <div className="h-full flex items-center justify-center bg-gray-50">
-                      <div className="flex flex-col items-center p-6">
-                        <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-3" />
-                        <p className="text-blue-800 font-semibold">Generating label format...</p>
-                        <p className="text-gray-600 text-sm mt-1">Please wait while we prepare your label</p>
+                    <div className="h-full flex items-center justify-center">
+                      <div className="flex flex-col items-center p-4">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
+                        <p className="text-blue-800 font-semibold text-sm">Generating label format...</p>
                       </div>
                     </div>
                   ) : currentPreviewUrl ? (
                     <iframe 
                       ref={iframeRef} 
-                      src={`${currentPreviewUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                      src={`${currentPreviewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&zoom=100`}
                       className="w-full h-full border-0"
                       title="Label Preview"
-                      style={{ minHeight: '400px' }}
+                      style={{ 
+                        minHeight: '400px',
+                        transform: selectedFormat === '4x6' ? 'scale(0.8)' : 'scale(1)',
+                        transformOrigin: 'top center'
+                      }}
                     />
                   ) : (
-                    <div className="h-full flex items-center justify-center text-gray-500 bg-gray-50">
-                      <div className="text-center p-6">
-                        <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <p className="font-medium">Loading label preview...</p>
-                        <p className="text-sm text-gray-400 mt-1">Please wait while we prepare your label</p>
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      <div className="text-center p-4">
+                        <Eye className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                        <p className="font-medium text-sm">Loading label preview...</p>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Compact Print Button */}
-              <div className="pt-3 border-t mt-3 bg-white rounded-md">
+              {/* Print Button */}
+              <div className="pt-2 border-t mt-2">
                 <Button
                   onClick={handlePrint}
                   disabled={isGenerating || !currentPreviewUrl}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white h-10 font-semibold text-sm rounded-lg shadow-md transform transition-all hover:scale-105 disabled:transform-none disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white h-10 font-semibold text-sm rounded-lg shadow-md"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Print Label
@@ -529,7 +532,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsContent>
 
             <TabsContent value="email" className="flex-1 overflow-y-auto">
-              <div className="p-4 space-y-4 max-w-xl mx-auto">
+              <div className="p-4 space-y-4 max-w-lg mx-auto">
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
                   <div className="space-y-2">
