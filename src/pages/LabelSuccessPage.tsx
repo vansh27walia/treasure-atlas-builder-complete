@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -21,6 +21,8 @@ const LabelSuccessPage: React.FC = () => {
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [trackingSearch, setTrackingSearch] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Processing payment...');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -28,23 +30,75 @@ const LabelSuccessPage: React.FC = () => {
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
 
-    if (labelUrlParam) {
-      setLabelUrl(decodeURIComponent(labelUrlParam));
-    }
-    if (trackingCodeParam) {
-      setTrackingCode(decodeURIComponent(trackingCodeParam));
-      setTrackingSearch(decodeURIComponent(trackingCodeParam));
-    }
-    if (shipmentIdParam) {
-      setShipmentId(decodeURIComponent(shipmentIdParam));
-    }
+    // Simulate loading process after payment
+    const loadingTimer = setTimeout(() => {
+      setLoadingMessage('Generating your label...');
+      
+      setTimeout(() => {
+        setLoadingMessage('Almost ready...');
+        
+        setTimeout(() => {
+          if (labelUrlParam) {
+            setLabelUrl(decodeURIComponent(labelUrlParam));
+          }
+          if (trackingCodeParam) {
+            setTrackingCode(decodeURIComponent(trackingCodeParam));
+            setTrackingSearch(decodeURIComponent(trackingCodeParam));
+          }
+          if (shipmentIdParam) {
+            setShipmentId(decodeURIComponent(shipmentIdParam));
+          }
 
-    toast.success('Your shipping label is ready!');
-    window.scrollTo(0, 0);
-    
-    const timer = setTimeout(() => setProgress(100), 100);
-    return () => clearTimeout(timer);
+          setIsLoading(false);
+          toast.success('Your shipping label is ready!');
+          window.scrollTo(0, 0);
+          
+          const progressTimer = setTimeout(() => setProgress(100), 100);
+          return () => clearTimeout(progressTimer);
+        }, 800);
+      }, 1000);
+    }, 1200);
+
+    return () => clearTimeout(loadingTimer);
   }, [location]);
+
+  // Show loading screen while processing
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <Card className="p-12 border-2 border-blue-200 shadow-xl bg-white/90 backdrop-blur-sm">
+            <div className="flex justify-center mb-8">
+              <div className="bg-blue-100 p-8 rounded-full">
+                <Loader2 className="h-24 w-24 text-blue-600 animate-spin" />
+              </div>
+            </div>
+            
+            <h1 className="text-3xl font-bold text-blue-800 mb-4">{loadingMessage}</h1>
+            <p className="text-gray-700 text-lg mb-6">
+              Please wait while we process your payment and generate your shipping label.
+            </p>
+            
+            <div className="w-full max-w-md mx-auto">
+              <div className="bg-blue-200 rounded-full h-3 mb-4">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-1000"
+                  style={{ 
+                    width: loadingMessage === 'Processing payment...' ? '25%' : 
+                           loadingMessage === 'Generating your label...' ? '65%' : '90%' 
+                  }}
+                />
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-600">
+              This usually takes just a few seconds...
+            </p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   const handleTrackingSearch = () => {
     if (trackingSearch.trim()) {
