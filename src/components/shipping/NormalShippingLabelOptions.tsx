@@ -72,7 +72,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const [selectedFormat, setSelectedFormat] = useState('4x6');
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
@@ -83,6 +82,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [emailFormat, setEmailFormat] = useState('pdf');
 
   useEffect(() => {
+    console.log('PrintPreview useEffect triggered with:', { labelUrl, labelUrls, isOpen });
+    
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
         setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
@@ -212,6 +213,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const handlePrint = () => {
+    console.log('Print button clicked');
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
         iframeRef.current.contentWindow.focus();
@@ -235,6 +237,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const handleFormatChange = async (format: string) => {
+    console.log('Format change requested:', format);
     setSelectedFormat(format);
     setIsRegeneratingLabel(true);
 
@@ -276,6 +279,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    console.log('Download requested for format:', format);
     try {
       let blob: Blob;
       let filename: string;
@@ -448,6 +452,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
                     </div>
+                  ) : isBatchPreview ? (
+                    <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
                   ) : (
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
@@ -646,7 +652,10 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   shipmentId,
   shipmentDetails
 }) => {
+  console.log('NormalShippingLabelOptions rendered with:', { labelUrl, trackingCode, shipmentId });
+
   const handleDirectDownload = () => {
+    console.log('Direct download clicked');
     if (labelUrl) {
       window.open(labelUrl, '_blank');
       toast.success('Opening PDF label in new tab');
@@ -656,6 +665,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   const handleEmailLabel = () => {
+    console.log('Email label clicked');
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
@@ -671,6 +681,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
             <Button
               variant="outline"
               className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
+              onClick={() => console.log('Print Preview button clicked')}
             >
               <Eye className="h-4 w-4 mr-2" />
               Print Preview
