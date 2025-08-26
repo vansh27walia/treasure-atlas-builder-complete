@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import EnhancedPrintPreview from './EnhancedPrintPreview';
+import PrintPreview from './PrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -58,19 +58,18 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     <div className="flex flex-col gap-3 w-full">
       {/* Three buttons in a row: PDF Print Preview, Email, Download */}
       <div className="grid grid-cols-3 gap-3">
-        <EnhancedPrintPreview
+        <PrintPreview
           labelUrl={labelUrl}
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
-          isNormalShipping={true}
           triggerButton={
             <Button
               variant="outline"
               className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
             >
               <Eye className="h-4 w-4 mr-2" />
-              PDF Print Preview
+              Print Preview
             </Button>
           }
         />
