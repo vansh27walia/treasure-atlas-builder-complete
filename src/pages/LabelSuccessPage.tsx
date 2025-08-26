@@ -30,17 +30,17 @@ const LabelSuccessPage: React.FC = () => {
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
 
-    // Show immediate loading screen after payment confirmation
+    // Show immediate loading screen after payment confirmation - no delay
     setIsLoading(true);
-    setProgress(20);
+    setProgress(25);
     setLoadingMessage('Payment confirmed! Generating your label...');
     
     // Simulate the label generation process with realistic timing
     const loadingSteps = [
-      { delay: 500, progress: 40, message: 'Creating shipping label...' },
-      { delay: 1000, progress: 65, message: 'Processing with carrier...' },
-      { delay: 800, progress: 85, message: 'Finalizing label details...' },
-      { delay: 600, progress: 100, message: 'Label ready!' }
+      { delay: 400, progress: 50, message: 'Creating shipping label...' },
+      { delay: 600, progress: 75, message: 'Processing with carrier...' },
+      { delay: 500, progress: 90, message: 'Finalizing label details...' },
+      { delay: 300, progress: 100, message: 'Label ready!' }
     ];
 
     let currentStep = 0;
@@ -54,7 +54,7 @@ const LabelSuccessPage: React.FC = () => {
           executeStep();
         }, step.delay);
       } else {
-        // Final step - show the label
+        // Final step - show the label immediately
         setTimeout(() => {
           if (labelUrlParam) {
             setLabelUrl(decodeURIComponent(labelUrlParam));
@@ -70,19 +70,19 @@ const LabelSuccessPage: React.FC = () => {
           setIsLoading(false);
           toast.success('Your shipping label is ready!');
           window.scrollTo(0, 0);
-        }, 500);
+        }, 200);
       }
     };
 
     executeStep();
   }, [location]);
 
-  // Show loading screen while processing
+  // Show loading screen while processing - full screen overlay
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
         <div className="text-center">
-          <Card className="p-12 border-2 border-blue-200 shadow-xl bg-white/90 backdrop-blur-sm max-w-md">
+          <Card className="p-12 border-2 border-blue-200 shadow-xl bg-white max-w-md">
             <div className="flex justify-center mb-8">
               <div className="bg-blue-100 p-8 rounded-full">
                 <Loader2 className="h-16 w-16 text-blue-600 animate-spin" />
