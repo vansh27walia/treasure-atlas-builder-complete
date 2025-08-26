@@ -27,7 +27,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
 }) => {
   const handleDirectDownload = async () => {
     try {
-      // Use the same labelUrl from Supabase bucket
+      // Use the labelUrl from Supabase bucket
       const response = await fetch(labelUrl);
       if (!response.ok) {
         throw new Error(`Failed to fetch PDF: ${response.status}`);
@@ -54,6 +54,13 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
+  // Create labelUrls object for PrintPreview component
+  const labelUrls = {
+    pdf: labelUrl,
+    png: labelUrl.replace('.pdf', '.png'),
+    zpl: labelUrl.replace('.pdf', '.zpl')
+  };
+
   return (
     <div className="flex flex-col gap-3 w-full">
       {/* Three buttons in a row: PDF Print Preview, Email, Download */}
@@ -63,6 +70,8 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
+          labelUrls={labelUrls}
+          isBatchPreview={false}
           triggerButton={
             <Button
               variant="outline"
