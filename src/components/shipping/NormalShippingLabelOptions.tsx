@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import PrintPreview from './PrintPreview';
+import EnhancedPrintPreview from './EnhancedPrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -25,28 +25,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   shipmentId,
   shipmentDetails
 }) => {
-  const handleDirectDownload = async () => {
-    try {
-      // Use the labelUrl from Supabase bucket
-      const response = await fetch(labelUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-      const filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-      toast.success('Downloaded PDF label successfully');
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      toast.error('Failed to download label');
+  const handleDirectDownload = () => {
+    if (labelUrl) {
+      window.open(labelUrl, '_blank');
+      toast.success('Opening PDF label in new tab');
+    } else {
+      toast.error('Label URL not available');
     }
   };
 
@@ -54,24 +38,16 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
   };
 
-  // Create labelUrls object for PrintPreview component
-  const labelUrls = {
-    pdf: labelUrl,
-    png: labelUrl.replace('.pdf', '.png'),
-    zpl: labelUrl.replace('.pdf', '.zpl')
-  };
-
   return (
     <div className="flex flex-col gap-3 w-full">
-      {/* Three buttons in a row: PDF Print Preview, Email, Download */}
+      {/* Three buttons in a row: Print Preview, Email, Download */}
       <div className="grid grid-cols-3 gap-3">
-        <PrintPreview
+        <EnhancedPrintPreview
           labelUrl={labelUrl}
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
-          labelUrls={labelUrls}
-          isBatchPreview={false}
+          isNormalShipping={true}
           triggerButton={
             <Button
               variant="outline"
