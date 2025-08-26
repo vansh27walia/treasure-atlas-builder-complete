@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -94,17 +95,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         setPreviewType('placeholder');
       }
     } else {
-      if (labelUrls?.pdf) {
+      // Use the same URL as the download button - prioritize labelUrl which is the main URL
+      if (labelUrl) {
+        setCurrentPreviewUrl(labelUrl);
+        if (labelUrl.includes('.pdf') || labelUrl.includes('pdf')) {
+          setPreviewType('pdf');
+          loadPdfBytes(labelUrl);
+        } else if (labelUrl.includes('.png') || labelUrl.includes('png')) {
+          setPreviewType('image');
+        } else {
+          // Default to PDF for Supabase bucket URLs
+          setPreviewType('pdf');
+          loadPdfBytes(labelUrl);
+        }
+      } else if (labelUrls?.pdf) {
         setCurrentPreviewUrl(labelUrls.pdf);
         setPreviewType('pdf');
         loadPdfBytes(labelUrls.pdf);
-      } else if (labelUrl && labelUrl.endsWith('.png')) {
-        setCurrentPreviewUrl(labelUrl);
-        setPreviewType('image');
-      } else if (labelUrl && labelUrl.endsWith('.pdf')) {
-        setCurrentPreviewUrl(labelUrl);
-        setPreviewType('pdf');
-        loadPdfBytes(labelUrl);
       } else {
         setCurrentPreviewUrl('');
         setPreviewType('placeholder');
@@ -284,10 +291,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf') {
-        const downloadUrl = isBatchPreview ? 
-          (batchResult?.consolidatedLabelUrls?.pdf || labelUrl) : 
-          (labelUrls?.pdf || labelUrl);
-          
+        // Use the same URL as the normal shipping download button
+        const downloadUrl = labelUrl || labelUrls?.pdf || '';
+        if (!downloadUrl) {
+          toast.error('Label URL not available');
+          return;
+        }
+        
         const response = await fetch(downloadUrl);
         if (!response.ok) {
           throw new Error(`Failed to fetch PDF: ${response.status}`);
@@ -376,7 +386,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes && !labelUrls?.pdf}
+            disabled={!labelUrl && !labelUrls?.pdf}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
@@ -390,7 +400,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -461,7 +471,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+                <div className="mx-auto bg-white p-2 shadow-lg rounded-lg max-w-full overflow-hidden">
                   {isRegeneratingLabel ? (
                     <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -470,24 +480,34 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       </div>
                     </div>
                   ) : previewType === 'pdf' && currentPreviewUrl ? (
-                    <iframe 
-                      ref={iframeRef} 
-                      src={currentPreviewUrl} 
-                      style={{ 
-                        width: '100%', 
-                        height: selectedFormat === '4x6' ? '400px' : '500px', 
-                        border: '1px solid #ccc',
-                        borderRadius: '6px'
-                      }} 
-                      title="Label Preview"
-                    />
+                    <div className="w-full overflow-hidden rounded-lg border border-gray-300">
+                      <iframe 
+                        ref={iframeRef} 
+                        src={currentPreviewUrl} 
+                        className="w-full h-96 border-0 rounded-lg"
+                        title="Label Preview"
+                        style={{
+                          transform: 'scale(0.85)',
+                          transformOrigin: 'top left',
+                          width: '117.6%',
+                          height: '450px'
+                        }}
+                      />
+                    </div>
                   ) : previewType === 'image' && currentPreviewUrl ? (
-                    <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
+                    <div className="flex justify-center overflow-hidden">
+                      <img 
+                        src={currentPreviewUrl} 
+                        alt="Shipping Label" 
+                        className="max-w-full max-h-96 object-contain border border-gray-300 rounded-lg" 
+                      />
+                    </div>
                   ) : (
                     <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
                       <div className="text-center">
                         <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                         <p>Preview not available.</p>
+                        <p className="text-sm mt-2">URL: {currentPreviewUrl || 'No URL available'}</p>
                       </div>
                     </div>
                   )}
