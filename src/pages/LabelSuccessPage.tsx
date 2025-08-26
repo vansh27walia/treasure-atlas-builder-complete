@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -21,25 +22,20 @@ const LabelSuccessPage: React.FC = () => {
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [trackingSearch, setTrackingSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState('Payment confirmed! Generating your label...');
+  const [loadingMessage, setLoadingMessage] = useState('Processing payment...');
 
   useEffect(() => {
-    // Start the label generation process immediately when the page loads
     const params = new URLSearchParams(location.search);
     const labelUrlParam = params.get('labelUrl');
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
 
-    // Immediate start of loading process
-    setProgress(20);
-    
-    const immediateTimer = setTimeout(() => {
-      setLoadingMessage('Processing label details...');
-      setProgress(50);
+    // Simulate loading process after payment
+    const loadingTimer = setTimeout(() => {
+      setLoadingMessage('Generating your label...');
       
       setTimeout(() => {
-        setLoadingMessage('Finalizing your shipping label...');
-        setProgress(80);
+        setLoadingMessage('Almost ready...');
         
         setTimeout(() => {
           if (labelUrlParam) {
@@ -53,15 +49,17 @@ const LabelSuccessPage: React.FC = () => {
             setShipmentId(decodeURIComponent(shipmentIdParam));
           }
 
-          setProgress(100);
           setIsLoading(false);
           toast.success('Your shipping label is ready!');
           window.scrollTo(0, 0);
-        }, 600);
-      }, 800);
-    }, 400);
+          
+          const progressTimer = setTimeout(() => setProgress(100), 100);
+          return () => clearTimeout(progressTimer);
+        }, 800);
+      }, 1000);
+    }, 1200);
 
-    return () => clearTimeout(immediateTimer);
+    return () => clearTimeout(loadingTimer);
   }, [location]);
 
   // Show loading screen while processing
@@ -69,26 +67,31 @@ const LabelSuccessPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <Card className="p-10 border-2 border-blue-200 shadow-xl bg-white/90 backdrop-blur-sm">
-            <div className="flex justify-center mb-6">
-              <div className="bg-blue-100 p-6 rounded-full">
-                <Loader2 className="h-20 w-20 text-blue-600 animate-spin" />
+          <Card className="p-12 border-2 border-blue-200 shadow-xl bg-white/90 backdrop-blur-sm">
+            <div className="flex justify-center mb-8">
+              <div className="bg-blue-100 p-8 rounded-full">
+                <Loader2 className="h-24 w-24 text-blue-600 animate-spin" />
               </div>
             </div>
             
-            <h1 className="text-2xl font-bold text-blue-800 mb-3">{loadingMessage}</h1>
-            <p className="text-gray-700 text-base mb-4">
-              Please wait while we process your label.
+            <h1 className="text-3xl font-bold text-blue-800 mb-4">{loadingMessage}</h1>
+            <p className="text-gray-700 text-lg mb-6">
+              Please wait while we process your payment and generate your shipping label.
             </p>
             
-            <div className="w-full max-w-md mx-auto mb-4">
-              <Progress 
-                value={progress} 
-                className="h-2 bg-blue-200"
-              />
+            <div className="w-full max-w-md mx-auto">
+              <div className="bg-blue-200 rounded-full h-3 mb-4">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-1000"
+                  style={{ 
+                    width: loadingMessage === 'Processing payment...' ? '25%' : 
+                           loadingMessage === 'Generating your label...' ? '65%' : '90%' 
+                  }}
+                />
+              </div>
             </div>
             
-            <p className="text-xs text-gray-600">
+            <p className="text-sm text-gray-600">
               This usually takes just a few seconds...
             </p>
           </Card>
