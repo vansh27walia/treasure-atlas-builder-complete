@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import EnhancedPrintPreview from './EnhancedPrintPreview';
+import PrintPreview from './PrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -42,12 +42,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     <div className="flex flex-col gap-3 w-full">
       {/* Three buttons in a row: Print Preview, Email, Download */}
       <div className="grid grid-cols-3 gap-3">
-        <EnhancedPrintPreview
+        <PrintPreview
           labelUrl={labelUrl}
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
-          isNormalShipping={true}
+          isBatchPreview={false}
           triggerButton={
             <Button
               variant="outline"
