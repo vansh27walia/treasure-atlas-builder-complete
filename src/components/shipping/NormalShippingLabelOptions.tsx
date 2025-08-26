@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Eye, Download, Mail, Printer, File, FileArchive, X, FileImage, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail, Plus, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -366,7 +365,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? triggerButton : (
+      {triggerButton ? (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      ) : (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -681,7 +684,6 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
             <Button
               variant="outline"
               className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
-              onClick={() => console.log('Print Preview button clicked')}
             >
               <Eye className="h-4 w-4 mr-2" />
               Print Preview
