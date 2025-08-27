@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -334,10 +333,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       className="w-full h-full border-0"
                       title="Label Preview"
                       style={{
-                        transform: 'scale(0.75)',
+                        transform: 'scale(0.4)',
                         transformOrigin: 'top left',
-                        width: '133.33%',
-                        height: '133.33%'
+                        width: '250%',
+                        height: '250%'
                       }}
                     />
                   ) : (
