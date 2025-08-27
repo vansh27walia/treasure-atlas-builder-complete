@@ -358,50 +358,53 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
     : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? triggerButton : (
-        {/* This div contains the main buttons, with the updated order */}
-        <div className="flex gap-2">
-          {/* The Print Preview button now acts as the trigger for the modal */}
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-purple-200 hover:bg-purple-50 text-purple-700"
-            >
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
-            </Button>
-          </DialogTrigger>
+  return (
+    <>
+      {/* Render buttons outside dialog if no trigger provided */}
+      {!triggerButton && (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-purple-200 hover:bg-purple-50 text-purple-700"
+            onClick={() => setIsOpen(true)}
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            Print Preview
+          </Button>
 
-          {/* The Download button now uses the selectedFormat from the state */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-blue-200 hover:bg-blue-50 text-blue-700"
-            onClick={() => handleDownload(selectedFormat)}
-            disabled={!labelUrls?.pdf && !labelUrl}
-          >
-            <Download className="h-3 w-3 mr-1" />
-            Download Label
-          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-blue-200 hover:bg-blue-50 text-blue-700"
+            onClick={() => handleDownload('pdf')}
+            disabled={!labelUrls?.pdf && !labelUrl}
+          >
+            <Download className="h-3 w-3 mr-1" />
+            Download Label
+          </Button>
 
-          {/* A new Email button is added, calling handleSendEmail with the current format state */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-green-200 hover:bg-green-50 text-green-700"
-            onClick={() => handleSendEmail(selectedFormat)}
-            disabled={!labelUrls?.pdf && !labelUrl}
-          >
-            <Mail className="h-3 w-3 mr-1" />
-            Email
-          </Button>
-        </div>
-      )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-green-200 hover:bg-green-50 text-green-700"
+            onClick={handleSendEmail}
+            disabled={!labelUrls?.pdf && !labelUrl}
+          >
+            <Mail className="h-3 w-3 mr-1" />
+            Email
+          </Button>
+        </div>
+      )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        {triggerButton && (
+          <DialogTrigger asChild>
+            {triggerButton}
+          </DialogTrigger>
+        )}
+
+        <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -492,39 +495,37 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       }}
                       title="Label Preview"
                     />
-                  ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
-                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
-                        ? (
-                          <div className="text-center">
-                            <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                            <p>A batch PDF is needed for preview.</p>
-                          </div>
-                        )
-                        : previewType === 'image' && currentPreviewUrl
-                          ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
-                          : (
-                            <div className="text-center">
-                              <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                              <p>Preview not available.</p>
-                            </div>
-                          )
-                      }
-                  </div>
-                </div>
-              </div>
+                  ) : (
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf ? (
+                        <div className="text-center">
+                          <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                          <p>A batch PDF is needed for preview.</p>
+                        </div>
+                      ) : previewType === 'image' && currentPreviewUrl ? (
+                        <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
+                      ) : (
+                        <div className="text-center">
+                          <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                          <p>Preview not available.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-              <div className="pt-4 border-t mt-4">
-                <Button
-                  onClick={handlePrint}
-                  disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
-                >
-                  <Printer className="h-5 w-5 mr-2" />
-                  Print Label
-                </Button>
-              </div>
-            </TabsContent>
+              <div className="pt-4 border-t mt-4">
+                <Button
+                  onClick={handlePrint}
+                  disabled={isRegeneratingLabel || !currentPreviewUrl}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                >
+                  <Printer className="h-5 w-5 mr-2" />
+                  Print Label
+                </Button>
+              </div>
+            </TabsContent>
 
             <TabsContent value="download" className="flex-1">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
@@ -649,10 +650,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               Close
             </Button>
           </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
+  );
 };
 
 export default PrintPreview;
