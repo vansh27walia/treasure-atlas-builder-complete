@@ -65,6 +65,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   useEffect(() => {
     if (isOpen && labelUrl) {
       console.log('Setting up preview with labelUrl:', labelUrl);
+      // Always use the original labelUrl from backend (Supabase bucket URL)
       setCurrentPreviewUrl(labelUrl);
       setPreviewType('pdf');
       loadPdfBytes(labelUrl);
@@ -173,9 +174,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     try {
-      // ALWAYS use the original labelUrl (Supabase bucket URL) for downloads
+      // ALWAYS use the original labelUrl (Supabase bucket URL) for downloads - same as print preview
       const downloadUrl = labelUrl;
-      console.log('Downloading from URL:', downloadUrl);
+      console.log('Downloading from URL (same as preview):', downloadUrl);
       
       if (!downloadUrl) {
         toast.error('Label URL not available');
@@ -333,10 +334,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       className="w-full h-full border-0"
                       title="Label Preview"
                       style={{
-                        transform: 'scale(0.4)',
+                        transform: 'scale(0.3)',
                         transformOrigin: 'top left',
-                        width: '250%',
-                        height: '250%'
+                        width: '333.33%',
+                        height: '333.33%'
                       }}
                     />
                   ) : (
