@@ -374,33 +374,29 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
   return (
-    <div className="flex gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        className="border-blue-200 hover:bg-blue-50 text-blue-700"
-        onClick={() => handleDownload('pdf')}
-        disabled={!originalPdfBytes && !labelUrls?.pdf}
-      >
-        <Download className="h-3 w-3 mr-1" />
-        Download Label
-      </Button>
-      
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        {triggerButton ? (
-          <DialogTrigger asChild>
-            {triggerButton}
-          </DialogTrigger>
-        ) : (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      {triggerButton ? triggerButton : (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-blue-200 hover:bg-blue-50 text-blue-700"
+            onClick={() => handleDownload('pdf')}
+            disabled={!originalPdfBytes && !labelUrls?.pdf}
+          >
+            <Download className="h-3 w-3 mr-1" />
+            Download Label
+          </Button>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
               <Eye className="h-3 w-3 mr-1" />
               Print Preview
             </Button>
           </DialogTrigger>
-        )}
+        </div>
+      )}
 
-        <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -652,8 +648,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  </div>
-);
+  );
 };
 
 export default PrintPreview;
