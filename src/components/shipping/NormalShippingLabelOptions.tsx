@@ -250,15 +250,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton && (
-        <DialogTrigger asChild>
-          {triggerButton}
-        </DialogTrigger>
-      )}
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      {triggerButton ? (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+            <Eye className="h-3 w-3 mr-1" />
+            Print Preview
+          </Button>
+        </DialogTrigger>
+      )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>Shipping Label Preview {trackingCode ? `(${trackingCode})` : ''}</span>
