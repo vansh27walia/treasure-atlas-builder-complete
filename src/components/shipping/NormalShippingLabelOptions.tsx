@@ -307,21 +307,20 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
-              <div className="flex-1 p-3 bg-gray-50 border rounded-lg overflow-hidden">
-                <div className="mb-2 text-center">
+              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
+                <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
                     <div className="flex items-center justify-center">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span className="text-sm">Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
+                      <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
                     </div>
                   ) : (
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                
-                <div className="w-full bg-white rounded-lg border border-gray-300 overflow-hidden" style={{ height: 'calc(100% - 40px)' }}>
+                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
                   {isRegeneratingLabel ? (
-                    <div className="h-full flex items-center justify-center">
+                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                         <p className="text-purple-800">Regenerating label...</p>
@@ -331,17 +330,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <iframe 
                       ref={iframeRef} 
                       src={currentPreviewUrl} 
-                      className="w-full h-full border-0"
+                      style={{ 
+                        width: '100%', 
+                        height: selectedFormat === '4x6' ? '400px' : '500px', 
+                        border: '1px solid #ccc',
+                        borderRadius: '6px'
+                      }} 
                       title="Label Preview"
-                      style={{
-                        transform: 'scale(0.3)',
-                        transformOrigin: 'top left',
-                        width: '333.33%',
-                        height: '333.33%'
-                      }}
                     />
                   ) : (
-                    <div className="h-full flex items-center justify-center text-gray-500">
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
                       <div className="text-center">
                         <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                         <p>Preview not available.</p>
