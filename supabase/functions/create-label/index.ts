@@ -291,7 +291,7 @@ serve(async (req) => {
       }
     }
 
-    // Buy the label with EasyPost API
+    // Buy the label with EasyPost API - Force 4x6 format
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
       headers: {
@@ -299,7 +299,9 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        rate: { id: rateId }
+        rate: { id: rateId },
+        label_format: 'PDF',
+        label_size: '4x6'
       }),
     });
 

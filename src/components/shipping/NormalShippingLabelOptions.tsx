@@ -513,13 +513,9 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     }
   };
 
-  const handleEmailLabel = () => {
-    toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
-  };
-
   return (
     <div className="flex flex-col gap-3 w-full">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <PrintPreview
           labelUrl={labelUrl}
           trackingCode={trackingCode}
@@ -531,19 +527,10 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
               className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
             >
               <Eye className="h-4 w-4 mr-2" />
-              Print Preview
+              Print Preview & Email
             </Button>
           }
         />
-
-        <Button
-          variant="outline"
-          onClick={handleEmailLabel}
-          className="border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium text-sm"
-        >
-          <Mail className="h-4 w-4 mr-2" />
-          Email
-        </Button>
 
         <Button
           variant="outline"
