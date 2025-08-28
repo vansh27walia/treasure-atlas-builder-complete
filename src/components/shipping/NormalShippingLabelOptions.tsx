@@ -209,13 +209,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl') => {
     try {
       // Use proper Supabase storage URLs for all formats
-      let url = labelUrls?.[format] || labelUrl;
+      let url = labelUrls?.[format];
       
-      // If we don't have the specific format URL, construct it from the base URL
-      if (!url && labelUrl) {
-        // Extract filename from the labelUrl and construct proper Supabase URL
-        const filename = labelUrl.split('/').pop() || '';
-        url = getSupabaseStorageUrl(filename, format);
+      // Always construct proper Supabase URL from the labelUrl or existing URL
+      if (!url || !url.includes('adhegezdzqlnqqnymvps.supabase.co')) {
+        const sourceUrl = labelUrls?.[format] || labelUrl;
+        if (sourceUrl) {
+          const filename = sourceUrl.split('/').pop() || '';
+          url = getSupabaseStorageUrl(filename, format);
+        }
       }
       
       if (!url) {
@@ -309,8 +311,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             variant="outline"
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
-            onClick={handlePrint}
-                  disabled={isRegeneratingLabel || !currentPreviewUrl || previewType !== 'pdf'}
+            onClick={() => handleDownload('pdf')}
+            disabled={!labelUrls?.pdf && !labelUrl}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
@@ -337,7 +339,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-7xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-[40vw] bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
