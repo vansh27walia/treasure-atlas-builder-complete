@@ -451,18 +451,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   )}
                 </div>
               </div>
-                  ) : currentPreviewUrl && previewType === 'image' ? (
-                    <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
-                  ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
-                      <div className="text-center">
-                        <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <p>Preview not available.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               <div className="pt-4 border-t mt-4">
                 <Button
