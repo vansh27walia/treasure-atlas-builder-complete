@@ -249,34 +249,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setIsRegeneratingLabel(true);
 
     try {
-      if (originalPdfBytes) {
-        let pdfBytes: Uint8Array;
-        
-        if (isBatchPreview) {
-          pdfBytes = await generateBatchLabelPDF(format);
-        } else {
-          pdfBytes = await generateIndividualLabelPDF(originalPdfBytes, format);
-        }
-        
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        
-        if (currentPreviewUrl && !currentPreviewUrl.startsWith('http')) {
-          URL.revokeObjectURL(currentPreviewUrl);
-        }
-        
-        setCurrentPreviewUrl(url);
-        setPreviewType('pdf');
-        toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label || format}.`);
-      } else if (isBatchPreview && onBatchFormatChange) {
-        await onBatchFormatChange(format);
-        toast.success(`Batch label format updated by server to ${format}.`);
-      } else if (!isBatchPreview && onFormatChange) {
-        await onFormatChange(format);
-        toast.success(`Label format updated by server to ${format}.`);
-      } else {
-        toast.info(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. (Server-side update not configured)`);
-      }
+      // Always keep the original Supabase URL - no blob URLs
+      // Format changes are for display only, download always uses original URL
+      setCurrentPreviewUrl(labelUrl);
+      setPreviewType('pdf');
+      toast.success(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. Download will use original 4x6 format.`);
     } catch (error) {
       console.error("Error changing label format:", error);
       toast.error("Failed to update label format.");
