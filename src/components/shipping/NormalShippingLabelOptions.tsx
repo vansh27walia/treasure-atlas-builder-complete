@@ -422,7 +422,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl}
                       style={{
                         width: '100%',
-                        height: selectedFormat === '4x6' ? '500px' : '6000px',
+                        height: selectedFormat === '4x6' ? '50000px' : '60000px',
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }}
