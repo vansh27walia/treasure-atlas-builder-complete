@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search, Loader2 } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -21,8 +21,6 @@ const LabelSuccessPage: React.FC = () => {
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [trackingSearch, setTrackingSearch] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState('Payment confirmed! Generating your label...');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -30,82 +28,23 @@ const LabelSuccessPage: React.FC = () => {
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
 
-    // Show immediate loading screen after payment confirmation - no delay
-    setIsLoading(true);
-    setProgress(25);
-    setLoadingMessage('Payment confirmed! Generating your label...');
+    if (labelUrlParam) {
+      setLabelUrl(decodeURIComponent(labelUrlParam));
+    }
+    if (trackingCodeParam) {
+      setTrackingCode(decodeURIComponent(trackingCodeParam));
+      setTrackingSearch(decodeURIComponent(trackingCodeParam));
+    }
+    if (shipmentIdParam) {
+      setShipmentId(decodeURIComponent(shipmentIdParam));
+    }
+
+    toast.success('Your shipping label is ready!');
+    window.scrollTo(0, 0);
     
-    // Simulate the label generation process with realistic timing
-    const loadingSteps = [
-      { delay: 400, progress: 50, message: 'Creating shipping label...' },
-      { delay: 600, progress: 75, message: 'Processing with carrier...' },
-      { delay: 500, progress: 90, message: 'Finalizing label details...' },
-      { delay: 300, progress: 100, message: 'Label ready!' }
-    ];
-
-    let currentStep = 0;
-    const executeStep = () => {
-      if (currentStep < loadingSteps.length) {
-        const step = loadingSteps[currentStep];
-        setTimeout(() => {
-          setProgress(step.progress);
-          setLoadingMessage(step.message);
-          currentStep++;
-          executeStep();
-        }, step.delay);
-      } else {
-        // Final step - show the label immediately
-        setTimeout(() => {
-          if (labelUrlParam) {
-            setLabelUrl(decodeURIComponent(labelUrlParam));
-          }
-          if (trackingCodeParam) {
-            setTrackingCode(decodeURIComponent(trackingCodeParam));
-            setTrackingSearch(decodeURIComponent(trackingCodeParam));
-          }
-          if (shipmentIdParam) {
-            setShipmentId(decodeURIComponent(shipmentIdParam));
-          }
-
-          setIsLoading(false);
-          toast.success('Your shipping label is ready!');
-          window.scrollTo(0, 0);
-        }, 200);
-      }
-    };
-
-    executeStep();
+    const timer = setTimeout(() => setProgress(100), 100);
+    return () => clearTimeout(timer);
   }, [location]);
-
-  // Show loading screen while processing - full screen overlay
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <div className="text-center">
-          <Card className="p-12 border-2 border-blue-200 shadow-xl bg-white max-w-md">
-            <div className="flex justify-center mb-8">
-              <div className="bg-blue-100 p-8 rounded-full">
-                <Loader2 className="h-16 w-16 text-blue-600 animate-spin" />
-              </div>
-            </div>
-            
-            <h1 className="text-2xl font-bold text-blue-800 mb-4">{loadingMessage}</h1>
-            <p className="text-gray-700 text-base mb-6">
-              Please wait while we generate your shipping label.
-            </p>
-            
-            <div className="w-full max-w-xs mx-auto mb-4">
-              <Progress value={progress} className="h-3" />
-            </div>
-            
-            <p className="text-xs text-gray-600">
-              {progress}% complete
-            </p>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   const handleTrackingSearch = () => {
     if (trackingSearch.trim()) {
@@ -130,6 +69,7 @@ const LabelSuccessPage: React.FC = () => {
   };
 
   const handleEmailLabel = () => {
+    // In a real implementation, this would call an API to email the label
     toast.success('Label has been sent to your email address');
   };
 
@@ -150,6 +90,11 @@ const LabelSuccessPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       <div className="container mx-auto max-w-5xl px-4 py-8">
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <Progress value={progress} className="h-3 bg-gray-200" />
+        </div>
+
         {/* Success Card */}
         <Card className="p-8 text-center border-2 border-green-200 shadow-xl bg-white/90 backdrop-blur-sm mb-8">
           <div className="flex justify-center mb-6">
