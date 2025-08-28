@@ -17,7 +17,6 @@ const labelFormats = [
 ];
 
 interface PrintPreviewProps {
-  children?: React.ReactNode;
   triggerButton?: React.ReactNode;
   isOpenProp?: boolean;
   onOpenChangeProp?: (open: boolean) => void;
@@ -45,11 +44,9 @@ interface PrintPreviewProps {
     scanFormUrl: string | null;
   };
   isBatchPreview?: boolean;
-  initialTab?: string; // Add this to control which tab opens by default
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
-  children,
   triggerButton,
   isOpenProp,
   onOpenChangeProp,
@@ -61,8 +58,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   shipmentId,
   labelUrls,
   batchResult,
-  isBatchPreview = false,
-  initialTab = 'preview' // Default to preview tab
+  isBatchPreview = false
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
@@ -81,17 +77,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState('preview');
   const [emailList, setEmailList] = useState(['']);
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
   useEffect(() => {
-    // Reset to initial tab when modal opens
-    if (isOpen) {
-      setActiveTab(initialTab);
-    }
-    
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
         setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
@@ -120,7 +111,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       }
       setSelectedFormat('4x6');
     }
-  }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult, initialTab]);
+  }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]);
 
   const loadPdfBytes = async (url: string) => {
     try {
@@ -258,11 +249,34 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setIsRegeneratingLabel(true);
 
     try {
-      // Always keep the original Supabase URL - no blob URLs
-      // Format changes are for display only, download always uses original URL
-      setCurrentPreviewUrl(labelUrl);
-      setPreviewType('pdf');
-      toast.success(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. Download will use original 4x6 format.`);
+      if (originalPdfBytes) {
+        let pdfBytes: Uint8Array;
+        
+        if (isBatchPreview) {
+          pdfBytes = await generateBatchLabelPDF(format);
+        } else {
+          pdfBytes = await generateIndividualLabelPDF(originalPdfBytes, format);
+        }
+        
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        
+        if (currentPreviewUrl && !currentPreviewUrl.startsWith('http')) {
+          URL.revokeObjectURL(currentPreviewUrl);
+        }
+        
+        setCurrentPreviewUrl(url);
+        setPreviewType('pdf');
+        toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label || format}.`);
+      } else if (isBatchPreview && onBatchFormatChange) {
+        await onBatchFormatChange(format);
+        toast.success(`Batch label format updated by server to ${format}.`);
+      } else if (!isBatchPreview && onFormatChange) {
+        await onFormatChange(format);
+        toast.success(`Label format updated by server to ${format}.`);
+      } else {
+        toast.info(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. (Server-side update not configured)`);
+      }
     } catch (error) {
       console.error("Error changing label format:", error);
       toast.error("Failed to update label format.");
@@ -361,15 +375,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {children ? (
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
-      ) : triggerButton ? (
-        <DialogTrigger asChild>
-          {triggerButton}
-        </DialogTrigger>
-      ) : (
+      {triggerButton ? triggerButton : (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -390,7 +396,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-7xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -470,17 +476,17 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       </div>
                     </div>
                   ) : previewType === 'pdf' && currentPreviewUrl ? (
-                     <iframe 
-                       ref={iframeRef} 
-                       src={currentPreviewUrl} 
-                       style={{ 
-                         width: '100%', 
-                         height: selectedFormat === '4x6' ? '500px' : '600px', 
-                         border: '1px solid #ccc',
-                         borderRadius: '6px'
-                       }} 
-                       title="Label Preview"
-                     />
+                    <iframe 
+                      ref={iframeRef} 
+                      src={currentPreviewUrl} 
+                      style={{ 
+                        width: '100%', 
+                        height: selectedFormat === '4x6' ? '400px' : '500px', 
+                        border: '1px solid #ccc',
+                        borderRadius: '6px'
+                      }} 
+                      title="Label Preview"
+                    />
                   ) : (
                     <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
