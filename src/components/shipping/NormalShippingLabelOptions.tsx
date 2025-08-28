@@ -361,7 +361,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
             <TabsContent value="download" className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-                <div
+                <div 
                   className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
                   onClick={() => handleDownload('pdf')}
                 >
