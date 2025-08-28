@@ -209,15 +209,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl') => {
     try {
       // Use proper Supabase storage URLs for all formats
-      let url = labelUrls?.[format];
+      let url = labelUrls?.[format] || labelUrl;
       
-      // Always construct proper Supabase URL from the labelUrl or existing URL
-      if (!url || !url.includes('adhegezdzqlnqqnymvps.supabase.co')) {
-        const sourceUrl = labelUrls?.[format] || labelUrl;
-        if (sourceUrl) {
-          const filename = sourceUrl.split('/').pop() || '';
-          url = getSupabaseStorageUrl(filename, format);
-        }
+      // If we don't have the specific format URL, construct it from the base URL
+      if (!url && labelUrl) {
+        // Extract filename from the labelUrl and construct proper Supabase URL
+        const filename = labelUrl.split('/').pop() || '';
+        url = getSupabaseStorageUrl(filename, format);
       }
       
       if (!url) {
@@ -339,7 +337,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-[40vw] bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-7xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -459,7 +457,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div
                   className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
-                  onClick={() => handleDownload('pdf')}
+                  onClick={() => handlePrint()} 
                 >
                   <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
                   <h4 className="font-semibold mb-2">PDF Format</h4>
