@@ -285,7 +285,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'preview' | 'download' | 'email')} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
                 <Eye className="h-4 w-4 mr-2" />
