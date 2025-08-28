@@ -128,10 +128,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
+
+    // Get the first page from the original PDF
+    const originalPage = originalPdf.getPage(0);
     
-    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
-    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    // Embed the page in the output PDF
+    const embeddedPage = await outputPdf.embedPage(originalPage);
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
@@ -164,8 +166,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         x: (letterWidth - labelWidth) / 2, 
         y: 30
       });
+    }
+    
     return await outputPdf.save();
-  };
   };
 
   const handlePrint = () => {

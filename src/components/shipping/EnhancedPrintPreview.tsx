@@ -86,9 +86,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Copy the first page from the original PDF - this returns an array of PDFEmbeddedPage
-    const embeddedPages = await outputPdf.copyPages(originalPdf, [0]);
-    const embeddedPage = embeddedPages[0];
+    // Get the first page from the original PDF
+    const originalPage = originalPdf.getPage(0);
+    
+    // Embed the page in the output PDF
+    const embeddedPage = await outputPdf.embedPage(originalPage);
 
     // Page sizes in points (72 points per inch)
     const letterWidth = 612;  // 8.5"
@@ -121,8 +123,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         x: (letterWidth - labelWidth) / 2, 
         y: 30
       });
+    }
+    
     return await outputPdf.save();
-  };
   };
 
   const handleFormatChange = async (format: string) => {
