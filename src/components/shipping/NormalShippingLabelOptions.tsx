@@ -422,7 +422,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl}
                       style={{
                         width: '100%',
-                        height: selectedFormat === '4x6' ? '500px' : '600px',
+                        height: selectedFormat === '4x6' ? '1000px' : '1000px',
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }}
@@ -457,7 +457,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div
                   className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
-                  onClick={() => handlePrint()} 
+                  onClick={() => handleDownload('pdf')}
                 >
                   <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
                   <h4 className="font-semibold mb-2">PDF Format</h4>
