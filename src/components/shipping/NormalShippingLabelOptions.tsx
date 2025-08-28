@@ -309,8 +309,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             variant="outline"
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
-            onClick={() => handleDownload('pdf')}
-            disabled={!labelUrls?.pdf && !labelUrl}
+            onClick={handlePrint}
+                  disabled={isRegeneratingLabel || !currentPreviewUrl || previewType !== 'pdf'}
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
@@ -457,7 +457,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                 <div
                   className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
-                  onClick={() => handlePrint()} 
+                  onClick={() => handleDownload('pdf')}
                 >
                   <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
                   <h4 className="font-semibold mb-2">PDF Format</h4>
