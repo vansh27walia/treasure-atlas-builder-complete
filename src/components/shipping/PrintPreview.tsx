@@ -17,6 +17,7 @@ const labelFormats = [
 ];
 
 interface PrintPreviewProps {
+  children?: React.ReactNode;
   triggerButton?: React.ReactNode;
   isOpenProp?: boolean;
   onOpenChangeProp?: (open: boolean) => void;
@@ -48,6 +49,7 @@ interface PrintPreviewProps {
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
+  children,
   triggerButton,
   isOpenProp,
   onOpenChangeProp,
@@ -359,7 +361,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? triggerButton : (
+      {children ? (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      ) : triggerButton ? (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      ) : (
         <div className="flex gap-2">
           <Button
             variant="outline"

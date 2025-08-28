@@ -42,16 +42,15 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
-          triggerButton={
-            <Button
-              variant="outline"
-              className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Print Preview
-            </Button>
-          }
-        />
+        >
+          <Button
+            variant="outline"
+            className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            Print Preview
+          </Button>
+        </PrintPreview>
 
         <PrintPreview
           labelUrl={labelUrl}
@@ -59,16 +58,15 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
           initialTab="email"
-          triggerButton={
-            <Button
-              variant="outline"
-              className="w-full border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium text-sm"
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Email
-            </Button>
-          }
-        />
+        >
+          <Button
+            variant="outline"
+            className="w-full border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium text-sm"
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Email
+          </Button>
+        </PrintPreview>
 
         <Button
           variant="outline"
