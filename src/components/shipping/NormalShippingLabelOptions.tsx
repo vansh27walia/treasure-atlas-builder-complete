@@ -30,6 +30,7 @@ interface PrintPreviewProps {
     carrier: string;
   };
   shipmentId?: string;
+  initialActiveTab?: string;
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
@@ -39,7 +40,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   labelUrl,
   trackingCode,
   shipmentDetails,
-  shipmentId
+  shipmentId,
+  initialActiveTab = 'preview'
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
@@ -57,20 +59,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
-  const [activeTab, setActiveTab] = useState('preview');
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [emailList, setEmailList] = useState(['']);
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
   useEffect(() => {
-    if (isOpen && labelUrl) {
-      console.log('Setting up preview with labelUrl:', labelUrl);
-      // Always use the original labelUrl from backend (Supabase bucket URL)
-      setCurrentPreviewUrl(labelUrl);
-      setPreviewType('pdf');
-      loadPdfBytes(labelUrl);
+    if (isOpen) {
+      setActiveTab(initialActiveTab);
+      if (labelUrl) {
+        console.log('Setting up preview with labelUrl:', labelUrl);
+        // Always use the original labelUrl from backend (Supabase bucket URL)
+        setCurrentPreviewUrl(labelUrl);
+        setPreviewType('pdf');
+        loadPdfBytes(labelUrl);
+      }
     }
-  }, [labelUrl, isOpen]);
+  }, [labelUrl, isOpen, initialActiveTab]);
 
   const loadPdfBytes = async (url: string) => {
     try {
@@ -152,19 +157,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setIsRegeneratingLabel(true);
 
     try {
-      if (originalPdfBytes) {
-        const pdfBytes = await generateIndividualLabelPDF(originalPdfBytes, format);
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        
-        if (currentPreviewUrl && !currentPreviewUrl.startsWith('http')) {
-          URL.revokeObjectURL(currentPreviewUrl);
-        }
-        
-        setCurrentPreviewUrl(url);
-        setPreviewType('pdf');
-        toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label || format}.`);
-      }
+      // Keep the original Supabase URL for preview - format selection is for display reference only
+      // Downloads will always use the original 4x6 format from Supabase
+      setCurrentPreviewUrl(labelUrl);
+      setPreviewType('pdf');
+      toast.success(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. Download will use original 4x6 format.`);
     } catch (error) {
       console.error("Error changing label format:", error);
       toast.error("Failed to update label format.");
@@ -250,7 +247,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogTrigger>
       )}
 
-      <DialogContent className="max-w-4xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>Shipping Label Preview {trackingCode ? `(${trackingCode})` : ''}</span>
@@ -278,7 +275,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </TabsTrigger>
-              <TabsTrigger value="email" className="text-sm py-2">
+              <TabsTrigger value="email" className="text-sm py-2" data-value="email">
                 <Mail className="h-4 w-4 mr-2" />
                 Email
               </TabsTrigger>
@@ -319,7 +316,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-2xl' : 'max-w-3xl'}`}>
                   {isRegeneratingLabel ? (
                     <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -333,7 +330,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '400px' : '500px', 
+                        height: selectedFormat === '4x6' ? '500px' : '600px', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
@@ -503,6 +500,9 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   shipmentId,
   shipmentDetails
 }) => {
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+
   const handleDirectDownload = () => {
     console.log('Direct download clicked with URL:', labelUrl);
     if (labelUrl) {
@@ -513,21 +513,46 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     }
   };
 
+  const handleEmailClick = () => {
+    setEmailPreviewOpen(true);
+  };
+
   return (
     <div className="flex flex-col gap-3 w-full">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <PrintPreview
           labelUrl={labelUrl}
           trackingCode={trackingCode}
           shipmentId={shipmentId}
           shipmentDetails={shipmentDetails}
+          isOpenProp={printPreviewOpen}
+          onOpenChangeProp={setPrintPreviewOpen}
           triggerButton={
             <Button
               variant="outline"
               className="w-full border-purple-200 hover:bg-purple-50 text-purple-700 h-11 font-medium text-sm"
             >
               <Eye className="h-4 w-4 mr-2" />
-              Print Preview & Email
+              Print Preview
+            </Button>
+          }
+        />
+
+        <PrintPreview
+          labelUrl={labelUrl}
+          trackingCode={trackingCode}
+          shipmentId={shipmentId}
+          shipmentDetails={shipmentDetails}
+          isOpenProp={emailPreviewOpen}
+          onOpenChangeProp={setEmailPreviewOpen}
+          initialActiveTab="email"
+          triggerButton={
+            <Button
+              variant="outline"
+              className="w-full border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium text-sm"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Email
             </Button>
           }
         />
