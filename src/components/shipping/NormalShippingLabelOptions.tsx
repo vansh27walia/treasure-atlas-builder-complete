@@ -124,6 +124,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const handlePrint = () => {
+    // The Print Preview button in the dialog uses the `currentPreviewUrl` which is already the Supabase URL
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
         iframeRef.current.contentWindow.focus();
@@ -174,7 +175,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     try {
-      // ALWAYS use the original labelUrl (Supabase bucket URL) for downloads - same as print preview
+      // ALWAYS use the original labelUrl (Supabase bucket URL) for downloads
       const downloadUrl = labelUrl;
       console.log('Downloading from URL (same as preview):', downloadUrl);
       
@@ -190,7 +191,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       
       const arrayBuffer = await response.arrayBuffer();
       const mimeType = format === 'pdf' ? 'application/pdf' : 
-                      format === 'png' ? 'image/png' : 'text/plain';
+                       format === 'png' ? 'image/png' : 'text/plain';
       const blob = new Blob([arrayBuffer], { type: mimeType });
       
       const filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
