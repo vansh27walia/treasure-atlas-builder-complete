@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,7 +62,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
   
-  const handleDownloadConsolidated = (format: 'pdf') => {
+  const handleDownloadConsolidated = (format: 'pdf' | 'png' | 'zpl' | 'epl') => {
     if (!results.batchResult?.consolidatedLabelUrls[format]) {
       toast.error(`${format.toUpperCase()} consolidated labels not available`);
       return;
@@ -139,22 +140,21 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Card>
       </div>
 
-      {/* Enhanced Batch Label Actions - Simplified to PDF, Print Preview, Email */}
+      {/* Enhanced Batch Label Actions */}
       {hasLabels && results.batchResult && (
         <Card className="p-8 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-indigo-200 shadow-xl">
-          <div className="flex items-center mb-6">
-            <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center mr-4">
-              <Sparkles className="h-6 w-6 text-white" />
+          {/* Print Preview Section - Top Priority */}
+          <div className="mb-8">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Batch Print Preview</h2>
+                <p className="text-gray-600 text-sm">Preview and print all labels with format options</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Consolidated Label Downloads</h2>
-              <p className="text-gray-600">Download, preview, and email all your labels</p>
-            </div>
-          </div>
-          
-          {/* Simplified Action Buttons - PDF, Print Preview, Email */}
-          <div className="flex gap-4">
-            {/* Print Preview - Top Priority */}
+            
             {results.batchResult?.consolidatedLabelUrls?.pdf && (
               <EnhancedPrintPreview
                 labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
@@ -162,38 +162,80 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 shipmentId={results.batchResult.batchId}
                 triggerButton={
                   <Button 
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
                   >
                     <Eye className="mr-2 h-5 w-5" />
-                    Print Preview
+                    Print Preview All Labels
                   </Button>
                 }
               />
             )}
+          </div>
 
-            {/* PDF Download */}
-            <Button 
-              onClick={() => handleDownloadConsolidated('pdf')} 
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-12 shadow-lg font-semibold" 
-              disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
-            >
-              <Download className="h-5 w-5 mr-2" />
-              Download PDF
-            </Button>
+          <div className="flex items-center mb-6">
+            <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center mr-4">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Batch Label Downloads</h2>
+              <p className="text-gray-600">Download all your labels in various formats or send via email</p>
+            </div>
+          </div>
+          
+          {/* Consolidated Download Grid */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Consolidated Label Downloads</h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Button 
+                onClick={() => handleDownloadConsolidated('pdf')} 
+                className="bg-red-600 hover:bg-red-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+                disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
+              >
+                <Download className="h-6 w-6 mb-2" />
+                <div className="text-center">
+                  <div className="font-bold">PDF</div>
+                  <div className="text-xs opacity-90">All Labels</div>
+                </div>
+              </Button>
 
-            {/* Email Labels */}
+              <Button 
+                onClick={() => handleDownloadConsolidated('zpl')} 
+                className="bg-blue-600 hover:bg-blue-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+                disabled={!results.batchResult?.consolidatedLabelUrls?.zpl}
+              >
+                <Download className="h-6 w-6 mb-2" />
+                <div className="text-center">
+                  <div className="font-bold">ZPL</div>
+                  <div className="text-xs opacity-90">Thermal</div>
+                </div>
+              </Button>
+
+              <Button 
+                onClick={() => handleDownloadConsolidated('epl')} 
+                className="bg-orange-600 hover:bg-orange-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+                disabled={!results.batchResult?.consolidatedLabelUrls?.epl}
+              >
+                <Download className="h-6 w-6 mb-2" />
+                <div className="text-center">
+                  <div className="font-bold">EPL</div>
+                  <div className="text-xs opacity-90">Thermal</div>
+                </div>
+              </Button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-4">
             <Button 
               onClick={() => setShowEmailModal(true)} 
-              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg h-12 font-semibold" 
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg" 
+              size="lg"
             >
               <Mail className="mr-2 h-5 w-5" />
               Email Labels
             </Button>
-          </div>
 
-          {/* Download Manifest */}
-          {results.batchResult?.scanFormUrl && (
-            <div className="mt-6 pt-6 border-t border-indigo-200">
+            {results.batchResult?.scanFormUrl && (
               <Button 
                 onClick={handleDownloadManifest} 
                 variant="outline" 
@@ -201,10 +243,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 size="lg"
               >
                 <FileText className="mr-2 h-5 w-5" />
-                Download Pickup Manifest
+                Download Manifest
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </Card>
       )}
 
