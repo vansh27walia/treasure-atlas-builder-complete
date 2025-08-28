@@ -395,6 +395,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
+        
               <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
@@ -421,8 +422,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                        ref={iframeRef} 
                        src={currentPreviewUrl} 
                        style={{ 
-                         width: '100%', 
-                         height: selectedFormat === '4x6' ? '500px' : '600px', 
+                         width: '50%', 
+                         height: selectedFormat === '4x6' ? '5000px' : '6000px', 
                          border: '1px solid #ccc',
                          borderRadius: '6px'
                        }} 
@@ -448,8 +449,20 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       }
                     </div>
                   )}
-                 </div>
-               </div>
+                </div>
+              </div>
+                  ) : currentPreviewUrl && previewType === 'image' ? (
+                    <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
+                  ) : (
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                      <div className="text-center">
+                        <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                        <p>Preview not available.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="pt-4 border-t mt-4">
                 <Button
