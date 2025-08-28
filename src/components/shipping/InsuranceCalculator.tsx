@@ -31,6 +31,58 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   if (hideFromRates) {
     return null;
   }
-  return;
+
+  return (
+    <Card className="p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-foreground">Package Insurance</h3>
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+            Recommended
+          </Badge>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-muted-foreground">Insurance Cost</div>
+          <div className="text-lg font-bold text-green-600 flex items-center gap-1">
+            <DollarSign className="h-4 w-4" />
+            {insuranceCost.toFixed(2)}
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor="insurance-amount" className="text-sm font-medium">
+            Coverage Amount ($)
+          </Label>
+          <Input
+            id="insurance-amount"
+            type="number"
+            value={declaredValue}
+            onChange={(e) => handleValueChange(e.target.value)}
+            min="0"
+            step="1"
+            className="mt-1 bg-white border-blue-200 focus:border-blue-500"
+            placeholder="Enter coverage amount"
+          />
+        </div>
+        
+        <div className="bg-white p-3 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2 text-sm text-blue-700 mb-2">
+            <Info className="h-4 w-4" />
+            <span className="font-medium">Coverage Details</span>
+          </div>
+          <ul className="text-sm text-muted-foreground space-y-1">
+            <li>• Up to $100 covered by most carriers by default</li>
+            <li>• Additional coverage: $2 per $100 of declared value</li>
+            <li>• Protects against loss, damage, or theft</li>
+            <li>• Coverage Amount: ${declaredValue.toFixed(2)}</li>
+            <li>• Total Cost: ${insuranceCost.toFixed(2)}</li>
+          </ul>
+        </div>
+      </div>
+    </Card>
+  );
 };
 export default InsuranceCalculator;
