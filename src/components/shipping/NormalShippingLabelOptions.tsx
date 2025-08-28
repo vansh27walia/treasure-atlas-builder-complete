@@ -87,9 +87,20 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     if (!isOpen) return;
 
     setActiveTab(initialTab);
-    const url = isBatchPreview
+    let url = isBatchPreview
       ? batchResult?.consolidatedLabelUrls?.pdf
       : labelUrls?.pdf || labelUrl;
+
+    // Ensure we're using proper Supabase storage URLs
+    if (!url && labelUrl) {
+      // Extract filename from the labelUrl and construct proper Supabase URL
+      const filename = labelUrl.split('/').pop() || '';
+      url = getSupabaseStorageUrl(filename, 'pdf');
+    } else if (url && !url.includes('adhegezdzqlnqqnymvps.supabase.co')) {
+      // If we have a URL but it's not from the correct Supabase storage, reconstruct it
+      const filename = url.split('/').pop() || '';
+      url = getSupabaseStorageUrl(filename, 'pdf');
+    }
 
     if (url) {
       setCurrentPreviewUrl(url);
@@ -107,9 +118,18 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setIsRegeneratingLabel(true);
     
     try {
-      const originalUrl = isBatchPreview
+      let originalUrl = isBatchPreview
         ? batchResult?.consolidatedLabelUrls?.pdf
         : labelUrls?.pdf || labelUrl;
+
+      // Ensure we're using proper Supabase storage URLs
+      if (!originalUrl && labelUrl) {
+        const filename = labelUrl.split('/').pop() || '';
+        originalUrl = getSupabaseStorageUrl(filename, 'pdf');
+      } else if (originalUrl && !originalUrl.includes('adhegezdzqlnqqnymvps.supabase.co')) {
+        const filename = originalUrl.split('/').pop() || '';
+        originalUrl = getSupabaseStorageUrl(filename, 'pdf');
+      }
 
       if (!originalUrl) {
         throw new Error('Original PDF URL not found.');
