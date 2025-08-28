@@ -202,27 +202,27 @@ const RateCalculator: React.FC = () => {
   };
 
   const handleShipWithRate = (rate: RateResult) => {
-    // Prepare data for the main shipping form
-    const shippingData = {
-      fromAddress: resolvedAddresses.from,
-      toAddress: resolvedAddresses.to,
-      parcel: {
-        type: packageType,
-        dimensions: dimensions,
-        weightUnit: weightUnit
+    // Only transfer dimensions to normal shipping - not addresses or rate selection
+    const dimensionsData = {
+      dimensions: {
+        length: dimensions.length,
+        width: dimensions.width,
+        height: dimensions.height,
+        weight: dimensions.weight
       },
-      selectedRate: rate
+      weightUnit: weightUnit,
+      packageType: packageType
     };
 
-    // Dispatch event to pre-fill main shipping form
-    document.dispatchEvent(new CustomEvent('prefill-shipping-form', {
-      detail: shippingData
+    // Dispatch event to transfer only dimensions to normal shipping
+    document.dispatchEvent(new CustomEvent('transfer-dimensions-to-shipping', {
+      detail: dimensionsData
     }));
 
-    toast.success('Shipping form pre-filled with rate calculator data');
+    toast.success('Dimensions transferred to shipping form. Please complete addresses and shipping details.');
     
-    // Navigate to main shipping form (if needed)
-    // You can add navigation logic here
+    // Navigate to main shipping form
+    window.location.href = '/create-label';
   };
 
   return (
@@ -420,7 +420,7 @@ const RateCalculator: React.FC = () => {
                       className="mt-1"
                     >
                       <ExternalLink className="w-3 h-3 mr-1" />
-                      Ship This
+                      I Want This Rate
                     </Button>
                   </div>
                 </div>

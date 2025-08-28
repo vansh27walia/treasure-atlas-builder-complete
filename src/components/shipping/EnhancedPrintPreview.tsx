@@ -97,55 +97,32 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
-      // Keep as original 4x6
       const page = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(embeddedPage, { 
-        x: 0, 
-        y: 0, 
-        width: labelWidth, 
-        height: labelHeight 
-      });
-
+      page.drawPage(embeddedPage);
     } else if (layoutOption === '8.5x11-2up') {
-      // Two labels: top & bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      // Top label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
-        width: labelWidth, 
-        height: labelHeight 
+        y: letterHeight - labelHeight - 30
       });
-      // Bottom label
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
-        width: labelWidth, 
-        height: labelHeight 
+        y: 30
       });
-
     } else if (layoutOption === '8.5x11-top') {
-      // Single label at top
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30,  // 30 points from top
-        width: labelWidth, 
-        height: labelHeight 
+        y: letterHeight - labelHeight - 30
       });
-
     } else if (layoutOption === '8.5x11-bottom') {
-      // Single label at bottom
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
         x: (letterWidth - labelWidth) / 2, 
-        y: 30,  // 30 points from bottom
-        width: labelWidth, 
-        height: labelHeight 
+        y: 30
       });
-    }
-
     return await outputPdf.save();
+  };
   };
 
   const handleFormatChange = async (format: string) => {
@@ -403,20 +380,20 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="download" className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-                <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
-                  onClick={() => handleDownload('pdf')}
-                >
-                  <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
-                  <h4 className="font-bold text-lg mb-2">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Best for printing and archiving</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
+              <TabsContent value="download" className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+                  <div 
+                    className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
+                    onClick={() => handleDownload('pdf')}
+                  >
+                    <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                    <h4 className="font-bold text-lg mb-2">PDF Format</h4>
+                    <p className="text-sm text-gray-600 mb-4">Best for printing and archiving</p>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </div>
                 
                 <div 
                   className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"

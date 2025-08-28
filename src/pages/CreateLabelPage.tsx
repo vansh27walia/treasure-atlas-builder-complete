@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Brain } from 'lucide-react';
+import { toast } from 'sonner';
 
 const CreateLabelPage = () => {
   // Move ALL hooks to the top before any conditional logic
@@ -63,17 +64,36 @@ const CreateLabelPage = () => {
       }
     };
 
+    // Listen for dimensions transfer from rate calculator
+    const handleDimensionsTransfer = (event: CustomEvent) => {
+      console.log('Dimensions transfer event received:', event.detail);
+      const { dimensions, weightUnit, packageType } = event.detail;
+      
+      // Dispatch event to pre-fill only the dimensions in the shipping form
+      document.dispatchEvent(new CustomEvent('prefill-dimensions-only', {
+        detail: {
+          dimensions,
+          weightUnit,
+          packageType
+        }
+      }));
+      
+      toast.success('Package dimensions pre-filled from rate calculator');
+    };
+
     // Listen for payment-related events
     document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-complete', handlePaymentEnd);
     document.addEventListener('payment-cancelled', handlePaymentEnd);
     document.addEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
+    document.addEventListener('transfer-dimensions-to-shipping', handleDimensionsTransfer as EventListener);
 
     return () => {
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-complete', handlePaymentEnd);
       document.removeEventListener('payment-cancelled', handlePaymentEnd);
       document.removeEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
+      document.removeEventListener('transfer-dimensions-to-shipping', handleDimensionsTransfer as EventListener);
     };
   }, []);
 

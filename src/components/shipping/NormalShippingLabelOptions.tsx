@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import EnhancedPrintPreview from './EnhancedPrintPreview';
+import EnhancedPrintPreview from './FixedPrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -36,8 +36,9 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   const handleEmailLabel = () => {
-    // TODO: Implement email functionality - requires backend integration
-    toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
+    // Open the Print Preview modal with Email tab active
+    // The existing EnhancedPrintPreview already has email functionality
+    toast.info('Please use the Print Preview → Email tab to send labels via email.');
   };
 
   return (

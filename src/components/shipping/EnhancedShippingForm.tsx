@@ -90,12 +90,42 @@ const EnhancedShippingForm: React.FC = () => {
   const isInternational = fromAddress && toAddress && fromAddress.country !== toAddress.country;
 
   // Auto-trigger customs modal when international shipping is detected
+  // Auto-trigger customs modal when international shipping is detected
   useEffect(() => {
     if (isInternational && !customsInfo && toAddress && fromAddress) {
       console.log('International shipping detected, opening customs modal');
       setShowCustomsModal(true);
     }
   }, [isInternational, customsInfo, toAddress, fromAddress]);
+
+  // Listen for dimensions-only prefill from rate calculator
+  useEffect(() => {
+    const handleDimensionsPrefill = (event: CustomEvent) => {
+      const { dimensions, weightUnit, packageType } = event.detail;
+      console.log('Pre-filling dimensions only from rate calculator:', event.detail);
+      
+      // Update form with only dimensions, weight, and package type
+      form.setValue('packageType', packageType);
+      form.setValue('weightValue', parseFloat(dimensions.weight) || 0);
+      form.setValue('weightUnit', weightUnit);
+      
+      if (dimensions.length) {
+        form.setValue('length', parseFloat(dimensions.length));
+      }
+      if (dimensions.width) {
+        form.setValue('width', parseFloat(dimensions.width));
+      }
+      if (dimensions.height) {
+        form.setValue('height', parseFloat(dimensions.height));
+      }
+    };
+
+    document.addEventListener('prefill-dimensions-only', handleDimensionsPrefill as EventListener);
+    
+    return () => {
+      document.removeEventListener('prefill-dimensions-only', handleDimensionsPrefill as EventListener);
+    };
+  }, [form]);
 
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
