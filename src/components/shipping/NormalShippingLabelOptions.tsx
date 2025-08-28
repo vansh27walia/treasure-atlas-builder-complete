@@ -361,18 +361,30 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
             <TabsContent value="download" className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-                <div 
-                  className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
-                  onClick={() => handleDownload('pdf')}
-                >
-                  <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
-                  <h4 className="font-semibold text-lg mb-2">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Professional document format. Ideal for printing and archiving shipment records.</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
+                // Add this new function inside the PrintPreview component
+const handleUnifiedDownload = () => {
+    if (labelUrl) {
+      window.open(labelUrl, '_blank');
+      toast.success('Opening PDF label in new tab');
+    } else {
+      toast.error('Label URL not available');
+    }
+};
+
+// ... inside the 'download' TabsContent
+
+<div
+  className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
+  onClick={handleUnifiedDownload} // THIS IS THE CHANGE
+>
+  <File className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+  <h4 className="font-semibold text-lg mb-2">PDF Format</h4>
+  <p className="text-sm text-gray-600 mb-4">Professional document format. Ideal for printing and archiving shipment records.</p>
+  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-10">
+    <Download className="h-4 w-4 mr-2" />
+    Download PDF
+  </Button>
+</div>
                 
                 <div 
                   className="p-6 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
