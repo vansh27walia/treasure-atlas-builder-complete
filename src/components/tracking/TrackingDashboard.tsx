@@ -62,49 +62,18 @@ const TrackingDashboard: React.FC = () => {
         return;
       }
       console.log('Fetching tracking data for user:', session.user.id);
-      // Fetch from both tracking_records and shipment_records tables
-      const [
-        { data: trackingRecords, error: trackingError },
-        { data: shipmentRecords, error: shipmentError }
-      ] = await Promise.all([
-        supabase.from('tracking_records').select('*').order('created_at', { ascending: false }),
-        supabase.from('shipment_records').select('*').order('created_at', { ascending: false })
-      ]);
-
-      if (trackingError) {
-        console.error('Error fetching tracking records:', trackingError);
+      const {
+        data: shipmentRecords,
+        error
+      } = await supabase.from('shipment_records').select('*').order('created_at', {
+        ascending: false
+      });
+      if (error) {
+        console.error('Error fetching shipment records:', error);
+        throw new Error(error.message);
       }
-      if (shipmentError) {
-        console.error('Error fetching shipment records:', shipmentError);
-      }
-
-      console.log('Fetched tracking records:', trackingRecords?.length || 0);
       console.log('Fetched shipment records:', shipmentRecords?.length || 0);
-
-      // Transform tracking_records data
-      const trackingData: TrackingInfo[] = (trackingRecords || []).map(record => ({
-        id: record.id,
-        tracking_code: record.tracking_code || 'N/A',
-        carrier: record.carrier || 'Unknown',
-        carrier_code: record.carrier?.toLowerCase() || 'unknown',
-        status: record.status || 'created',
-        eta: record.updated_at, // Use updated_at as fallback for eta
-        last_update: record.updated_at || record.created_at,
-        label_url: record.label_url,
-        shipment_id: record.shipment_id || record.easypost_id || '',
-        recipient: record.recipient_name || 'Unknown Recipient',
-        recipient_address: record.recipient_address || 'Unknown Address',
-        package_details: {
-          weight: 'N/A',
-          dimensions: 'N/A',
-          service: record.service || 'Standard'
-        },
-        estimated_delivery: null,
-        tracking_events: []
-      }));
-
-      // Transform shipment_records data
-      const shipmentData: TrackingInfo[] = (shipmentRecords || []).map(record => {
+      const transformedData: TrackingInfo[] = (shipmentRecords || []).map(record => {
         const toAddress = record.to_address_json as any;
         const parcel = record.parcel_json as any;
         const trackingDetails = record.tracking_details as any[];
@@ -132,27 +101,10 @@ const TrackingDashboard: React.FC = () => {
           tracking_events: Array.isArray(trackingDetails) ? trackingDetails : []
         };
       });
-
-      // Combine and deduplicate data (prefer tracking_records over shipment_records for same tracking codes)
-      const combinedData = [...trackingData];
-      shipmentData.forEach(shipment => {
-        const existsInTracking = trackingData.some(tracking => 
-          tracking.tracking_code === shipment.tracking_code
-        );
-        if (!existsInTracking) {
-          combinedData.push(shipment);
-        }
-      });
-
-      // Sort by creation date (most recent first)
-      const sortedData = combinedData.sort((a, b) => 
-        new Date(b.last_update).getTime() - new Date(a.last_update).getTime()
-      );
-
-      setTrackingData(sortedData);
-      console.log('Successfully loaded combined tracking data:', sortedData.length, 'items');
-      if (sortedData.length > 0) {
-        toast.success(`Loaded ${sortedData.length} tracking records`);
+      setTrackingData(transformedData);
+      console.log('Successfully loaded tracking data:', transformedData.length, 'items');
+      if (transformedData.length > 0) {
+        toast.success(`Loaded ${transformedData.length} tracking records`);
       } else {
         toast.info('No tracking data found. Create a shipping label to see tracking information here.');
       }

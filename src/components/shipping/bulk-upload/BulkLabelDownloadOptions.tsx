@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, Package, Mail, Printer } from 'lucide-react';
-import EnhancedPrintPreview from '../EnhancedPrintPreview';
 
 interface BulkLabelDownloadOptionsProps {
   batchResult?: {
@@ -68,31 +67,22 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 Download PDF
               </Button>
               
-              {/* Side by side: Print Preview All Labels and Email All Labels */}
-              <div className="flex gap-2">
-                <EnhancedPrintPreview
-                  triggerButton={
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print Preview All Labels
-                    </Button>
-                  }
-                  labelUrl={batchResult.consolidatedLabelUrls.pdf!}
-                  trackingCode={null}
-                  shipmentId={batchResult.batchId}
-                  isConsolidated={true}
-                  consolidatedLabels={processedLabels}
-                  onEmailLabels={onEmailLabels}
-                />
-                
-                <Button
-                  onClick={onEmailLabels}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email All Labels
-                </Button>
-              </div>
+              <Button
+                onClick={onPrintPreview}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print Preview
+              </Button>
+              
+              <Button
+                onClick={onEmailLabels}
+                variant="outline"
+                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Email Labels
+              </Button>
             </div>
 
             {/* Pickup Manifest */}
