@@ -395,20 +395,20 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden flex flex-col justify-center items-center">
+              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
                     <div className="flex items-center justify-center">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
                     </div>
+                  ) : isBatchPreview ? (
+                    <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
                   ) : (
-                    <p className="text-sm text-gray-600">
-                      {`Preview: ${isBatchPreview ? 'Consolidated PDF' : 'Label'} (${labelFormats.find(f => f.value === selectedFormat)?.label || 'Original'})`}
-                    </p>
+                    <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'} w-full`}>
+                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
                   {isRegeneratingLabel ? (
                     <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -416,18 +416,40 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                         <p className="text-purple-800">Regenerating label...</p>
                       </div>
                     </div>
-                  ) : currentPreviewUrl && previewType === 'pdf' ? (
-                    <iframe
-                      ref={iframeRef}
-                      src={currentPreviewUrl}
-                      style={{
-                        width: '100%',
-                        height: selectedFormat === '4x6' ? '1000px' : '1000px',
-                        border: '1px solid #ccc',
-                        borderRadius: '6px'
-                      }}
-                      title="Label Preview"
-                    />
+                  ) : previewType === 'pdf' && currentPreviewUrl ? (
+                     <iframe 
+                       ref={iframeRef} 
+                       src={currentPreviewUrl} 
+                       style={{ 
+                         width: '100%', 
+                         height: selectedFormat === '4x6' ? '500px' : '600px', 
+                         border: '1px solid #ccc',
+                         borderRadius: '6px'
+                       }} 
+                       title="Label Preview"
+                     />
+                  ) : (
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
+                        ? (
+                          <div className="text-center">
+                            <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                            <p>A batch PDF is needed for preview.</p>
+                          </div>
+                        )
+                        : previewType === 'image' && currentPreviewUrl
+                          ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
+                          : (
+                            <div className="text-center">
+                              <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                              <p>Preview not available.</p>
+                            </div>
+                          )
+                      }
+                    </div>
+                  )}
+                </div>
+              </div>
                   ) : currentPreviewUrl && previewType === 'image' ? (
                     <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
                   ) : (
