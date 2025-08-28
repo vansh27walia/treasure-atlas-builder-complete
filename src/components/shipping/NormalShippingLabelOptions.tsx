@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import EnhancedPrintPreview from './FixedPrintPreview';
+import EnhancedPrintPreview from './EnhancedPrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
