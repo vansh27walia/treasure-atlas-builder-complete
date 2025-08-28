@@ -10,6 +10,14 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { PDFDocument } from 'pdf-lib';
 
+// Utility function to construct Supabase storage URLs
+const getSupabaseStorageUrl = (filename: string, format: 'pdf' | 'png' | 'zpl') => {
+  const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/shipping-labels/labels';
+  const filenameParts = filename.split('.');
+  const baseName = filenameParts[0];
+  return `${baseUrl}/${baseName}.${format}`;
+};
+
 // Type definitions for clarity and consistency
 interface ConsolidatedLabelUrls {
   png?: string;
@@ -180,7 +188,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl') => {
     try {
-      const url = labelUrls?.[format] || labelUrl;
+      // Use proper Supabase storage URLs for all formats
+      let url = labelUrls?.[format] || labelUrl;
+      
+      // If we don't have the specific format URL, construct it from the base URL
+      if (!url && labelUrl) {
+        // Extract filename from the labelUrl and construct proper Supabase URL
+        const filename = labelUrl.split('/').pop() || '';
+        url = getSupabaseStorageUrl(filename, format);
+      }
+      
       if (!url) {
         toast.error(`${format.toUpperCase()} format not available`);
         return;
@@ -221,7 +238,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     });
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     const validEmails = emailList.filter(email => email.trim() !== '');
     if (validEmails.length === 0) {
       toast.error('Please add at least one email address');
@@ -232,10 +249,30 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       return;
     }
     
-    // Placeholder for actual email sending logic
-    toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
-    console.log(`Sending email with subject "${emailSubject}" and format "${emailFormat}" to:`, validEmails);
-    setIsOpen(false);
+    try {
+      // Get the proper Supabase URL for the selected format
+      let emailUrl = labelUrls?.[emailFormat as 'pdf' | 'png' | 'zpl'] || labelUrl;
+      
+      // If we don't have the specific format URL, construct it from the base URL
+      if (!emailUrl && labelUrl) {
+        const filename = labelUrl.split('/').pop() || '';
+        emailUrl = getSupabaseStorageUrl(filename, emailFormat as 'pdf' | 'png' | 'zpl');
+      }
+      
+      if (!emailUrl) {
+        toast.error(`${emailFormat.toUpperCase()} format not available for email`);
+        return;
+      }
+      
+      // TODO: Implement actual email sending logic with the constructed URL
+      toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
+      console.log(`Sending email with subject "${emailSubject}" and format "${emailFormat}" to:`, validEmails);
+      console.log(`Email URL: ${emailUrl}`);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error preparing email:', error);
+      toast.error('Failed to prepare email');
+    }
   };
 
   const dialogTitleText = isBatchPreview
@@ -257,6 +294,19 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           >
             <Download className="h-3 w-3 mr-1" />
             Download Label
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-green-200 hover:bg-green-50 text-green-700"
+            onClick={() => {
+              setActiveTab('email');
+              setIsOpen(true);
+            }}
+            disabled={!labelUrls?.pdf && !labelUrl}
+          >
+            <Mail className="h-3 w-3 mr-1" />
+            Email Label
           </Button>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
@@ -405,7 +455,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
                   <h4 className="font-semibold mb-2">PNG Format</h4>
                   <p className="text-sm text-gray-600 mb-3">Image format</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9" disabled={!labelUrls?.png}>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download PNG
                   </Button>
@@ -418,7 +468,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
                   <h4 className="font-semibold mb-2">ZPL Format</h4>
                   <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9" disabled={!labelUrls?.zpl}>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
                     <Download className="h-4 w-4 mr-2" />
                     Download ZPL
                   </Button>
@@ -483,8 +533,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pdf">PDF</SelectItem>
-                      <SelectItem value="png" disabled={!labelUrls?.png}>PNG</SelectItem>
-                      <SelectItem value="zpl" disabled={!labelUrls?.zpl}>ZPL</SelectItem>
+                      <SelectItem value="png">PNG</SelectItem>
+                      <SelectItem value="zpl">ZPL</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
