@@ -164,7 +164,12 @@ serve(async (req) => {
     } else {
       if (requestData.parcel.length) parcelData.length = requestData.parcel.length;
       if (requestData.parcel.width) parcelData.width = requestData.parcel.width;
-      if (requestData.parcel.height) parcelData.height = requestData.parcel.height;
+      if (requestData.parcel.height) {
+        parcelData.height = requestData.parcel.height;
+      } else {
+        // Set minimum height for envelopes or when height is not provided
+        parcelData.height = 0.1;
+      }
     }
 
     const shipmentRequest = {

@@ -149,6 +149,9 @@ const RateCalculator: React.FC = () => {
         parcel.width = parseFloat(dimensions.width);
         if (showHeight && dimensions.height) {
           parcel.height = parseFloat(dimensions.height);
+        } else if (packageType === 'envelope') {
+          // For envelopes, set a minimal height if not provided
+          parcel.height = 0.1;
         }
       } else {
         parcel.predefined_package = packageType;
