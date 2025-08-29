@@ -299,7 +299,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? triggerButton : (
+      {triggerButton ? (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      ) : (
         <div className="flex gap-2">
           <Button
             variant="outline"
