@@ -71,7 +71,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const [selectedFormat, setSelectedFormat] = useState('4x6');
+  const [selectedFormat, setSelectedFormat] = useState('8.5x11-2up');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
@@ -111,7 +111,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         setCurrentPreviewUrl('');
         setPreviewType('placeholder');
       }
-      setSelectedFormat('4x6');
+      setSelectedFormat('8.5x11-2up');
     }
   }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]);
 
@@ -324,7 +324,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-full max-h-full w-screen h-screen bg-white flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -360,46 +360,30 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              {/* Format Selection - Only in Preview Tab */}
+              {/* Format Display - Only show current format */}
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isRegeneratingLabel}
-                >
-                  <SelectTrigger className="w-full h-10 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
-                    <SelectValue placeholder="Select Print Format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-3">
-                        <div className="flex flex-col py-1">
-                          <span className="font-medium text-gray-900">{format.label}</span>
-                          <span className="text-xs text-gray-500">{format.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="w-full h-10 bg-white border border-gray-300 rounded-md px-3 py-2 flex items-center">
+                  <span className="font-medium text-gray-900">8.5x11" - 2 Labels (2-up)</span>
+                </div>
               </div>
 
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
+              <div className="flex-1 p-2 bg-gray-50 border rounded-lg overflow-hidden">
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
                     <div className="flex items-center justify-center">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
+                      <span>Generating PDF Preview...</span>
                     </div>
                   ) : isBatchPreview ? (
-                    <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
+                    <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch (8.5x11" - 2 Labels)</p>
                   ) : (
-                    <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
+                    <p className="text-sm text-gray-600">PDF Preview: Two labels per page - top and bottom</p>
                   )}
                 </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+                <div className="w-full h-full bg-white p-2 shadow-lg rounded-lg">
                   {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
+                    <div className="border border-gray-300 h-full flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                         <p className="text-purple-800">Regenerating label...</p>
@@ -411,14 +395,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '400px' : '500px', 
+                        height: 'calc(100vh - 200px)', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
                       title="Label Preview"
                     />
                   ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                    <div className="border border-gray-300 h-full flex items-center justify-center text-gray-500 rounded-lg">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
                         ? (
                           <div className="text-center">
