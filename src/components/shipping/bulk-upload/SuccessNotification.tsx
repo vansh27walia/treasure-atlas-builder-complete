@@ -161,10 +161,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 trackingCode={`Batch-${results.batchResult.batchId}`}
                 shipmentId={results.batchResult.batchId}
                 triggerButton={
-                  <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                        <PrinterIcon className="mr-2 h-4 w-4" />
-                        Preview All Labels
-                      </Button>
+                  <Button 
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
+                  >
+                    <Eye className="mr-2 h-5 w-5" />
+                    Print Preview All Labels
+                  </Button>
                 }
               />
             )}
