@@ -223,42 +223,76 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     try {
+      toast.loading(`Preparing ${format.toUpperCase()} download...`);
+      
       let blob: Blob;
       let filename: string;
       
-      if (format === 'pdf' && originalPdfBytes) {
-        const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-        blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+      if (format === 'pdf') {
+        if (originalPdfBytes) {
+          // Use client-side PDF generation
+          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+          blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+        } else if (labelUrls?.pdf || labelUrl) {
+          // Direct PDF download
+          const url = labelUrls?.pdf || labelUrl;
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/pdf'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        } else {
+          toast.error('PDF not available for download.');
+          return;
+        }
       } else {
-        // Fallback to direct download
-        const url = labelUrls?.[format] || labelUrl;
+        // Handle PNG and ZPL formats
+        const url = labelUrls?.[format] || (format === 'png' ? labelUrl : null);
         if (!url) {
           toast.error(`${format.toUpperCase()} format not available`);
           return;
         }
         
         const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${format.toUpperCase()}: ${response.status} ${response.statusText}`);
+        }
+        
         const arrayBuffer = await response.arrayBuffer();
         blob = new Blob([arrayBuffer], { 
-          type: format === 'pdf' ? 'application/pdf' : format === 'png' ? 'image/png' : 'text/plain'
+          type: format === 'png' ? 'image/png' : 'text/plain'
         });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
       }
       
+      // Create and trigger download
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
+      link.href = objectUrl;
       link.download = filename;
-      link.target = '_blank';
-      document.body.appendChild(link);  
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
       
-      toast.success(`Downloaded ${format.toUpperCase()} label`);
+      // Clean up the object URL
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+      
+      toast.success(`${format.toUpperCase()} label downloaded successfully`);
     } catch (error) {
-      console.error('Error downloading:', error);
-      toast.error('Failed to download label');
+      console.error('Error downloading label:', error);
+      toast.error(`Failed to download ${format.toUpperCase()} label. Please try again.`);
     }
   };
 
@@ -278,7 +312,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setEmailList(updated);
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     const validEmails = emailList.filter(email => email.trim() !== '');
     if (validEmails.length === 0) {
       toast.error('Please add at least one email address');
@@ -288,9 +322,57 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       toast.error('Please enter an email subject');
       return;
     }
-    
-    // TODO: Implement email sending logic
-    toast.success(`Email will be sent to ${validEmails.length} recipient(s) in ${emailFormat.toUpperCase()} format`);
+
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      // Prepare batch result data for email
+      let emailData;
+      if (isBatchPreview && batchResult) {
+        emailData = {
+          toEmails: validEmails,
+          subject: emailSubject,
+          description: 'Please find your shipping labels attached.',
+          batchResult: batchResult,
+          selectedFormats: [emailFormat]
+        };
+      } else {
+        // For single labels, create a mock batch result structure
+        emailData = {
+          toEmails: validEmails,
+          subject: emailSubject,
+          description: 'Please find your shipping label attached.',
+          batchResult: {
+            batchId: shipmentId || 'single-label',
+            consolidatedLabelUrls: {
+              pdf: labelUrls?.pdf || labelUrl,
+              png: labelUrls?.png,
+              zpl: labelUrls?.zpl
+            },
+            scanFormUrl: null
+          },
+          selectedFormats: [emailFormat]
+        };
+      }
+
+      toast.loading('Sending email...');
+      
+      const { data, error } = await supabase.functions.invoke('email-labels', {
+        body: emailData
+      });
+
+      if (error) {
+        console.error('Email sending error:', error);
+        toast.error('Failed to send email. Please try again.');
+        return;
+      }
+
+      toast.success(`Email sent successfully to ${validEmails.length} recipient(s)`);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.error('Failed to send email. Please check your connection and try again.');
+    }
   };
 
   const dialogTitleText = isBatchPreview

@@ -10,6 +10,7 @@ import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, Shield, F
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import EnhancedRateFilter from './EnhancedRateFilter';
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
 import PackageTypeSelector from './PackageTypeSelector';
@@ -633,45 +634,28 @@ const IndependentRateCalculator: React.FC = () => {
                   <Truck className="h-6 w-6" />
                   Available {isInternational ? 'International' : 'Domestic'} Rates ({rates.length})
                 </CardTitle>
-                <div className="flex gap-3 mt-4 lg:mt-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
-                        <Filter className="h-4 w-4 mr-2" />
-                        {carrierFilter === 'all' ? 'All Carriers' : carrierFilter.toUpperCase()}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                      <DropdownMenuItem onClick={() => setCarrierFilter('all')}>
-                        All Carriers
-                      </DropdownMenuItem>
-                      {uniqueCarriers.map(carrier => (
-                        <DropdownMenuItem key={carrier} onClick={() => setCarrierFilter(carrier)}>
-                          {carrier}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-10 px-4 border-2 border-blue-200 hover:bg-blue-50">
-                        Sort: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                      <DropdownMenuItem onClick={() => setSortOrder('price')}>
-                        Price (Lowest First)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortOrder('speed')}>
-                        Speed (Fastest First)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
-                        Carrier (A-Z)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                <EnhancedRateFilter
+                  filters={{
+                    search: '',
+                    carriers: [],
+                    maxPrice: undefined,
+                    maxDays: undefined,
+                    features: [],
+                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
+                    sortOrder: 'asc',
+                    selectedCarrier: carrierFilter
+                  }}
+                  availableCarriers={uniqueCarriers}
+                  onFiltersChange={(newFilters) => {
+                    setCarrierFilter(newFilters.selectedCarrier);
+                    setSortOrder(newFilters.sortBy);
+                  }}
+                  onClearFilters={() => {
+                    setCarrierFilter('all');
+                    setSortOrder('price');
+                  }}
+                  rateCount={sortedRates.length}
+                />
               </div>
             </CardHeader>
             <CardContent>
