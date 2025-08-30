@@ -161,13 +161,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 trackingCode={`Batch-${results.batchResult.batchId}`}
                 shipmentId={results.batchResult.batchId}
                 triggerButton={
-                 {uploadStatus === 'success' && results && <div className="space-y-6">
-                  {results.bulk_label_pdf_url && <div className="flex justify-center mb-6">
-                      <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                        <PrinterIcon className="mr-2 h-4 w-4" />
-                        Preview All Labels
-                      </Button>
-                    </div>}
+                  <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
+                    <PrinterIcon className="mr-2 h-4 w-4" />
+                    Preview All Labels
+                  </Button>
                 }
               />
             )}
