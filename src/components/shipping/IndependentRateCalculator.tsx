@@ -640,47 +640,6 @@ const IndependentRateCalculator: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Enhanced Rate Filter - Top Position for better UX */}
-              <div className="mb-8 pb-6 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-                      <Filter className="h-4 w-4 text-white" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900">Filter & Sort Results</h3>
-                  </div>
-                  <div className="text-sm text-gray-600 bg-blue-50 px-3 py-1 rounded-full font-medium">
-                    {uniqueCarriers.length} carrier{uniqueCarriers.length !== 1 ? 's' : ''} • {sortedRates.length} rate{sortedRates.length !== 1 ? 's' : ''}
-                  </div>
-                </div>
-                <EnhancedRateFilter
-                  filters={{
-                    search: '',
-                    carriers: [],
-                    maxPrice: undefined,
-                    maxDays: undefined,
-                    features: [],
-                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
-                    sortOrder: 'asc',
-                    selectedCarrier: carrierFilter
-                  }}
-                  availableCarriers={uniqueCarriers}
-                  onFiltersChange={(newFilters) => {
-                    if (newFilters.selectedCarrier !== carrierFilter) {
-                      setCarrierFilter(newFilters.selectedCarrier);
-                    }
-                    if (newFilters.sortBy !== sortOrder) {
-                      setSortOrder(newFilters.sortBy as 'price' | 'speed' | 'carrier');
-                    }
-                  }}
-                  onClearFilters={() => {
-                    setCarrierFilter('all');
-                    setSortOrder('price');
-                  }}
-                  rateCount={sortedRates.length}
-                />
-              </div>
-              
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sortedRates.map(rate => {
                   const currentRate = parseFloat(rate.rate);
@@ -770,6 +729,35 @@ const IndependentRateCalculator: React.FC = () => {
                 </div>
               )}
 
+              {/* Enhanced Rate Filter - Bottom Position */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <EnhancedRateFilter
+                  filters={{
+                    search: '',
+                    carriers: [],
+                    maxPrice: undefined,
+                    maxDays: undefined,
+                    features: [],
+                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
+                    sortOrder: 'asc',
+                    selectedCarrier: carrierFilter
+                  }}
+                  availableCarriers={uniqueCarriers}
+                  onFiltersChange={(newFilters) => {
+                    if (newFilters.selectedCarrier !== carrierFilter) {
+                      setCarrierFilter(newFilters.selectedCarrier);
+                    }
+                    if (newFilters.sortBy !== sortOrder) {
+                      setSortOrder(newFilters.sortBy as 'price' | 'speed' | 'carrier');
+                    }
+                  }}
+                  onClearFilters={() => {
+                    setCarrierFilter('all');
+                    setSortOrder('price');
+                  }}
+                  rateCount={sortedRates.length}
+                />
+              </div>
             </CardContent>
           </Card>
         )}
