@@ -487,17 +487,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
                 {/* MODIFIED: Removed fixed height, added flex-1 and w-full */}
                 <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg flex-1 flex flex-col ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
-                  {isRegeneratingLabel ? (
-                    {/* MODIFIED: Added flex-1 to this inner div */}
-                    <div className="flex-1 border border-gray-300 flex items-center justify-center rounded-lg">
+                   {isRegeneratingLabel ? (
+                     <div className="flex-1 border border-gray-300 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                         <p className="text-purple-800">Regenerating label...</p>
                       </div>
                     </div>
-                  ) : previewType === 'pdf' && currentPreviewUrl ? (
-                    {/* MODIFIED: Changed height to '100%' to fill the parent container */}
-                    <iframe 
+                  ) : previewType === 'pdf' && currentPreviewUrl ? (
+                     <iframe
                       ref={iframeRef} 
                       src={currentPreviewUrl} 
                       style={{ 
@@ -508,9 +506,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       }} 
                       title="Label Preview"
                     />
-                  ) : (
-                    {/* MODIFIED: Added flex-1 to this inner div */}
-                    <div className="flex-1 border border-gray-300 flex items-center justify-center text-gray-500 rounded-lg">
+                   ) : (
+                     <div className="flex-1 border border-gray-300 flex items-center justify-center text-gray-500 rounded-lg">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
                         ? (
                           <div className="text-center">
@@ -527,8 +524,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                             </div>
                           )
                       }
-                    </div>
-                </div>
+                     </div>
+                   )}
+                </div>
               </div>
 
               {/* Print Button - Only in Preview Tab */}
