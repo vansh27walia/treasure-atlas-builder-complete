@@ -4,79 +4,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
+import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-// Mock component for LabelResultsTable to make the file self-contained
-const LabelResultsTable = ({ shipments, onDownloadLabel }) => {
-  return (
-    <div className="p-4">
-      {shipments.length === 0 ? (
-        <p className="text-gray-500 text-center">No shipments with labels to display.</p>
-      ) : (
-        <ul className="divide-y divide-gray-200">
-          {shipments.map((shipment, index) => (
-            <li key={shipment.id || index} className="py-4 flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-gray-800">Shipment ID: {shipment.id || 'N/A'}</div>
-                <div className="text-sm text-gray-500">
-                  Tracking: {shipment.tracking_code || 'N/A'}
-                </div>
-              </div>
-              <Button onClick={() => onDownloadLabel(shipment.label_url, 'pdf')}>
-                Download Label
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-// Mock component for EmailLabelsModal to make the file self-contained
-const EmailLabelsModal = ({ isOpen, onClose, batchResult }) => {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Email Labels</DialogTitle>
-        </DialogHeader>
-        <div className="p-4 space-y-4 text-center">
-          <p>This is a placeholder for the email labels functionality.</p>
-          <Button onClick={onClose}>Close</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Mock component for EnhancedPrintPreview to make the file self-contained
-const EnhancedPrintPreview = ({ labelUrl, trackingCode, shipmentId, triggerButton }) => {
-  const [open, setOpen] = useState(false);
-  
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {triggerButton}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[800px] h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>Print Preview: {trackingCode}</DialogTitle>
-        </DialogHeader>
-        <div className="w-full h-full p-2">
-          {labelUrl ? (
-            <iframe src={labelUrl} className="w-full h-full border-0"></iframe>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              Label URL not available.
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
+import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
+import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
+import EnhancedPrintPreview from '@/components/shipping/EnhancedPrintPreview';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -211,33 +143,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Enhanced Batch Label Actions */}
       {hasLabels && results.batchResult && (
         <Card className="p-8 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-indigo-200 shadow-xl">
-          {/* Print Preview Section - Top Priority */}
-          <div className="mb-8">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
-                <Eye className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Batch Print Preview</h2>
-                <p className="text-gray-600 text-sm">Preview and print all labels with format options</p>
-              </div>
-            </div>
-            
-            {results.batchResult?.consolidatedLabelUrls?.pdf && (
-              <EnhancedPrintPreview
-                labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
-                trackingCode={`Batch-${results.batchResult.batchId}`}
-                shipmentId={results.batchResult.batchId}
-                triggerButton={
-                  <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                    <PrinterIcon className="mr-2 h-4 w-4" />
-                    Preview All Labels
-                  </Button>
-                }
-              />
-            )}
-          </div>
-
+          {/* Batch Action Header */}
           <div className="flex items-center mb-6">
             <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center mr-4">
               <Sparkles className="h-6 w-6 text-white" />
@@ -247,6 +153,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               <p className="text-gray-600">Download all your labels in various formats or send via email</p>
             </div>
           </div>
+
           
           {/* Consolidated Download Grid */}
           <div className="mb-8">
@@ -291,7 +198,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 mb-6">
             <Button 
               onClick={() => setShowEmailModal(true)} 
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg" 
@@ -312,6 +219,37 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 Download Manifest
               </Button>
             )}
+          </div>
+
+          {/* Print Preview Section - Bottom Priority */}
+          <div className="pt-6 border-t border-gray-200">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                  <Eye className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Print Preview All Labels</h3>
+                  <p className="text-gray-600 text-sm">Preview, format and print all labels at once</p>
+                </div>
+              </div>
+              
+              {results.batchResult?.consolidatedLabelUrls?.pdf && (
+                <EnhancedPrintPreview
+                  labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
+                  trackingCode={`Batch-${results.batchResult.batchId}`}
+                  shipmentId={results.batchResult.batchId}
+                  triggerButton={
+                    <Button 
+                      className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
+                    >
+                      <Eye className="mr-2 h-5 w-5" />
+                      Print Preview All Labels
+                    </Button>
+                  }
+                />
+              )}
+            </div>
           </div>
         </Card>
       )}
