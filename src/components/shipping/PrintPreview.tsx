@@ -395,16 +395,18 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       )}
        
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          {triggerButton ? (
-            triggerButton
-          ) : (
-            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
-            </Button>
-          )}
-        </DialogTrigger>
+        {triggerButton ? (
+          <DialogTrigger asChild>
+            {triggerButton}
+          </DialogTrigger>
+        ) : (
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+              <Eye className="h-3 w-3 mr-1" />
+              Print Preview
+            </Button>
+          </DialogTrigger>
+        )}
 
         {/* MODIFIED: Added flexbox properties to DialogContent to make it fill the screen */}
         <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
