@@ -379,300 +379,571 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
     : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
+  // If triggerButton is provided, only return the Dialog
+  if (triggerButton) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+
+        <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between pr-6">
+              <span>{dialogTitleText}</span>
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              disabled={isRegeneratingLabel}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </DialogHeader>
+
+          <div className="flex-1 flex flex-col pt-4 overflow-hidden">
+            {/* Tabs for Preview/Download/Email */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+              <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
+                <TabsTrigger value="preview" className="text-sm py-2">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
+                </TabsTrigger>
+                <TabsTrigger value="download" className="text-sm py-2">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </TabsTrigger>
+                <TabsTrigger value="email" className="text-sm py-2">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
+                {/* Format Selection - Only in Preview Tab */}
+                <div className="mb-4">
+                  <Label className="text-sm font-medium mb-2 block">Print Format</Label>
+                  <Select
+                    value={selectedFormat}
+                    onValueChange={handleFormatChange}
+                    disabled={isRegeneratingLabel}
+                  >
+                    <SelectTrigger className="w-full h-10 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
+                      <SelectValue placeholder="Select Print Format" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
+                      {labelFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-3">
+                          <div className="flex flex-col py-1">
+                            <span className="font-medium text-gray-900">{format.label}</span>
+                            <span className="text-xs text-gray-500">{format.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
+                  <div className="mb-3 text-center">
+                    {isRegeneratingLabel ? (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
+                      </div>
+                    ) : isBatchPreview ? (
+                      <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
+                    ) : (
+                      <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
+                    )}
+                  </div>
+                  <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+                    {isRegeneratingLabel ? (
+                      <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
+                        <div className="flex flex-col items-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
+                          <p className="text-purple-800">Regenerating label...</p>
+                        </div>
+                      </div>
+                    ) : previewType === 'pdf' && currentPreviewUrl ? (
+                      <iframe 
+                        ref={iframeRef} 
+                        src={currentPreviewUrl} 
+                        style={{ 
+                          width: '100%', 
+                          height: selectedFormat === '4x6' ? '400px' : '500px', 
+                          border: '1px solid #ccc',
+                          borderRadius: '6px'
+                        }} 
+                        title="Label Preview"
+                      />
+                    ) : (
+                      <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                        {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
+                          ? (
+                            <div className="text-center">
+                              <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                              <p>A batch PDF is needed for preview.</p>
+                            </div>
+                          )
+                          : previewType === 'image' && currentPreviewUrl
+                            ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
+                            : (
+                              <div className="text-center">
+                                <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                                <p>Preview not available.</p>
+                              </div>
+                            )
+                        }
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Print Button - Only in Preview Tab */}
+                <div className="pt-4 border-t mt-4">
+                  <Button
+                    onClick={handlePrint}
+                    disabled={isRegeneratingLabel || !currentPreviewUrl}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  >
+                    <Printer className="h-5 w-5 mr-2" />
+                    Print Label
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="download" className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+                  <div 
+                    className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
+                    onClick={() => handleDownload('pdf')}
+                  >
+                    <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+                    <h4 className="font-semibold mb-2">PDF Format</h4>
+                    <p className="text-sm text-gray-600 mb-3">Best for printing</p>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-9">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </div>
+                  
+                  <div 
+                    className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-green-500 bg-green-50 hover:bg-green-100"
+                    onClick={() => handleDownload('png')}
+                  >
+                    <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
+                    <h4 className="font-semibold mb-2">PNG Format</h4>
+                    <p className="text-sm text-gray-600 mb-3">Image format</p>
+                    <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PNG
+                    </Button>
+                  </div>
+                  
+                  <div 
+                    className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-purple-500 bg-purple-50 hover:bg-purple-100"
+                    onClick={() => handleDownload('zpl')}
+                  >
+                    <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
+                    <h4 className="font-semibold mb-2">ZPL Format</h4>
+                    <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download ZPL
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="email" className="flex-1">
+                <div className="p-4 space-y-4 max-w-xl mx-auto">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
+                    <div className="space-y-2">
+                      {emailList.map((email, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            type="email"
+                            placeholder="Enter email address"
+                            value={email}
+                            onChange={(e) => updateEmailField(index, e.target.value)}
+                            className="flex-1 h-9"
+                          />
+                          {emailList.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => removeEmailField(index)}
+                              className="text-red-600 hover:text-red-700 h-9 w-9"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={addEmailField}
+                      className="mt-2 h-9"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Email Address
+                    </Button>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Subject</Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter email subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Format</Label>
+                    <Select value={emailFormat} onValueChange={setEmailFormat}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pdf">PDF</SelectItem>
+                        <SelectItem value="png">PNG</SelectItem>
+                        <SelectItem value="zpl">ZPL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button
+                    onClick={handleSendEmail}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-semibold"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Email
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <DialogFooter className="sm:justify-start pt-3">
+            {/* Add the PDF Download button here */}
+            <Button 
+              variant="outline" 
+              onClick={() => handleDownload('pdf')}
+              disabled={isRegeneratingLabel || !currentPreviewUrl}
+              className="h-9 px-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
+            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
+                Close
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Fallback when no triggerButton is provided
   return (
     <>
-      {!triggerButton && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-blue-200 hover:bg-blue-50 text-blue-700 mr-2"
-          onClick={() => handleDownload('pdf')}
-          disabled={!originalPdfBytes && !labelUrls?.pdf}
-        >
-          <Download className="h-3 w-3 mr-1" />
-          Download Label
-        </Button>
-      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="border-blue-200 hover:bg-blue-50 text-blue-700 mr-2"
+        onClick={() => handleDownload('pdf')}
+        disabled={!originalPdfBytes && !labelUrls?.pdf}
+      >
+        <Download className="h-3 w-3 mr-1" />
+        Download Label
+      </Button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          {triggerButton ? (
-            triggerButton
-          ) : (
-            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
-            </Button>
-          )}
+          <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+            <Eye className="h-3 w-3 mr-1" />
+            Print Preview
+          </Button>
         </DialogTrigger>
 
-      <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between pr-6">
-            <span>{dialogTitleText}</span>
-          </DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            disabled={isRegeneratingLabel}
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </Button>
-        </DialogHeader>
+        <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between pr-6">
+              <span>{dialogTitleText}</span>
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              disabled={isRegeneratingLabel}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </DialogHeader>
 
-        <div className="flex-1 flex flex-col pt-4 overflow-hidden">
-          {/* Tabs for Preview/Download/Email */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
-              <TabsTrigger value="preview" className="text-sm py-2">
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
-              </TabsTrigger>
-              <TabsTrigger value="download" className="text-sm py-2">
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </TabsTrigger>
-              <TabsTrigger value="email" className="text-sm py-2">
-                <Mail className="h-4 w-4 mr-2" />
-                Email
-              </TabsTrigger>
-            </TabsList>
+          <div className="flex-1 flex flex-col pt-4 overflow-hidden">
+            {/* Tabs for Preview/Download/Email */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+              <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
+                <TabsTrigger value="preview" className="text-sm py-2">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
+                </TabsTrigger>
+                <TabsTrigger value="download" className="text-sm py-2">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </TabsTrigger>
+                <TabsTrigger value="email" className="text-sm py-2">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              {/* Format Selection - Only in Preview Tab */}
-              <div className="mb-4">
-                <Label className="text-sm font-medium mb-2 block">Print Format</Label>
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isRegeneratingLabel}
-                >
-                  <SelectTrigger className="w-full h-10 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
-                    <SelectValue placeholder="Select Print Format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-3">
-                        <div className="flex flex-col py-1">
-                          <span className="font-medium text-gray-900">{format.label}</span>
-                          <span className="text-xs text-gray-500">{format.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
+                {/* Format Selection - Only in Preview Tab */}
+                <div className="mb-4">
+                  <Label className="text-sm font-medium mb-2 block">Print Format</Label>
+                  <Select
+                    value={selectedFormat}
+                    onValueChange={handleFormatChange}
+                    disabled={isRegeneratingLabel}
+                  >
+                    <SelectTrigger className="w-full h-10 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
+                      <SelectValue placeholder="Select Print Format" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
+                      {labelFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-3">
+                          <div className="flex flex-col py-1">
+                            <span className="font-medium text-gray-900">{format.label}</span>
+                            <span className="text-xs text-gray-500">{format.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
-                <div className="mb-3 text-center">
-                  {isRegeneratingLabel ? (
-                    <div className="flex items-center justify-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
-                    </div>
-                  ) : isBatchPreview ? (
-                    <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
-                  ) : (
-                    <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
-                  )}
-                </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
-                  {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
-                        <p className="text-purple-800">Regenerating label...</p>
-                      </div>
-                    </div>
-                  ) : previewType === 'pdf' && currentPreviewUrl ? (
-                    <iframe 
-                      ref={iframeRef} 
-                      src={currentPreviewUrl} 
-                      style={{ 
-                        width: '100%', 
-                        height: selectedFormat === '4x6' ? '400px' : '500px', 
-                        border: '1px solid #ccc',
-                        borderRadius: '6px'
-                      }} 
-                      title="Label Preview"
-                    />
-                  ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
-                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
-                        ? (
-                          <div className="text-center">
-                            <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                            <p>A batch PDF is needed for preview.</p>
-                          </div>
-                        )
-                        : previewType === 'image' && currentPreviewUrl
-                          ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
-                          : (
-                            <div className="text-center">
-                              <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                              <p>Preview not available.</p>
-                            </div>
-                          )
-                      }
-                    </div>
-                  )}
-                </div>
-              </div>
+                <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
+                  <div className="mb-3 text-center">
+                    {isRegeneratingLabel ? (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
+                      </div>
+                    ) : isBatchPreview ? (
+                      <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
+                    ) : (
+                      <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
+                    )}
+                  </div>
+                  <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+                    {isRegeneratingLabel ? (
+                      <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
+                        <div className="flex flex-col items-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
+                          <p className="text-purple-800">Regenerating label...</p>
+                        </div>
+                      </div>
+                    ) : previewType === 'pdf' && currentPreviewUrl ? (
+                      <iframe 
+                        ref={iframeRef} 
+                        src={currentPreviewUrl} 
+                        style={{ 
+                          width: '100%', 
+                          height: selectedFormat === '4x6' ? '400px' : '500px', 
+                          border: '1px solid #ccc',
+                          borderRadius: '6px'
+                        }} 
+                        title="Label Preview"
+                      />
+                    ) : (
+                      <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                        {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
+                          ? (
+                            <div className="text-center">
+                              <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                              <p>A batch PDF is needed for preview.</p>
+                            </div>
+                          )
+                          : previewType === 'image' && currentPreviewUrl
+                            ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
+                            : (
+                              <div className="text-center">
+                                <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                                <p>Preview not available.</p>
+                              </div>
+                            )
+                        }
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-              {/* Print Button - Only in Preview Tab */}
-              <div className="pt-4 border-t mt-4">
-                <Button
-                  onClick={handlePrint}
-                  disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
-                >
-                  <Printer className="h-5 w-5 mr-2" />
-                  Print Label
-                </Button>
-              </div>
-            </TabsContent>
+                {/* Print Button - Only in Preview Tab */}
+                <div className="pt-4 border-t mt-4">
+                  <Button
+                    onClick={handlePrint}
+                    disabled={isRegeneratingLabel || !currentPreviewUrl}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  >
+                    <Printer className="h-5 w-5 mr-2" />
+                    Print Label
+                  </Button>
+                </div>
+              </TabsContent>
 
-            <TabsContent value="download" className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-                <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
-                  onClick={() => handleDownload('pdf')}
-                >
-                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
-                  <h4 className="font-semibold mb-2">PDF Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">Best for printing</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-                
-                <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-green-500 bg-green-50 hover:bg-green-100"
-                  onClick={() => handleDownload('png')}
-                >
-                  <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
-                  <h4 className="font-semibold mb-2">PNG Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">Image format</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PNG
-                  </Button>
-                </div>
-                
-                <div 
-                  className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-purple-500 bg-purple-50 hover:bg-purple-100"
-                  onClick={() => handleDownload('zpl')}
-                >
-                  <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
-                  <h4 className="font-semibold mb-2">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download ZPL
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
+              <TabsContent value="download" className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+                  <div 
+                    className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-blue-500 bg-blue-50 hover:bg-blue-100"
+                    onClick={() => handleDownload('pdf')}
+                  >
+                    <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+                    <h4 className="font-semibold mb-2">PDF Format</h4>
+                    <p className="text-sm text-gray-600 mb-3">Best for printing</p>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full h-9">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </div>
+                  
+                  <div 
+                    className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-green-500 bg-green-50 hover:bg-green-100"
+                    onClick={() => handleDownload('png')}
+                  >
+                    <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
+                    <h4 className="font-semibold mb-2">PNG Format</h4>
+                    <p className="text-sm text-gray-600 mb-3">Image format</p>
+                    <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-9">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PNG
+                    </Button>
+                  </div>
+                  
+                  <div 
+                    className="p-4 border-2 rounded-lg text-center cursor-pointer transition-all hover:shadow-md border-purple-500 bg-purple-50 hover:bg-purple-100"
+                    onClick={() => handleDownload('zpl')}
+                  >
+                    <FileArchive className="h-12 w-12 mx-auto mb-3 text-purple-600" />
+                    <h4 className="font-semibold mb-2">ZPL Format</h4>
+                    <p className="text-sm text-gray-600 mb-3">For thermal printers</p>
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-9">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download ZPL
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
 
-            <TabsContent value="email" className="flex-1">
-              <div className="p-4 space-y-4 max-w-xl mx-auto">
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
-                  <div className="space-y-2">
-                    {emailList.map((email, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          value={email}
-                          onChange={(e) => updateEmailField(index, e.target.value)}
-                          className="flex-1 h-9"
-                        />
-                        {emailList.length > 1 && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeEmailField(index)}
-                            className="text-red-600 hover:text-red-700 h-9 w-9"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={addEmailField}
-                    className="mt-2 h-9"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Email Address
-                  </Button>
-                </div>
+              <TabsContent value="email" className="flex-1">
+                <div className="p-4 space-y-4 max-w-xl mx-auto">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
+                    <div className="space-y-2">
+                      {emailList.map((email, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            type="email"
+                            placeholder="Enter email address"
+                            value={email}
+                            onChange={(e) => updateEmailField(index, e.target.value)}
+                            className="flex-1 h-9"
+                          />
+                          {emailList.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => removeEmailField(index)}
+                              className="text-red-600 hover:text-red-700 h-9 w-9"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={addEmailField}
+                      className="mt-2 h-9"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Email Address
+                    </Button>
+                  </div>
 
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Subject</Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter email subject"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Subject</Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter email subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
 
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Format</Label>
-                  <Select value={emailFormat} onValueChange={setEmailFormat}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pdf">PDF</SelectItem>
-                      <SelectItem value="png">PNG</SelectItem>
-                      <SelectItem value="zpl">ZPL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Format</Label>
+                    <Select value={emailFormat} onValueChange={setEmailFormat}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pdf">PDF</SelectItem>
+                        <SelectItem value="png">PNG</SelectItem>
+                        <SelectItem value="zpl">ZPL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <Button
-                  onClick={handleSendEmail}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-semibold"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Email
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+                  <Button
+                    onClick={handleSendEmail}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-semibold"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Email
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
 
-        <DialogFooter className="sm:justify-start pt-3">
-          {/* Add the PDF Download button here */}
-          <Button 
-            variant="outline" 
-            onClick={() => handleDownload('pdf')}
-            disabled={isRegeneratingLabel || !currentPreviewUrl}
-            className="h-9 px-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download PDF
-          </Button>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
-              Close
-            </Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  </>
-);
+          <DialogFooter className="sm:justify-start pt-3">
+            {/* Add the PDF Download button here */}
+            <Button 
+              variant="outline" 
+              onClick={() => handleDownload('pdf')}
+              disabled={isRegeneratingLabel || !currentPreviewUrl}
+              className="h-9 px-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
+            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
+                Close
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 };
 
 export default PrintPreview;
