@@ -379,32 +379,30 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     ? `Batch Operations (ID: ${batchResult?.batchId || 'N/A'})`
     : `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton ? (
-        <DialogTrigger asChild>
-          {triggerButton}
-        </DialogTrigger>
-      ) : (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-blue-200 hover:bg-blue-50 text-blue-700"
-            onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes && !labelUrls?.pdf}
-          >
-            <Download className="h-3 w-3 mr-1" />
-            Download Label
-          </Button>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
-            </Button>
-          </DialogTrigger>
-        </div>
-      )}
+  return (
+    <>
+      {!triggerButton && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-blue-200 hover:bg-blue-50 text-blue-700 mr-2"
+          onClick={() => handleDownload('pdf')}
+          disabled={!originalPdfBytes && !labelUrls?.pdf}
+        >
+          <Download className="h-3 w-3 mr-1" />
+          Download Label
+        </Button>
+      )}
+      
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          {triggerButton || (
+            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+              <Eye className="h-3 w-3 mr-1" />
+              Print Preview
+            </Button>
+          )}
+        </DialogTrigger>
 
       <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
         <DialogHeader>
@@ -669,9 +667,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </Button>
           </DialogClose>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+      </DialogContent>
+    </Dialog>
+  </>
+);
 };
 
 export default PrintPreview;
