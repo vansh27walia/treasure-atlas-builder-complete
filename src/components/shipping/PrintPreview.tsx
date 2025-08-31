@@ -230,16 +230,33 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       
       if (format === 'pdf') {
         if (originalPdfBytes) {
-          // Use client-side PDF generation
-          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-          blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+          // Use client-side PDF generation with enhanced error handling
+          try {
+            const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+            blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+          } catch (pdfError) {
+            console.error('PDF generation failed:', pdfError);
+            toast.error('Failed to generate PDF format. Trying direct download...');
+            // Fallback to direct download
+            const url = labelUrls?.pdf || labelUrl;
+            if (!url) {
+              toast.error('No PDF source available');
+              return;
+            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const arrayBuffer = await response.arrayBuffer();
+            blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+            filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+          }
         } else if (labelUrls?.pdf || labelUrl) {
-          // Direct PDF download
+          // Direct PDF download with better error handling
           const url = labelUrls?.pdf || labelUrl;
           const response = await fetch(url, {
             method: 'GET',
             headers: {
+              'Accept': 'application/pdf',
               'Content-Type': 'application/pdf'
             }
           });
@@ -249,6 +266,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           }
           
           const arrayBuffer = await response.arrayBuffer();
+          if (arrayBuffer.byteLength === 0) {
+            throw new Error('Downloaded PDF is empty');
+          }
+          
           blob = new Blob([arrayBuffer], { type: 'application/pdf' });
           filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
         } else {
@@ -256,43 +277,56 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           return;
         }
       } else {
-        // Handle PNG and ZPL formats
+        // Handle PNG and ZPL formats with better error handling
         const url = labelUrls?.[format] || (format === 'png' ? labelUrl : null);
         if (!url) {
           toast.error(`${format.toUpperCase()} format not available`);
           return;
         }
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': format === 'png' ? 'image/png' : 'text/plain'
+          }
+        });
+        
         if (!response.ok) {
           throw new Error(`Failed to fetch ${format.toUpperCase()}: ${response.status} ${response.statusText}`);
         }
         
         const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer.byteLength === 0) {
+          throw new Error(`Downloaded ${format.toUpperCase()} is empty`);
+        }
+        
         blob = new Blob([arrayBuffer], { 
           type: format === 'png' ? 'image/png' : 'text/plain'
         });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
       }
       
-      // Create and trigger download
+      // Create and trigger download with enhanced reliability
       const link = document.createElement('a');
       const objectUrl = URL.createObjectURL(blob);
+      
+      // Modern browser download approach
       link.href = objectUrl;
       link.download = filename;
       link.style.display = 'none';
+      link.target = '_blank';
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
       // Clean up the object URL
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       
       toast.success(`${format.toUpperCase()} label downloaded successfully`);
     } catch (error) {
       console.error('Error downloading label:', error);
-      toast.error(`Failed to download ${format.toUpperCase()} label. Please try again.`);
+      toast.error(`Failed to download ${format.toUpperCase()} label: ${error.message || 'Unknown error'}. Please try again.`);
     }
   };
 
@@ -406,7 +440,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-[98vw] w-full bg-white sm:rounded-lg h-[98vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>

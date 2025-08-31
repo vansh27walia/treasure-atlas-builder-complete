@@ -221,33 +221,38 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             )}
           </div>
 
-          {/* Print Preview Section - Bottom Priority */}
+          {/* Print Preview All Labels Section - Enhanced */}
           <div className="pt-6 border-t border-gray-200">
             <div className="text-center">
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
-                  <Eye className="h-5 w-5 text-white" />
+              <div className="flex items-center justify-center mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+                  <Eye className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Print Preview All Labels</h3>
-                  <p className="text-gray-600 text-sm">Preview, format and print all labels at once</p>
+                  <h3 className="text-2xl font-bold text-gray-900">Print Preview All Labels</h3>
+                  <p className="text-gray-600">Preview, format and print all labels with download and email options</p>
                 </div>
               </div>
               
-              {results.batchResult?.consolidatedLabelUrls?.pdf && (
+              {results.batchResult?.consolidatedLabelUrls?.pdf ? (
                 <EnhancedPrintPreview
                   labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
                   trackingCode={`Batch-${results.batchResult.batchId}`}
                   shipmentId={results.batchResult.batchId}
                   triggerButton={
                     <Button 
-                      className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
+                      className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-14 px-10 font-semibold text-lg rounded-xl transform hover:scale-105 transition-all duration-200"
                     >
-                      <Eye className="mr-2 h-5 w-5" />
+                      <Eye className="mr-3 h-6 w-6" />
                       Print Preview All Labels
                     </Button>
                   }
                 />
+              ) : (
+                <div className="p-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <Eye className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">No consolidated labels available for preview</p>
+                </div>
               )}
             </div>
           </div>

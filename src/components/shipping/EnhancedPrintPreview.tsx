@@ -268,7 +268,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-[98vw] w-full bg-white sm:rounded-lg h-[98vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -348,17 +348,17 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       </div>
                     </div>
                   ) : currentPreviewUrl ? (
-                    <iframe 
-                      ref={iframeRef} 
-                      src={currentPreviewUrl} 
-                      style={{ 
-                        width: '100%', 
-                        height: selectedFormat === '4x6' ? '70vh' : '75vh', 
-                        border: '1px solid #ccc',
-                        borderRadius: '6px'
-                      }} 
-                      title="Label Preview"
-                    />
+                  <iframe 
+                    ref={iframeRef} 
+                    src={currentPreviewUrl} 
+                    style={{ 
+                      width: '100%', 
+                      height: selectedFormat === '4x6' ? '75vh' : '80vh', 
+                      border: '1px solid #ccc',
+                      borderRadius: '6px'
+                    }} 
+                    title="Label Preview"
+                  />
                   ) : (
                     <div className="border border-gray-300 h-96 flex items-center justify-center text-gray-500 rounded-lg">
                       <div className="text-center">
