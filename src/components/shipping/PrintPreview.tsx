@@ -406,7 +406,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>

@@ -4,79 +4,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
+import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-// Mock component for LabelResultsTable to make the file self-contained
-const LabelResultsTable = ({ shipments, onDownloadLabel }) => {
-  return (
-    <div className="p-4">
-      {shipments.length === 0 ? (
-        <p className="text-gray-500 text-center">No shipments with labels to display.</p>
-      ) : (
-        <ul className="divide-y divide-gray-200">
-          {shipments.map((shipment, index) => (
-            <li key={shipment.id || index} className="py-4 flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-gray-800">Shipment ID: {shipment.id || 'N/A'}</div>
-                <div className="text-sm text-gray-500">
-                  Tracking: {shipment.tracking_code || 'N/A'}
-                </div>
-              </div>
-              <Button onClick={() => onDownloadLabel(shipment.label_url, 'pdf')}>
-                Download Label
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-// Mock component for EmailLabelsModal to make the file self-contained
-const EmailLabelsModal = ({ isOpen, onClose, batchResult }) => {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Email Labels</DialogTitle>
-        </DialogHeader>
-        <div className="p-4 space-y-4 text-center">
-          <p>This is a placeholder for the email labels functionality.</p>
-          <Button onClick={onClose}>Close</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Mock component for EnhancedPrintPreview to make the file self-contained
-const EnhancedPrintPreview = ({ labelUrl, trackingCode, shipmentId, triggerButton }) => {
-  const [open, setOpen] = useState(false);
-  
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {triggerButton}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[800px] h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>Print Preview: {trackingCode}</DialogTitle>
-        </DialogHeader>
-        <div className="w-full h-full p-2">
-          {labelUrl ? (
-            <iframe src={labelUrl} className="w-full h-full border-0"></iframe>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              Label URL not available.
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
+import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
+import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
+import EnhancedPrintPreview from '@/components/shipping/EnhancedPrintPreview';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -229,9 +161,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 trackingCode={`Batch-${results.batchResult.batchId}`}
                 shipmentId={results.batchResult.batchId}
                 triggerButton={
-                  <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                    <PrinterIcon className="mr-2 h-4 w-4" />
-                    Preview All Labels
+                  <Button 
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
+                  >
+                    <Eye className="mr-2 h-5 w-5" />
+                    Print Preview All Labels
                   </Button>
                 }
               />
