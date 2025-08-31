@@ -495,7 +495,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                         width: '100%', 
                         height: selectedFormat === '4x6' ? '400px' : '500px', 
                         border: '1px solid #ccc',
-                        borderRadius: '6px'
+                        borderRadius: '1px'
                       }} 
                       title="Label Preview"
                     />
