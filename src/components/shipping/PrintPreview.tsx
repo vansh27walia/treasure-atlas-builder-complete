@@ -648,8 +648,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   Send Email
                 </Button>
               </div>
-            </TabsContent>
-        </div>
+            </TabsContent>
+          </Tabs>
+        </div>
 
         <DialogFooter className="sm:justify-start pt-3">
           {/* Add the PDF Download button here */}
