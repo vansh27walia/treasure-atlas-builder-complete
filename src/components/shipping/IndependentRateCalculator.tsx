@@ -629,34 +629,15 @@ const IndependentRateCalculator: React.FC = () => {
         {rates.length > 0 && (
           <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
             <CardHeader>
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-                <CardTitle className="text-2xl text-blue-800 flex items-center gap-2">
-                  <Truck className="h-6 w-6" />
-                  Available {isInternational ? 'International' : 'Domestic'} Rates ({rates.length})
-                </CardTitle>
-                <EnhancedRateFilter
-                  filters={{
-                    search: '',
-                    carriers: [],
-                    maxPrice: undefined,
-                    maxDays: undefined,
-                    features: [],
-                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
-                    sortOrder: 'asc',
-                    selectedCarrier: carrierFilter
-                  }}
-                  availableCarriers={uniqueCarriers}
-                  onFiltersChange={(newFilters) => {
-                    setCarrierFilter(newFilters.selectedCarrier);
-                    setSortOrder(newFilters.sortBy);
-                  }}
-                  onClearFilters={() => {
-                    setCarrierFilter('all');
-                    setSortOrder('price');
-                  }}
-                  rateCount={sortedRates.length}
-                />
-              </div>
+              <CardTitle className="flex items-center justify-between gap-3 text-xl">
+                <div className="flex items-center gap-3">
+                  <Truck className="h-5 w-5 text-blue-600" />
+                  Available Shipping Rates
+                </div>
+                <div className="text-sm text-gray-600 font-normal">
+                  Found {rates.length} rates from {uniqueCarriers.length} carrier{uniqueCarriers.length !== 1 ? 's' : ''}
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -747,6 +728,36 @@ const IndependentRateCalculator: React.FC = () => {
                   </Button>
                 </div>
               )}
+
+              {/* Enhanced Rate Filter - Bottom Position */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <EnhancedRateFilter
+                  filters={{
+                    search: '',
+                    carriers: [],
+                    maxPrice: undefined,
+                    maxDays: undefined,
+                    features: [],
+                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
+                    sortOrder: 'asc',
+                    selectedCarrier: carrierFilter
+                  }}
+                  availableCarriers={uniqueCarriers}
+                  onFiltersChange={(newFilters) => {
+                    if (newFilters.selectedCarrier !== carrierFilter) {
+                      setCarrierFilter(newFilters.selectedCarrier);
+                    }
+                    if (newFilters.sortBy !== sortOrder) {
+                      setSortOrder(newFilters.sortBy as 'price' | 'speed' | 'carrier');
+                    }
+                  }}
+                  onClearFilters={() => {
+                    setCarrierFilter('all');
+                    setSortOrder('price');
+                  }}
+                  rateCount={sortedRates.length}
+                />
+              </div>
             </CardContent>
           </Card>
         )}

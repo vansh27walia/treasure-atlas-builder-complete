@@ -268,7 +268,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-6xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-[95vw] w-full bg-white sm:rounded-lg h-[95vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -339,7 +339,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
                 
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg max-w-4xl">
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg w-full max-w-none">
                   {isGenerating ? (
                     <div className="border border-gray-300 h-96 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -353,7 +353,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '500px' : '600px', 
+                        height: selectedFormat === '4x6' ? '70vh' : '75vh', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
