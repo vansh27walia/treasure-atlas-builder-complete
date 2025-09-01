@@ -323,35 +323,78 @@ serve(async (req) => {
     
     if (data.postage_label?.label_url) {
       try {
-        // Fetch the label from EasyPost
-        const labelResponse = await fetch(data.postage_label.label_url);
-        if (labelResponse.ok) {
-          const labelBlob = await labelResponse.blob();
-          const safeTrackingCode = data.tracking_code ? data.tracking_code.replace(/[^a-zA-Z0-9]/g, '_') : `shipment_${shipmentId}`;
-          const fileName = `labels/${safeTrackingCode}_${shipmentId}.pdf`;
-          
-          // Upload to Supabase Storage
-          const { error: uploadError } = await supabaseClient.storage
+        console.log('Fetching label from EasyPost:', data.postage_label.label_url);
+        
+        // Fetch the label from EasyPost with proper headers
+        const labelResponse = await fetch(data.postage_label.label_url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/pdf',
+            'User-Agent': 'Supabase-Edge-Function'
+          }
+        });
+        
+        if (!labelResponse.ok) {
+          throw new Error(`Failed to fetch label: ${labelResponse.status} ${labelResponse.statusText}`);
+        }
+        
+        // Get content type to verify it's a PDF
+        const contentType = labelResponse.headers.get('content-type');
+        console.log('Label content type:', contentType);
+        
+        // Get the PDF as array buffer to ensure proper binary handling
+        const labelArrayBuffer = await labelResponse.arrayBuffer();
+        console.log('Label size:', labelArrayBuffer.byteLength, 'bytes');
+        
+        // Verify it's actually a PDF by checking the header
+        const uint8Array = new Uint8Array(labelArrayBuffer);
+        const pdfHeader = String.fromCharCode(...uint8Array.slice(0, 4));
+        
+        if (pdfHeader !== '%PDF') {
+          throw new Error('Downloaded file is not a valid PDF');
+        }
+        
+        const safeTrackingCode = data.tracking_code ? data.tracking_code.replace(/[^a-zA-Z0-9]/g, '_') : `shipment_${shipmentId}`;
+        const fileName = `labels/${safeTrackingCode}_${shipmentId}.pdf`;
+        
+        console.log('Uploading PDF to Supabase storage:', fileName);
+        
+        // Upload to Supabase Storage using ArrayBuffer
+        const { error: uploadError } = await supabaseClient.storage
+          .from('shipping-labels')
+          .upload(fileName, labelArrayBuffer, {
+            contentType: 'application/pdf',
+            upsert: true
+          });
+        
+        if (!uploadError) {
+          // Get the public URL from Supabase
+          const { data: urlData } = supabaseClient.storage
             .from('shipping-labels')
-            .upload(fileName, labelBlob, {
-              contentType: 'application/pdf',
-              upsert: true
+            .getPublicUrl(fileName);
+          
+          storedLabelUrl = urlData.publicUrl;
+          console.log('✅ Label successfully saved to Supabase storage:', storedLabelUrl);
+          
+          // Verify the uploaded file by checking its size
+          const { data: fileData, error: statError } = await supabaseClient.storage
+            .from('shipping-labels')
+            .list('labels', {
+              search: `${safeTrackingCode}_${shipmentId}.pdf`
             });
           
-          if (!uploadError) {
-            // Get the public URL from Supabase
-            const { data: urlData } = supabaseClient.storage
-              .from('shipping-labels')
-              .getPublicUrl(fileName);
-            
-            storedLabelUrl = urlData.publicUrl;
-            console.log('Label saved to Supabase storage:', storedLabelUrl);
-          } else {
-            console.error('Failed to upload label to storage:', uploadError);
+          if (!statError && fileData && fileData.length > 0) {
+            console.log('✅ Upload verification - File size in storage:', fileData[0].metadata?.size || 'unknown');
           }
+        } else {
+          console.error('❌ Failed to upload label to storage:', uploadError);
+          throw new Error(`Storage upload failed: ${uploadError.message}`);
         }
+        
       } catch (error) {
-        console.error('Error saving label to storage:', error);
+        console.error('❌ Error saving label to storage:', error);
+        // Keep the original EasyPost URL as fallback
+        console.log('Using EasyPost URL as fallback:', data.postage_label?.label_url);
       }
     }
 

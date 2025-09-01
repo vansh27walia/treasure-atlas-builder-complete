@@ -70,10 +70,11 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     }
   };
 
+  const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
+
   const handleEmailLabel = () => {
     // Open the Print Preview modal with Email tab active
-    // The existing EnhancedPrintPreview already has email functionality
-    toast.info('Please use the Print Preview → Email tab to send labels via email.');
+    setIsEmailModalOpen(true);
   };
 
   return (
@@ -84,6 +85,8 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         trackingCode={trackingCode}
         shipmentId={shipmentId}
         shipmentDetails={shipmentDetails}
+        isOpenProp={isEmailModalOpen}
+        onOpenChangeProp={setIsEmailModalOpen}
         triggerButton={
           <Button
             variant="outline"

@@ -79,6 +79,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
   const [activeTab, setActiveTab] = useState('preview');
+
+  // Auto-switch to email tab when opened programmatically for email
+  useEffect(() => {
+    if (isOpen && isOpenProp) {
+      setActiveTab('email');
+    }
+  }, [isOpen, isOpenProp]);
   const [emailList, setEmailList] = useState(['']);
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
