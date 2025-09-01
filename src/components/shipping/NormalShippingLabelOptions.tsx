@@ -25,11 +25,46 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   shipmentId,
   shipmentDetails
 }) => {
-  const handleDirectDownload = () => {
+  const handleDirectDownload = async () => {
     if (labelUrl) {
-      // Direct download to PDF URL - opens in new tab
-      window.open(labelUrl, '_blank');
-      toast.success('Opening PDF label in new tab');
+      try {
+        toast.loading('Downloading PDF label...');
+        
+        // Fetch the PDF from Supabase storage
+        const response = await fetch(labelUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/pdf'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+        }
+        
+        // Get the PDF blob
+        const blob = await response.blob();
+        
+        // Create download link
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        link.style.display = 'none';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+        
+        toast.success('PDF label downloaded successfully');
+      } catch (error) {
+        console.error('Error downloading PDF:', error);
+        toast.error('Failed to download PDF. Please try again.');
+      }
     } else {
       toast.error('Label URL not available');
     }

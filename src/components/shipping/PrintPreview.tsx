@@ -117,11 +117,27 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const loadPdfBytes = async (url: string) => {
     try {
-      const response = await fetch(url);
+      console.log('Loading PDF from URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+      }
+      
       const arrayBuffer = await response.arrayBuffer();
+      console.log('PDF loaded successfully, size:', arrayBuffer.byteLength, 'bytes');
+      
       setOriginalPdfBytes(new Uint8Array(arrayBuffer));
     } catch (error) {
       console.error('Error loading PDF bytes:', error);
+      toast.error('Failed to load PDF for preview. Please try downloading directly.');
+      setPreviewType('placeholder');
     }
   };
 
@@ -466,7 +482,52 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
+              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden relative">{isRegeneratingLabel && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                      <span className="text-sm text-gray-600">Updating label format...</span>
+                    </div>
+                  </div>
+                )}
+                
+                {previewType === 'pdf' && currentPreviewUrl ? (
+                  <iframe
+                    ref={iframeRef}
+                    src={currentPreviewUrl}
+                    className="w-full h-full border-0 rounded-md bg-white"
+                    title="Shipping Label Preview"
+                    onLoad={() => console.log('PDF iframe loaded successfully')}
+                    onError={(e) => {
+                      console.error('PDF iframe error:', e);
+                      toast.error('Failed to load PDF preview');
+                    }}
+                  />
+                ) : previewType === 'image' && currentPreviewUrl ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <img
+                      src={currentPreviewUrl}
+                      alt="Shipping Label"
+                      className="max-w-full max-h-full object-contain rounded-md shadow-sm"
+                      onLoad={() => console.log('Image loaded successfully')}
+                      onError={(e) => {
+                        console.error('Image load error:', e);
+                        toast.error('Failed to load image preview');
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+                    <Package className="h-16 w-16 mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
+                    <p className="text-sm text-center">
+                      {currentPreviewUrl 
+                        ? 'Loading preview...' 
+                        : 'Label preview is not available. You can still download the label below.'
+                      }
+                    </p>
+                  </div>
+                )}
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
                     <div className="flex items-center justify-center">
