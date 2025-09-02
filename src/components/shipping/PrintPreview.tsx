@@ -21,6 +21,7 @@ interface PrintPreviewProps {
   triggerButton?: React.ReactNode;
   isOpenProp?: boolean;
   onOpenChangeProp?: (open: boolean) => void;
+  openToEmailTab?: boolean;
   labelUrl: string;
   trackingCode: string | null;
   shipmentDetails?: {
@@ -51,6 +52,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   triggerButton,
   isOpenProp,
   onOpenChangeProp,
+  openToEmailTab = false,
   labelUrl,
   trackingCode,
   shipmentDetails,
@@ -83,9 +85,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   // Auto-switch to email tab when opened programmatically for email
   useEffect(() => {
     if (isOpen && isOpenProp) {
-      setActiveTab('email');
+      // Switch to email tab if opened specifically for email
+      if (openToEmailTab) {
+        setActiveTab('email');
+      } else {
+        setActiveTab('preview');
+      }
     }
-  }, [isOpen, isOpenProp]);
+  }, [isOpen, isOpenProp, openToEmailTab]);
   const [emailList, setEmailList] = useState(['']);
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
@@ -489,7 +496,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </Select>
               </div>
 
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden relative">{isRegeneratingLabel && (
+              {/* Single PDF Preview Container */}
+              <div className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-50 border rounded-lg overflow-hidden relative">
+                {isRegeneratingLabel && (
                   <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -497,44 +506,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     </div>
                   </div>
                 )}
-                
-                {previewType === 'pdf' && currentPreviewUrl ? (
-                  <iframe
-                    ref={iframeRef}
-                    src={currentPreviewUrl}
-                    className="w-full h-full border-0 rounded-md bg-white"
-                    title="Shipping Label Preview"
-                    onLoad={() => console.log('PDF iframe loaded successfully')}
-                    onError={(e) => {
-                      console.error('PDF iframe error:', e);
-                      toast.error('Failed to load PDF preview');
-                    }}
-                  />
-                ) : previewType === 'image' && currentPreviewUrl ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <img
-                      src={currentPreviewUrl}
-                      alt="Shipping Label"
-                      className="max-w-full max-h-full object-contain rounded-md shadow-sm"
-                      onLoad={() => console.log('Image loaded successfully')}
-                      onError={(e) => {
-                        console.error('Image load error:', e);
-                        toast.error('Failed to load image preview');
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
-                    <Package className="h-16 w-16 mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
-                    <p className="text-sm text-center">
-                      {currentPreviewUrl 
-                        ? 'Loading preview...' 
-                        : 'Label preview is not available. You can still download the label below.'
-                      }
-                    </p>
-                  </div>
-                )}
+
                 <div className="mb-3 text-center">
                   {isRegeneratingLabel ? (
                     <div className="flex items-center justify-center">
@@ -547,7 +519,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
                   )}
                 </div>
-                <div className={`mx-auto bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'}`}>
+
+                {/* Single PDF/Image Preview */}
+                <div className={`bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'} w-full`}>
                   {isRegeneratingLabel ? (
                     <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -566,25 +540,42 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                         borderRadius: '6px'
                       }} 
                       title="Label Preview"
+                      onLoad={() => console.log('PDF iframe loaded successfully')}
+                      onError={(e) => {
+                        console.error('PDF iframe error:', e);
+                        toast.error('Failed to load PDF preview');
+                      }}
+                    />
+                  ) : previewType === 'image' && currentPreviewUrl ? (
+                    <img 
+                      src={currentPreviewUrl} 
+                      alt="Shipping Label" 
+                      className="max-w-full h-auto border border-gray-300 rounded-lg"
+                      onLoad={() => console.log('Image loaded successfully')}
+                      onError={(e) => {
+                        console.error('Image load error:', e);
+                        toast.error('Failed to load image preview');
+                      }}
                     />
                   ) : (
                     <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
-                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
-                        ? (
-                          <div className="text-center">
-                            <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                            <p>A batch PDF is needed for preview.</p>
-                          </div>
-                        )
-                        : previewType === 'image' && currentPreviewUrl
-                          ? <img src={currentPreviewUrl} alt="Shipping Label" className="max-w-full h-auto border border-gray-300 rounded-lg" />
-                          : (
-                            <div className="text-center">
-                              <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                              <p>Preview not available.</p>
-                            </div>
-                          )
-                      }
+                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf ? (
+                        <div className="text-center">
+                          <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                          <p>A batch PDF is needed for preview.</p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <Package className="h-16 w-16 mb-4 text-gray-400" />
+                          <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
+                          <p className="text-sm text-center">
+                            {currentPreviewUrl 
+                              ? 'Loading preview...' 
+                              : 'Label preview is not available. You can still download the label below.'
+                            }
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
