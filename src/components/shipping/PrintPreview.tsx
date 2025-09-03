@@ -179,14 +179,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     } else {
       const embeddedPage = await outputPdf.embedPage(originalPage);
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-
-      // Calculate a centered position for the rotated label
-      const xOffset = (letterWidth - rotatedLabelWidth) / 2;
-      const yOffset = 30; // A 30pt margin from the bottom
-
+      
       if (layoutOption === '8.5x11-2up') {
-        const topY = letterHeight - rotatedLabelHeight - yOffset;
-        const bottomY = yOffset;
+        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const topY = letterHeight - rotatedLabelHeight - 30; // 30pt margin from top
+        const bottomY = 30; // 30pt margin from bottom
 
         // Draw the top label
         page.drawPage(embeddedPage, {
@@ -206,8 +203,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-top') {
-        const topY = letterHeight - rotatedLabelHeight - yOffset;
+        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const topY = letterHeight - rotatedLabelHeight - 30;
 
+        // Draw a single label on the top half
         page.drawPage(embeddedPage, {
           x: xOffset,
           y: topY,
@@ -216,9 +215,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-bottom') {
+        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const bottomY = 30;
+
+        // Draw a single label on the bottom half
         page.drawPage(embeddedPage, {
           x: xOffset,
-          y: yOffset,
+          y: bottomY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
           rotate: degrees(90),
@@ -228,6 +231,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     
     return await outputPdf.save();
   };
+
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
