@@ -184,9 +184,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const page = outputPdf.addPage([letterWidth, letterHeight]);
 
       // Draw the first label (top)
+      // The x and y values for `drawPage` define the bottom-left corner of the content *before* rotation.
       page.drawPage(embeddedPage, {
-        x: (letterWidth / 2) - (rotatedLabelWidth / 2),
-        y: (letterHeight / 2) + (rotatedLabelHeight / 2) - margin,
+        x: margin,
+        y: letterHeight - margin,
         rotate: degrees(-90),
         width: rotatedLabelWidth,
         height: rotatedLabelHeight
@@ -194,8 +195,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
       // Draw the second label (bottom)
       page.drawPage(embeddedPage, {
-        x: (letterWidth / 2) - (rotatedLabelWidth / 2),
-        y: (letterHeight / 2) - (rotatedLabelHeight / 2) - margin,
+        x: margin,
+        y: rotatedLabelHeight + margin,
         rotate: degrees(-90),
         width: rotatedLabelWidth,
         height: rotatedLabelHeight
@@ -205,7 +206,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const page = outputPdf.addPage([letterWidth, letterHeight]);
 
       page.drawPage(embeddedPage, {
-        x: (letterWidth / 2) - (rotatedLabelWidth / 2),
+        x: margin,
         y: letterHeight - rotatedLabelHeight - margin,
         rotate: degrees(-90),
         width: rotatedLabelWidth,
@@ -215,7 +216,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const page = outputPdf.addPage([letterWidth, letterHeight]);
 
       page.drawPage(embeddedPage, {
-        x: (letterWidth / 2) - (rotatedLabelWidth / 2),
+        x: margin,
         y: margin,
         rotate: degrees(-90),
         width: rotatedLabelWidth,
@@ -225,7 +226,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     return await outputPdf.save();
 };
-
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
