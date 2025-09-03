@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, degrees } from 'pdf-lib';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
@@ -65,7 +65,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 }) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
-  const setIsOpen = (open: boolean) => {
+  const setIsOpen = (open) => {
     if (onOpenChangeProp) {
       onOpenChangeProp(open);
     } else {
@@ -74,12 +74,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const [selectedFormat, setSelectedFormat] = useState('4x6');
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = useRef(null);
 
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
-  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
-  const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
+  const [previewType, setPreviewType] = useState('placeholder');
+  const [originalPdfBytes, setOriginalPdfBytes] = useState(null);
   const [activeTab, setActiveTab] = useState('preview');
 
   // Auto-switch to email tab when opened programmatically for email
@@ -129,7 +129,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]);
 
-  const loadPdfBytes = async (url: string) => {
+  const loadPdfBytes = async (url) => {
     try {
       console.log('Loading PDF from URL:', url);
       
@@ -155,49 +155,75 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
+  const generateLabelPDF = async (fileBytes, layoutOption) => {
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    // Get the first page from the original PDF
     const originalPage = originalPdf.getPage(0);
+    const originalPageDims = originalPage.getSize();
     
-    // Embed the page in the output PDF
+    // We assume the original is a landscape 4x6, so we'll use its dimensions.
+    // The width will be the longer side, and the height will be the shorter.
+    const labelWidth = Math.max(originalPageDims.width, originalPageDims.height);
+    const labelHeight = Math.min(originalPageDims.width, originalPageDims.height);
+
     const embeddedPage = await outputPdf.embedPage(originalPage);
 
     // Page sizes in points (72 points per inch)
-    const letterWidth = 612;  // 8.5"
+    const letterWidth = 612; // 8.5"
     const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
 
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage);
     } else if (layoutOption === '8.5x11-2up') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30
+      const rotatedLabelWidth = labelHeight;
+      const rotatedLabelHeight = labelWidth;
+
+      // Draw the first label (top)
+      page.drawPage(embeddedPage, {
+        x: (letterWidth - rotatedLabelWidth) / 2,
+        y: letterHeight - rotatedLabelHeight - 30,
+        width: rotatedLabelWidth,
+        height: rotatedLabelHeight,
+        rotate: degrees(90),
       });
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: 30
+
+      // Draw the second label (bottom)
+      page.drawPage(embeddedPage, {
+        x: (letterWidth - rotatedLabelWidth) / 2,
+        y: 30,
+        width: rotatedLabelWidth,
+        height: rotatedLabelHeight,
+        rotate: degrees(90),
       });
     } else if (layoutOption === '8.5x11-top') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30
+      const rotatedLabelWidth = labelHeight;
+      const rotatedLabelHeight = labelWidth;
+
+      page.drawPage(embeddedPage, {
+        x: (letterWidth - rotatedLabelWidth) / 2,
+        y: letterHeight - rotatedLabelHeight - 30,
+        width: rotatedLabelWidth,
+        height: rotatedLabelHeight,
+        rotate: degrees(90),
       });
     } else if (layoutOption === '8.5x11-bottom') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: 30
+      const rotatedLabelWidth = labelHeight;
+      const rotatedLabelHeight = labelWidth;
+      
+      page.drawPage(embeddedPage, {
+        x: (letterWidth - rotatedLabelWidth) / 2,
+        y: 30,
+        width: rotatedLabelWidth,
+        height: rotatedLabelHeight,
+        rotate: degrees(90),
       });
     }
-    
+
     return await outputPdf.save();
   };
 
@@ -216,7 +242,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleFormatChange = async (format: string) => {
+  const handleFormatChange = async (format) => {
     setSelectedFormat(format);
     setIsRegeneratingLabel(true);
 
@@ -251,12 +277,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+  const handleDownload = async (format = 'pdf') => {
     try {
       toast.loading(`Preparing ${format.toUpperCase()} download...`);
       
-      let blob: Blob;
-      let filename: string;
+      let blob;
+      let filename;
       
       if (format === 'pdf') {
         if (originalPdfBytes) {
@@ -330,13 +356,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setEmailList([...emailList, '']);
   };
 
-  const removeEmailField = (index: number) => {
+  const removeEmailField = (index) => {
     if (emailList.length > 1) {
       setEmailList(emailList.filter((_, i) => i !== index));
     }
   };
 
-  const updateEmailField = (index: number, value: string) => {
+  const updateEmailField = (index, value) => {
     const updated = [...emailList];
     updated[index] = value;
     setEmailList(updated);
