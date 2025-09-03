@@ -162,7 +162,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const originalPage = originalPdf.getPage(0);
   const originalPageDims = originalPage.getSize();
 
-  // Assuming the original is a landscape 4x6, we'll use its dimensions.
+  // Assuming the original is a landscape 4x6, so we'll use its dimensions.
   const labelWidth = Math.max(originalPageDims.width, originalPageDims.height);
   const labelHeight = Math.min(originalPageDims.width, originalPageDims.height);
 
@@ -183,20 +183,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   } else if (layoutOption === '8.5x11-2up') {
     const page = outputPdf.addPage([letterWidth, letterHeight]);
 
-    // Draw the first label (top)
+    // Top Label
+    // The top label needs to be rotated and placed so its new bottom-left corner is correct.
+    // X: Centered on the page. Y: Placed from the top edge.
     page.drawPage(embeddedPage, {
-      x: (letterWidth - rotatedLabelWidth) / 2, // Centered horizontally
-      y: letterHeight - rotatedLabelHeight - margin, // Positioned from the top
-      rotate: degrees(0),
+      x: (letterWidth + rotatedLabelWidth) / 2,
+      y: letterHeight - rotatedLabelHeight + margin,
+      rotate: degrees(-90),
       width: rotatedLabelWidth,
       height: rotatedLabelHeight
     });
 
-    // Draw the second label (bottom)
+    // Bottom Label
+    // The bottom label needs to be rotated and placed correctly from the bottom of the page.
     page.drawPage(embeddedPage, {
-      x: (letterWidth - rotatedLabelWidth) / 2, // Centered horizontally
-      y: margin, // Positioned from the bottom
-      rotate: degrees(0),
+      x: (letterWidth + rotatedLabelWidth) / 2,
+      y: rotatedLabelHeight - margin,
+      rotate: degrees(-90),
       width: rotatedLabelWidth,
       height: rotatedLabelHeight
     });
@@ -204,20 +207,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   } else if (layoutOption === '8.5x11-top') {
     const page = outputPdf.addPage([letterWidth, letterHeight]);
 
+    // Top Label
     page.drawPage(embeddedPage, {
-      x: (letterWidth - rotatedLabelWidth) / 2, // Centered horizontally
-      y: letterHeight - rotatedLabelHeight - margin, // Positioned from the top
-      rotate: degrees(0),
+      x: (letterWidth + rotatedLabelWidth) / 2,
+      y: letterHeight - rotatedLabelHeight + margin,
+      rotate: degrees(-90),
       width: rotatedLabelWidth,
       height: rotatedLabelHeight
     });
   } else if (layoutOption === '8.5x11-bottom') {
     const page = outputPdf.addPage([letterWidth, letterHeight]);
 
+    // Bottom Label
     page.drawPage(embeddedPage, {
-      x: (letterWidth - rotatedLabelWidth) / 2, // Centered horizontally
-      y: margin, // Positioned from the bottom
-      rotate: degrees(0),
+      x: (letterWidth + rotatedLabelWidth) / 2,
+      y: rotatedLabelHeight - margin,
+      rotate: degrees(-90),
       width: rotatedLabelWidth,
       height: rotatedLabelHeight
     });
