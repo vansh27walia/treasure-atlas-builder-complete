@@ -155,7 +155,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
- const generateLabelPDF = async (fileBytes, layoutOption) => {
+  const generateLabelPDF = async (fileBytes, layoutOption) => {
     const { PDFDocument, degrees } = await import('pdf-lib');
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
@@ -172,7 +172,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const rotatedLabelHeight = originalPageDims.width;
 
     if (layoutOption === '4x6') {
-      // For 4x6, we just use the original page dimensions
+      // For 4x6, just add the original page
       const page = outputPdf.addPage([originalPageDims.width, originalPageDims.height]);
       const embeddedPage = await outputPdf.embedPage(originalPage);
       page.drawPage(embeddedPage);
@@ -180,15 +180,17 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const embeddedPage = await outputPdf.embedPage(originalPage);
       const page = outputPdf.addPage([letterWidth, letterHeight]);
 
+      // Calculate a centered position for the rotated label
+      const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+      const yOffset = 30; // A 30pt margin from the bottom
+
       if (layoutOption === '8.5x11-2up') {
-        // Calculate centered positions for two labels
-        const centerX = (letterWidth - rotatedLabelWidth) / 2;
-        const topY = letterHeight - rotatedLabelHeight - 30; // 30pt margin from top
-        const bottomY = 30; // 30pt margin from bottom
+        const topY = letterHeight - rotatedLabelHeight - yOffset;
+        const bottomY = yOffset;
 
         // Draw the top label
         page.drawPage(embeddedPage, {
-          x: centerX,
+          x: xOffset,
           y: topY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
@@ -197,32 +199,26 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
         // Draw the bottom label
         page.drawPage(embeddedPage, {
-          x: centerX,
+          x: xOffset,
           y: bottomY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-top') {
-        const centerX = (letterWidth - rotatedLabelWidth) / 2;
-        const topY = letterHeight - rotatedLabelHeight - 30;
+        const topY = letterHeight - rotatedLabelHeight - yOffset;
 
-        // Draw a single label on the top half
         page.drawPage(embeddedPage, {
-          x: centerX,
+          x: xOffset,
           y: topY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-bottom') {
-        const centerX = (letterWidth - rotatedLabelWidth) / 2;
-        const bottomY = 30;
-
-        // Draw a single label on the bottom half
         page.drawPage(embeddedPage, {
-          x: centerX,
-          y: bottomY,
+          x: xOffset,
+          y: yOffset,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
           rotate: degrees(90),
@@ -232,7 +228,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     
     return await outputPdf.save();
   };
-
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
