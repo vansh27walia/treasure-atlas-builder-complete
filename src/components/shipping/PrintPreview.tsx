@@ -160,26 +160,26 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
+    const originalPage = originalPdf.getPage(0);
+    const originalPageDims = originalPage.getSize();
+    
+    // Page sizes in points (72 points per inch)
+    const letterWidth = 612; // 8.5"
+    const letterHeight = 792; // 11"
+    
+    // Determine the dimensions of the label after a 90-degree rotation
+    const rotatedLabelWidth = originalPageDims.height;
+    const rotatedLabelHeight = originalPageDims.width;
+
     if (layoutOption === '4x6') {
-      const originalPage = originalPdf.getPage(0);
-      const originalPageDims = originalPage.getSize();
+      // For 4x6, we just use the original page dimensions
       const page = outputPdf.addPage([originalPageDims.width, originalPageDims.height]);
       const embeddedPage = await outputPdf.embedPage(originalPage);
       page.drawPage(embeddedPage);
     } else {
-      const originalPage = originalPdf.getPage(0);
-      const originalPageDims = originalPage.getSize();
       const embeddedPage = await outputPdf.embedPage(originalPage);
-
-      const letterWidth = 612; // 8.5"
-      const letterHeight = 792; // 11"
-      
-      // Determine the dimensions of the label after a 90-degree rotation
-      const rotatedLabelWidth = originalPageDims.height;
-      const rotatedLabelHeight = originalPageDims.width;
-
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      
+
       if (layoutOption === '8.5x11-2up') {
         // Calculate centered positions for two labels
         const centerX = (letterWidth - rotatedLabelWidth) / 2;
