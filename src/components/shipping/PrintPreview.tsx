@@ -161,7 +161,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     const originalPage = originalPdf.getPage(0);
     const originalPageDims = originalPage.getSize();
-
+    
     // We assume the original is a landscape 4x6, so we'll use its dimensions.
     const labelWidth = Math.max(originalPageDims.width, originalPageDims.height);
     const labelHeight = Math.min(originalPageDims.width, originalPageDims.height);
@@ -184,10 +184,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const page = outputPdf.addPage([letterWidth, letterHeight]);
 
       // Draw the first label (top)
-      // The x and y values for `drawPage` define the bottom-left corner of the content *before* rotation.
       page.drawPage(embeddedPage, {
         x: margin,
-        y: letterHeight - margin,
+        y: letterHeight - rotatedLabelHeight - margin,
         rotate: degrees(-90),
         width: rotatedLabelWidth,
         height: rotatedLabelHeight
@@ -196,7 +195,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       // Draw the second label (bottom)
       page.drawPage(embeddedPage, {
         x: margin,
-        y: rotatedLabelHeight + margin,
+        y: margin,
         rotate: degrees(-90),
         width: rotatedLabelWidth,
         height: rotatedLabelHeight
