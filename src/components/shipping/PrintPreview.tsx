@@ -12,6 +12,7 @@ import { PDFDocument } from 'pdf-lib';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels (2-up)', description: 'Two labels per page - top and bottom' },
   { value: '8.5x11-top', label: '8.5x11" - Single (Top)', description: 'One label at top of letter page' },
   { value: '8.5x11-bottom', label: '8.5x11" - Single (Bottom)', description: 'One label at bottom of letter page' }
 ];
@@ -102,7 +103,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       if (batchResult?.consolidatedLabelUrls?.pdf) {
         setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
         setPreviewType('pdf');
-        setSelectedFormat('4x6');
+        setSelectedFormat('8.5x11-2up');
         loadPdfBytes(batchResult.consolidatedLabelUrls.pdf);
       } else {
         setCurrentPreviewUrl('');
@@ -173,6 +174,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage);
+    } else if (layoutOption === '8.5x11-2up') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30
+      });
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30
+      });
     } else if (layoutOption === '8.5x11-top') {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       page.drawPage(embeddedPage, { 
@@ -210,16 +221,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     setIsRegeneratingLabel(true);
 
     try {
-      // For 4x6 format, use original PDF without modification
-      if (format === '4x6') {
-        const originalUrl = labelUrls?.pdf || labelUrl;
-        if (originalUrl) {
-          setCurrentPreviewUrl(originalUrl);
-          setPreviewType('pdf');
-          toast.success(`Label format updated to 4x6 (original).`);
-        }
-      } else if (originalPdfBytes && (format === '8.5x11-top' || format === '8.5x11-bottom')) {
-        // Only for 8.5x11 formats, use client-side conversion
+      if (originalPdfBytes) {
+        // Client-side PDF conversion
         const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -256,41 +259,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf') {
-        // For 4x6 format, use original PDF directly without modification
-        if (selectedFormat === '4x6') {
-          const url = labelUrls?.pdf || labelUrl;
-          if (!url) {
-            toast.error('PDF not available for download.');
-            return;
-          }
-          
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/pdf'
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
-        } else if (originalPdfBytes && (selectedFormat === '8.5x11-top' || selectedFormat === '8.5x11-bottom')) {
-          // Only for 8.5x11 formats, use client-side conversion
+        if (originalPdfBytes) {
+          // Use client-side PDF generation
           const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
           blob = new Blob([pdfBytes], { type: 'application/pdf' });
           filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
-        } else {
-          // Fallback to direct download
+        } else if (labelUrls?.pdf || labelUrl) {
+          // Direct PDF download
           const url = labelUrls?.pdf || labelUrl;
-          if (!url) {
-            toast.error('PDF not available for download.');
-            return;
-          }
-          
           const response = await fetch(url, {
             method: 'GET',
             headers: {
@@ -305,6 +281,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           const arrayBuffer = await response.arrayBuffer();
           blob = new Blob([arrayBuffer], { type: 'application/pdf' });
           filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        } else {
+          toast.error('PDF not available for download.');
+          return;
         }
       } else {
         // Handle PNG and ZPL formats
@@ -541,35 +520,65 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   )}
                 </div>
 
-              {/* PDF Preview */}
-              <div className="flex-1 bg-gray-50 rounded-lg border overflow-hidden">
-                {previewType === 'pdf' && currentPreviewUrl ? (
-                  <iframe
-                    ref={iframeRef}
-                    src={currentPreviewUrl}
-                    width="100%"
-                    height="100%"
-                    title="Label Preview"
-                    className="border-0"
-                    style={{ minHeight: '700px', height: '700px' }}
-                  />
-                ) : previewType === 'image' && currentPreviewUrl ? (
-                  <div className="h-full flex items-center justify-center p-4">
+                {/* Single PDF/Image Preview */}
+                <div className={`bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'} w-full`}>
+                  {isRegeneratingLabel ? (
+                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
+                        <p className="text-purple-800">Regenerating label...</p>
+                      </div>
+                    </div>
+                  ) : previewType === 'pdf' && currentPreviewUrl ? (
+                    <iframe 
+                      ref={iframeRef} 
+                      src={currentPreviewUrl} 
+                      style={{ 
+                        width: '100%', 
+                        height: selectedFormat === '4x6' ? '400px' : '500px', 
+                        border: '1px solid #ccc',
+                        borderRadius: '6px'
+                      }} 
+                      title="Label Preview"
+                      onLoad={() => console.log('PDF iframe loaded successfully')}
+                      onError={(e) => {
+                        console.error('PDF iframe error:', e);
+                        toast.error('Failed to load PDF preview');
+                      }}
+                    />
+                  ) : previewType === 'image' && currentPreviewUrl ? (
                     <img 
                       src={currentPreviewUrl} 
                       alt="Shipping Label" 
-                      className="max-w-full max-h-full object-contain shadow-lg"
+                      className="max-w-full h-auto border border-gray-300 rounded-lg"
+                      onLoad={() => console.log('Image loaded successfully')}
+                      onError={(e) => {
+                        console.error('Image load error:', e);
+                        toast.error('Failed to load image preview');
+                      }}
                     />
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <Printer className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <p>No label preview available</p>
+                  ) : (
+                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                      {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf ? (
+                        <div className="text-center">
+                          <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                          <p>A batch PDF is needed for preview.</p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <Package className="h-16 w-16 mb-4 text-gray-400" />
+                          <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
+                          <p className="text-sm text-center">
+                            {currentPreviewUrl 
+                              ? 'Loading preview...' 
+                              : 'Label preview is not available. You can still download the label below.'
+                            }
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               </div>
 
               {/* Print Button - Only in Preview Tab */}
