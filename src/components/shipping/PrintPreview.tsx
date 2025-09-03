@@ -11,8 +11,10 @@ import { ConsolidatedLabelUrls } from '@/types/shipping';
 import { PDFDocument } from 'pdf-lib';
 
 const labelFormats = [
-  { value: '4x6', label: '4x6" Standard Label', description: 'Original 4x6 label from backend - no modifications' },
-  { value: '8.5x11', label: '8.5x11" Rotated Label', description: 'Label rotated vertically on letter-sized page' }
+  { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels (2-up)', description: 'Two labels per page - top and bottom' },
+  { value: '8.5x11-top', label: '8.5x11" - Single (Top)', description: 'One label at top of letter page' },
+  { value: '8.5x11-bottom', label: '8.5x11" - Single (Bottom)', description: 'One label at bottom of letter page' }
 ];
 
 interface PrintPreviewProps {
@@ -95,13 +97,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
-  // Load PDF for preview - keep backend PDF as-is for 4x6, only process for 8.5x11
+  // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
         setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
         setPreviewType('pdf');
-        setSelectedFormat('4x6');
+        setSelectedFormat('8.5x11-2up');
         loadPdfBytes(batchResult.consolidatedLabelUrls.pdf);
       } else {
         setCurrentPreviewUrl('');
@@ -154,12 +156,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
-    // For 4x6, return the original PDF as-is from backend
-    if (layoutOption === '4x6') {
-      return fileBytes;
-    }
-
-    // For 8.5x11, create rotated/positioned version
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
@@ -175,12 +171,32 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const labelWidth = 288;   // 4"
     const labelHeight = 432;  // 6"
 
-    // For 8.5x11, place label vertically centered on the page
-    const page = outputPdf.addPage([letterWidth, letterHeight]);
-    page.drawPage(embeddedPage, { 
-      x: (letterWidth - labelWidth) / 2, 
-      y: (letterHeight - labelHeight) / 2
-    });
+    if (layoutOption === '4x6') {
+      const page = outputPdf.addPage([labelWidth, labelHeight]);
+      page.drawPage(embeddedPage);
+    } else if (layoutOption === '8.5x11-2up') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30
+      });
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30
+      });
+    } else if (layoutOption === '8.5x11-top') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: letterHeight - labelHeight - 30
+      });
+    } else if (layoutOption === '8.5x11-bottom') {
+      const page = outputPdf.addPage([letterWidth, letterHeight]);
+      page.drawPage(embeddedPage, { 
+        x: (letterWidth - labelWidth) / 2, 
+        y: 30
+      });
+    }
     
     return await outputPdf.save();
   };
@@ -206,26 +222,17 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
     try {
       if (originalPdfBytes) {
-        if (format === '4x6') {
-          // For 4x6, use original backend PDF without any modifications
-          const originalUrl = labelUrls?.pdf || labelUrl;
-          if (originalUrl) {
-            setCurrentPreviewUrl(originalUrl);
-            setPreviewType('pdf');
-          }
-        } else {
-          // For 8.5x11, create rotated version
-          const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
-          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-          
-          if (currentPreviewUrl && !currentPreviewUrl.startsWith('http')) {
-            URL.revokeObjectURL(currentPreviewUrl);
-          }
-          
-          setCurrentPreviewUrl(url);
-          setPreviewType('pdf');
+        // Client-side PDF conversion
+        const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        
+        if (currentPreviewUrl && !currentPreviewUrl.startsWith('http')) {
+          URL.revokeObjectURL(currentPreviewUrl);
         }
+        
+        setCurrentPreviewUrl(url);
+        setPreviewType('pdf');
         toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label || format}.`);
       } else if (isBatchPreview && onBatchFormatChange) {
         await onBatchFormatChange(format);
@@ -234,7 +241,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         await onFormatChange(format);
         toast.success(`Label format updated by server to ${format}.`);
       } else {
-        toast.info(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}.`);
+        toast.info(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. (Server-side update not configured)`);
       }
     } catch (error) {
       console.error("Error changing label format:", error);
@@ -252,8 +259,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       let filename: string;
       
       if (format === 'pdf') {
-        if (selectedFormat === '4x6' && (labelUrls?.pdf || labelUrl)) {
-          // For 4x6, download original backend PDF without any modifications
+        if (originalPdfBytes) {
+          // Use client-side PDF generation
+          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
+          blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+        } else if (labelUrls?.pdf || labelUrl) {
+          // Direct PDF download
           const url = labelUrls?.pdf || labelUrl;
           const response = await fetch(url, {
             method: 'GET',
@@ -268,12 +280,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           
           const arrayBuffer = await response.arrayBuffer();
           blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_4x6.pdf`;
-        } else if (originalPdfBytes) {
-          // Use client-side PDF generation for 8.5x11
-          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-          blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
         } else {
           toast.error('PDF not available for download.');
           return;
@@ -477,18 +484,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <SelectValue placeholder="Select Print Format" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
-                    <SelectItem value="4x6" className="cursor-pointer hover:bg-gray-50 py-3">
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium text-gray-900">4x6" Standard Label</span>
-                        <span className="text-xs text-gray-500">Original 4x6 label from backend - no modifications</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="8.5x11" className="cursor-pointer hover:bg-gray-50 py-3">
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium text-gray-900">8.5x11" Rotated Label</span>
-                        <span className="text-xs text-gray-500">Label rotated vertically on letter-sized page</span>
-                      </div>
-                    </SelectItem>
+                    {labelFormats.map(format => (
+                      <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-3">
+                        <div className="flex flex-col py-1">
+                          <span className="font-medium text-gray-900">{format.label}</span>
+                          <span className="text-xs text-gray-500">{format.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -532,7 +535,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: '600px',
+                        height: selectedFormat === '4x6' ? '400px' : '500px', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 

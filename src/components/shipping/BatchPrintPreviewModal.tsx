@@ -27,7 +27,7 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
   onClose,
   batchResult
 }) => {
-  const [printFormat, setPrintFormat] = useState<'4x6' | '8.5x11'>('4x6');
+  const [printFormat, setPrintFormat] = useState<'4x6' | '8.5x11-single' | '8.5x11-double'>('4x6');
   const [showEmailModal, setShowEmailModal] = useState(false);
 
   const handleDownload = (format: 'pdf' | 'zpl' | 'epl') => {
@@ -57,9 +57,11 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
   const getFormatDescription = () => {
     switch (printFormat) {
       case '4x6':
-        return 'Original 4x6 label from backend - no modifications';
-      case '8.5x11':
-        return 'Label rotated vertically on letter-sized page';
+        return 'Standard shipping label size (4" x 6")';
+      case '8.5x11-single':
+        return 'Single label per page (8.5" x 11")';
+      case '8.5x11-double':
+        return 'Two labels per page vertically (8.5" x 11")';
       default:
         return '';
     }
@@ -94,7 +96,8 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="4x6">4" × 6" Standard</SelectItem>
-                        <SelectItem value="8.5x11">8.5" × 11" Rotated</SelectItem>
+                        <SelectItem value="8.5x11-single">8.5" × 11" Single</SelectItem>
+                        <SelectItem value="8.5x11-double">8.5" × 11" Double</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -172,15 +175,13 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
 
             {/* PDF Preview */}
             <Card className="p-4">
-              <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '700px' }}>
+              <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '600px' }}>
                 <iframe
                   src={batchResult.consolidatedLabelUrls.pdf}
                   width="100%"
                   height="100%"
                   title="Batch Labels Preview"
                   className="border-0"
-                  onLoad={() => console.log('Batch PDF loaded successfully')}
-                  onError={() => console.error('Failed to load batch PDF')}
                 />
               </div>
             </Card>

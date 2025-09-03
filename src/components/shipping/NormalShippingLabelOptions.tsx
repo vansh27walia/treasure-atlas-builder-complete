@@ -96,11 +96,6 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         isOpenProp={isEmailModalOpen}
         onOpenChangeProp={setIsEmailModalOpen}
         openToEmailTab={openToEmailTab}
-        labelUrls={{
-          pdf: labelUrl,
-          png: labelUrl.replace('.pdf', '.png'),
-          zpl: labelUrl.replace('.pdf', '.zpl')
-        }}
         triggerButton={
           <Button
             variant="outline"
