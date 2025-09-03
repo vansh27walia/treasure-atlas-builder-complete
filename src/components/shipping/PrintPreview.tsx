@@ -183,7 +183,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       if (layoutOption === '8.5x11-2up') {
         // --- MODIFIED LINE START ---
         // Calculate the xOffset to center the rotated label horizontally
-        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const xOffset = (letterWidth - rotatedLabelWidth) / 2,// Centered horizontally
         // --- MODIFIED LINE END ---
         const topY = letterHeight - rotatedLabelHeight - 30; // 30pt margin from top
         const bottomY = 30; // 30pt margin from bottom
@@ -207,7 +207,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         });
       } else if (layoutOption === '8.5x11-top') {
         // --- MODIFIED LINE START ---
-        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const xOffset = (letterWidth - rotatedLabelWidth) / 2,// Centered horizontally
         // --- MODIFIED LINE END ---
         const topY = letterHeight - rotatedLabelHeight - 30;
 
@@ -221,7 +221,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         });
       } else if (layoutOption === '8.5x11-bottom') {
         // --- MODIFIED LINE START ---
-        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const xOffset = (letterWidth - rotatedLabelWidth) / 2,// Centered horizontally
         // --- MODIFIED LINE END ---
         const bottomY = 30;
 
