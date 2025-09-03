@@ -181,7 +181,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
       if (layoutOption === '8.5x11-2up') {
+        // --- MODIFIED LINE START ---
+        // Calculate the xOffset to center the rotated label horizontally
         const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        // --- MODIFIED LINE END ---
         const topY = letterHeight - rotatedLabelHeight - 30; // 30pt margin from top
         const bottomY = 30; // 30pt margin from bottom
 
@@ -203,7 +206,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-top') {
+        // --- MODIFIED LINE START ---
         const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        // --- MODIFIED LINE END ---
         const topY = letterHeight - rotatedLabelHeight - 30;
 
         // Draw a single label on the top half
@@ -215,7 +220,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-bottom') {
+        // --- MODIFIED LINE START ---
         const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        // --- MODIFIED LINE END ---
         const bottomY = 30;
 
         // Draw a single label on the bottom half
