@@ -155,7 +155,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const generateLabelPDF = async (fileBytes, layoutOption) => {
+const generateLabelPDF = async (fileBytes, layoutOption) => {
+    const { PDFDocument, degrees } = await import('pdf-lib');
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
@@ -163,7 +164,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPageDims = originalPage.getSize();
     
     // We assume the original is a landscape 4x6, so we'll use its dimensions.
-    // The width will be the longer side, and the height will be the shorter.
     const labelWidth = Math.max(originalPageDims.width, originalPageDims.height);
     const labelHeight = Math.min(originalPageDims.width, originalPageDims.height);
 
@@ -176,54 +176,52 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     if (layoutOption === '4x6') {
       const page = outputPdf.addPage([labelWidth, labelHeight]);
       page.drawPage(embeddedPage);
-    } else if (layoutOption === '8.5x11-2up') {
+    } else {
+      // Create a new page for the letter-sized output
       const page = outputPdf.addPage([letterWidth, letterHeight]);
-      const rotatedLabelWidth = labelHeight;
-      const rotatedLabelHeight = labelWidth;
 
-      // Draw the first label (top)
-      page.drawPage(embeddedPage, {
-        x: (letterWidth - rotatedLabelWidth) / 2,
-        y: letterHeight - rotatedLabelHeight - 30,
-        width: rotatedLabelWidth,
-        height: rotatedLabelHeight,
-        rotate: degrees(90),
-      });
+      if (layoutOption === '8.5x11-2up') {
+        const topY = letterHeight - labelWidth - 30;
+        const bottomY = 30;
+        
+        // Draw first label (top)
+        page.drawPage(embeddedPage, {
+          x: (letterWidth / 2) + 30, // Position on the left side of the top half
+          y: topY,
+          width: labelHeight,
+          height: labelWidth,
+          rotate: degrees(90),
+        });
 
-      // Draw the second label (bottom)
-      page.drawPage(embeddedPage, {
-        x: (letterWidth - rotatedLabelWidth) / 2,
-        y: 30,
-        width: rotatedLabelWidth,
-        height: rotatedLabelHeight,
-        rotate: degrees(90),
-      });
-    } else if (layoutOption === '8.5x11-top') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      const rotatedLabelWidth = labelHeight;
-      const rotatedLabelHeight = labelWidth;
-
-      page.drawPage(embeddedPage, {
-        x: (letterWidth - rotatedLabelWidth) / 2,
-        y: letterHeight - rotatedLabelHeight - 30,
-        width: rotatedLabelWidth,
-        height: rotatedLabelHeight,
-        rotate: degrees(90),
-      });
-    } else if (layoutOption === '8.5x11-bottom') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      const rotatedLabelWidth = labelHeight;
-      const rotatedLabelHeight = labelWidth;
-      
-      page.drawPage(embeddedPage, {
-        x: (letterWidth - rotatedLabelWidth) / 2,
-        y: 30,
-        width: rotatedLabelWidth,
-        height: rotatedLabelHeight,
-        rotate: degrees(90),
-      });
+        // Draw second label (bottom)
+        page.drawPage(embeddedPage, {
+          x: (letterWidth / 2) + 30, // Position on the left side of the bottom half
+          y: bottomY,
+          width: labelHeight,
+          height: labelWidth,
+          rotate: degrees(90),
+        });
+        
+      } else if (layoutOption === '8.5x11-top') {
+        // Draw a single label on the top half
+        page.drawPage(embeddedPage, {
+          x: (letterWidth / 2) + 30,
+          y: letterHeight - labelWidth - 30,
+          width: labelHeight,
+          height: labelWidth,
+          rotate: degrees(90),
+        });
+      } else if (layoutOption === '8.5x11-bottom') {
+        // Draw a single label on the bottom half
+        page.drawPage(embeddedPage, {
+          x: (letterWidth / 2) + 30,
+          y: 30,
+          width: labelHeight,
+          height: labelWidth,
+          rotate: degrees(90),
+        });
+      }
     }
-
     return await outputPdf.save();
   };
 
