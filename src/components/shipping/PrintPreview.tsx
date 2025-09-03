@@ -155,39 +155,40 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const generateLabelPDF = async (fileBytes, layoutOption) => {
+ const generateLabelPDF = async (fileBytes, layoutOption) => {
     const { PDFDocument, degrees } = await import('pdf-lib');
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const originalPage = originalPdf.getPage(0);
-    const originalPageDims = originalPage.getSize();
-    
-    // Page sizes in points (72 points per inch)
-    const letterWidth = 612; // 8.5"
-    const letterHeight = 792; // 11"
-    
-    // Determine the dimensions of the label after a 90-degree rotation
-    const rotatedLabelWidth = originalPageDims.height;
-    const rotatedLabelHeight = originalPageDims.width;
-
     if (layoutOption === '4x6') {
-      // For 4x6, just add the original page
+      const originalPage = originalPdf.getPage(0);
+      const originalPageDims = originalPage.getSize();
       const page = outputPdf.addPage([originalPageDims.width, originalPageDims.height]);
       const embeddedPage = await outputPdf.embedPage(originalPage);
       page.drawPage(embeddedPage);
     } else {
+      const originalPage = originalPdf.getPage(0);
+      const originalPageDims = originalPage.getSize();
       const embeddedPage = await outputPdf.embedPage(originalPage);
+
+      const letterWidth = 612; // 8.5"
+      const letterHeight = 792; // 11"
+      
+      // Determine the dimensions of the label after a 90-degree rotation
+      const rotatedLabelWidth = originalPageDims.height;
+      const rotatedLabelHeight = originalPageDims.width;
+
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
       if (layoutOption === '8.5x11-2up') {
-        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        // Calculate centered positions for two labels
+        const centerX = (letterWidth - rotatedLabelWidth) / 2;
         const topY = letterHeight - rotatedLabelHeight - 30; // 30pt margin from top
         const bottomY = 30; // 30pt margin from bottom
 
         // Draw the top label
         page.drawPage(embeddedPage, {
-          x: xOffset,
+          x: centerX,
           y: topY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
@@ -196,31 +197,31 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
         // Draw the bottom label
         page.drawPage(embeddedPage, {
-          x: xOffset,
+          x: centerX,
           y: bottomY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-top') {
-        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const centerX = (letterWidth - rotatedLabelWidth) / 2;
         const topY = letterHeight - rotatedLabelHeight - 30;
 
         // Draw a single label on the top half
         page.drawPage(embeddedPage, {
-          x: xOffset,
+          x: centerX,
           y: topY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
           rotate: degrees(90),
         });
       } else if (layoutOption === '8.5x11-bottom') {
-        const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+        const centerX = (letterWidth - rotatedLabelWidth) / 2;
         const bottomY = 30;
 
         // Draw a single label on the bottom half
         page.drawPage(embeddedPage, {
-          x: xOffset,
+          x: centerX,
           y: bottomY,
           width: rotatedLabelWidth,
           height: rotatedLabelHeight,
