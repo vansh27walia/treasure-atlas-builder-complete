@@ -325,11 +325,11 @@ serve(async (req) => {
       try {
         console.log('Fetching label from EasyPost:', data.postage_label.label_url);
         
-        // Fetch the label from EasyPost with proper headers
+        // Fetch the label from EasyPost with proper headers (accept both PDF and PNG)
         const labelResponse = await fetch(data.postage_label.label_url, {
           method: 'GET',
           headers: {
-            'Accept': 'application/pdf',
+            'Accept': 'application/pdf,image/png,*/*',
             'User-Agent': 'Supabase-Edge-Function'
           }
         });
@@ -338,32 +338,58 @@ serve(async (req) => {
           throw new Error(`Failed to fetch label: ${labelResponse.status} ${labelResponse.statusText}`);
         }
         
-        // Get content type to verify it's a PDF
-        const contentType = labelResponse.headers.get('content-type');
+        // Get content type to determine file type
+        const contentType = labelResponse.headers.get('content-type') || 'application/octet-stream';
         console.log('Label content type:', contentType);
         
-        // Get the PDF as array buffer to ensure proper binary handling
+        // Get the file as array buffer to ensure proper binary handling
         const labelArrayBuffer = await labelResponse.arrayBuffer();
         console.log('Label size:', labelArrayBuffer.byteLength, 'bytes');
         
-        // Verify it's actually a PDF by checking the header
+        // Determine file type and extension
         const uint8Array = new Uint8Array(labelArrayBuffer);
-        const pdfHeader = String.fromCharCode(...uint8Array.slice(0, 4));
+        let fileExtension = 'pdf';
+        let mimeType = 'application/pdf';
         
-        if (pdfHeader !== '%PDF') {
-          throw new Error('Downloaded file is not a valid PDF');
+        // Check file signature to determine actual type
+        const pdfHeader = String.fromCharCode(...uint8Array.slice(0, 4));
+        const pngHeader = uint8Array.slice(0, 8);
+        const isPDF = pdfHeader === '%PDF';
+        const isPNG = pngHeader[0] === 0x89 && pngHeader[1] === 0x50 && pngHeader[2] === 0x4E && pngHeader[3] === 0x47;
+        
+        if (isPDF) {
+          fileExtension = 'pdf';
+          mimeType = 'application/pdf';
+          console.log('✅ Detected valid PDF file');
+        } else if (isPNG) {
+          fileExtension = 'png';
+          mimeType = 'image/png';
+          console.log('✅ Detected valid PNG file');
+        } else {
+          // Fallback based on content type or URL
+          if (contentType.includes('pdf')) {
+            fileExtension = 'pdf';
+            mimeType = 'application/pdf';
+          } else if (contentType.includes('png') || data.postage_label.label_url.includes('.png')) {
+            fileExtension = 'png';
+            mimeType = 'image/png';
+          } else {
+            console.log('⚠️ Unknown file type, defaulting to PDF');
+            fileExtension = 'pdf';
+            mimeType = 'application/pdf';
+          }
         }
         
         const safeTrackingCode = data.tracking_code ? data.tracking_code.replace(/[^a-zA-Z0-9]/g, '_') : `shipment_${shipmentId}`;
-        const fileName = `labels/${safeTrackingCode}_${shipmentId}.pdf`;
+        const fileName = `labels/${safeTrackingCode}_${shipmentId}.${fileExtension}`;
         
-        console.log('Uploading PDF to Supabase storage:', fileName);
+        console.log(`Uploading ${fileExtension.toUpperCase()} to Supabase storage:`, fileName);
         
         // Upload to Supabase Storage using ArrayBuffer
         const { error: uploadError } = await supabaseClient.storage
           .from('shipping-labels')
           .upload(fileName, labelArrayBuffer, {
-            contentType: 'application/pdf',
+            contentType: mimeType,
             upsert: true
           });
         
@@ -380,7 +406,7 @@ serve(async (req) => {
           const { data: fileData, error: statError } = await supabaseClient.storage
             .from('shipping-labels')
             .list('labels', {
-              search: `${safeTrackingCode}_${shipmentId}.pdf`
+              search: `${safeTrackingCode}_${shipmentId}.${fileExtension}`
             });
           
           if (!statError && fileData && fileData.length > 0) {
