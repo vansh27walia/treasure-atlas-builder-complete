@@ -382,9 +382,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                <Brain className="w-4 h-4 mr-2" />
-                AI Optimize
-                <ChevronDown className="w-4 h-4 ml-2" />
+                <div className="flex items-center">
+                  <Brain className="w-4 h-4 mr-2" />
+                  AI Optimize
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-64 bg-white border-2 border-purple-200 shadow-xl z-50">
