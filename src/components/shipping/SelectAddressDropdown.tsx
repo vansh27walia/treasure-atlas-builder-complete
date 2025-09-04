@@ -169,19 +169,15 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           disabled={isLoading}
           className={`w-full justify-between ${className}`}
         >
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center min-w-0">
-              {isLoading ? (
-                <span className="text-muted-foreground">Loading addresses...</span>
-              ) : (
-                <>
-                  <MapPin className="mr-2 h-4 w-4 shrink-0" />
-                  <span className="truncate">{addressLabel}</span>
-                </>
-              )}
-            </div>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </div>
+          {isLoading ? (
+            <span className="text-muted-foreground">Loading addresses...</span>
+          ) : (
+            <>
+              <MapPin className="mr-2 h-4 w-4 shrink-0" />
+              <span className="truncate">{addressLabel}</span>
+            </>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0 bg-white z-50" align="start">

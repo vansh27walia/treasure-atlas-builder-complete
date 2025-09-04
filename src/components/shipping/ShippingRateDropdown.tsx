@@ -54,30 +54,28 @@ const ShippingRateDropdown: React.FC<ShippingRateDropdownProps> = ({
             variant="outline" 
             className={`w-full justify-between border-2 p-3 h-auto ${selectedRateId ? 'border-purple-300' : 'border-gray-200'}`}
           >
-            <div className="flex items-center justify-between w-full">
-              {selectedRate ? (
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
-                    <CarrierLogo carrier={selectedRate.carrier} />
-                    <div className="text-left">
-                      <p className="font-medium">{selectedRate.carrier.toUpperCase()} - {selectedRate.service}</p>
-                      <p className="text-sm text-gray-500">
-                        {selectedRate.delivery_date || (selectedRate.delivery_days ? `${selectedRate.delivery_days} days` : '3-5 days')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-purple-700">${selectedRate.rate}</span>
-                    {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            {selectedRate ? (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <CarrierLogo carrier={selectedRate.carrier} />
+                  <div className="text-left">
+                    <p className="font-medium">{selectedRate.carrier.toUpperCase()} - {selectedRate.service}</p>
+                    <p className="text-sm text-gray-500">
+                      {selectedRate.delivery_date || (selectedRate.delivery_days ? `${selectedRate.delivery_days} days` : '3-5 days')}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div className="flex items-center justify-between w-full">
-                  <span>Select a shipping option</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-bold text-purple-700">${selectedRate.rate}</span>
                   {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between w-full">
+                <span>Select a shipping option</span>
+                {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-96 p-0" align="start">

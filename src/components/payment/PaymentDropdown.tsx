@@ -141,19 +141,17 @@ const PaymentDropdown: React.FC<PaymentDropdownProps> = ({
             className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium flex items-center justify-between px-6"
             size="lg"
           >
-            <div className="flex items-center w-full justify-between">
-              <div className="flex items-center">
-                <CreditCard className="w-5 h-5 mr-3" />
-                <span>Pay with Card</span>
+            <div className="flex items-center">
+              <CreditCard className="w-5 h-5 mr-3" />
+              <span>Pay with Card</span>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <div className="text-right">
+                <div className="text-xl font-bold">${amount.toFixed(2)}</div>
+                <div className="text-xs opacity-90">{paymentMethods.length} cards</div>
               </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <div className="text-xl font-bold">${amount.toFixed(2)}</div>
-                  <div className="text-xs opacity-90">{paymentMethods.length} cards</div>
-                </div>
-                <ChevronDown className="w-5 h-5" />
-              </div>
+              <ChevronDown className="w-5 h-5" />
             </div>
           </Button>
         </DropdownMenuTrigger>

@@ -255,10 +255,8 @@ const TrackingPage = () => {
                         rel="noopener noreferrer"
                         className="flex items-center"
                       >
-                        <span className="flex items-center">
-                          <Download className="w-4 h-4 mr-2" />
-                          View Label
-                        </span>
+                        <Download className="w-4 h-4 mr-2" />
+                        View Label
                       </a>
                     </Button>
                   )}
@@ -304,10 +302,8 @@ const TrackingPage = () => {
                         rel="noopener noreferrer"
                         className="flex items-center"
                       >
-                        <span className="flex items-center">
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Open Label
-                        </span>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Label
                       </a>
                     </Button>
                   </div>
@@ -368,10 +364,8 @@ const TrackingPage = () => {
                       rel="noopener noreferrer"
                       className="flex items-center"
                     >
-                      <span className="flex items-center">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Label
-                      </span>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Label
                     </a>
                   </Button>
                 )}

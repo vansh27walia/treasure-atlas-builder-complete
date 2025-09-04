@@ -130,15 +130,13 @@ const CompactRateFilter: React.FC<CompactRateFilterProps> = ({
         <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-8 text-xs">
-              <div className="flex items-center">
-                <Filter className="h-3 w-3 mr-1" />
-                More
-                {activeFiltersCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </div>
+              <Filter className="h-3 w-3 mr-1" />
+              More
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+                  {activeFiltersCount}
+                </Badge>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-56 p-3 bg-white">

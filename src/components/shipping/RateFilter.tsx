@@ -133,15 +133,13 @@ const RateFilter: React.FC<RateFilterProps> = ({
         <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-9">
-              <span className="flex items-center">
-                <Filter className="h-4 w-4 mr-1" />
-                Advanced
-                {activeFiltersCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </span>
+              <Filter className="h-4 w-4 mr-1" />
+              Advanced
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
+                  {activeFiltersCount}
+                </Badge>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 p-4 bg-white">

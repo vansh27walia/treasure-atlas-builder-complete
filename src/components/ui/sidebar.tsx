@@ -575,12 +575,9 @@ const SidebarMenuButton = React.forwardRef<
       }
     }
 
-    // Avoid nested asChild by not using asChild when tooltip is present
     return (
       <Tooltip>
-        <TooltipTrigger>
-          {button}
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
         <TooltipContent
           side="right"
           align="center"

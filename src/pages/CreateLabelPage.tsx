@@ -15,7 +15,6 @@ import { Brain } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CreateLabelPage = () => {
-  console.log('CreateLabelPage rendering');
   // Move ALL hooks to the top before any conditional logic
   const { user } = useAuth();
   const {
@@ -225,9 +224,6 @@ const CreateLabelPage = () => {
     return parseFloat(a.rate) - parseFloat(b.rate);
   }) : [];
 
-  // Rate Filter rendering debug
-  console.log('About to render RateFilter component');
-  
   // Local filter state for RateFilter component
   const [localFilters, setLocalFilters] = useState({
     search: '',
@@ -283,7 +279,7 @@ const CreateLabelPage = () => {
 
             {/* Rate Filter with AI Powered Analysis Button */}
             <div className="mb-6 flex gap-4">
-              <RateFilter
+              <RateFilter 
                 filters={localFilters}
                 availableCarriers={uniqueCarriers}
                 onFiltersChange={handleLocalFiltersChange}
@@ -302,7 +298,7 @@ const CreateLabelPage = () => {
             
             {/* Shipping Rates Section */}
             <div id="shipping-rates-section">
-              <ShippingRates
+              <ShippingRates 
                 rates={sortedRates || []} 
                 onRateSelected={handleRateSelected} 
                 loading={false} 
