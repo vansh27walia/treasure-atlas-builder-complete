@@ -575,10 +575,11 @@ const SidebarMenuButton = React.forwardRef<
       }
     }
 
+    // When using asChild, don't use asChild on TooltipTrigger to avoid nested Slot issues
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span>{button}</span>
+        <TooltipTrigger asChild={!asChild}>
+          {asChild ? <div>{button}</div> : button}
         </TooltipTrigger>
         <TooltipContent
           side="right"
