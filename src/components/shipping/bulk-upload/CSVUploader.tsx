@@ -1,4 +1,3 @@
-
 import React, { useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +31,10 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onFileUpload }) => {
     reader.readAsText(file);
   }, [onFileUpload]);
 
+  const handleButtonClick = () => {
+    document.getElementById('csv-upload')?.click();
+  };
+
   return (
     <Card className="border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
       <CardContent className="p-6">
@@ -53,14 +56,10 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onFileUpload }) => {
               className="hidden"
               id="csv-upload"
             />
-            <label htmlFor="csv-upload">
-              <Button variant="outline" className="cursor-pointer" asChild>
-                <span className="flex items-center">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Choose CSV File
-                </span>
-              </Button>
-            </label>
+            <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
+              <Upload className="h-4 w-4 mr-2" />
+              Choose CSV File
+            </Button>
           </div>
           <div className="text-xs text-gray-500">
             <p>Required columns: to_name, to_street1, to_city, to_state, to_zip, weight, length, width, height</p>
