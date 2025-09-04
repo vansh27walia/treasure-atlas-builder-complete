@@ -170,7 +170,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+    const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
     
     // Get the original dimensions of the label (e.g., 4x6 inches)
     const { width: originalLabelWidth, height: originalLabelHeight } = originalPage.size();
@@ -191,8 +191,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       
       // This is the key change: setting the x-coordinate to a fixed position
       // that is much farther to the right. 
-      // The value of 600 places the label's bottom-right corner far to the right.
-      const xOffset = 600;
+      // The value of 550 places the label's bottom-right corner far to the right.
+      const xOffset = 550;
       
       const margin = 30;
 
