@@ -85,7 +85,9 @@ const ContainerForm: React.FC<ContainerFormProps> = ({ loads, onChange }) => {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="w-4 h-4 ml-1 text-gray-400" />
+                        <button type="button" className="inline-flex items-center">
+                          <HelpCircle className="w-4 h-4 ml-1 text-gray-400" />
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>HC = High Cube (taller containers)</p>
