@@ -313,8 +313,10 @@ const FixedPrintPreview: React.FC<FixedPrintPreviewProps> = ({
           </Button>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
+              <span className="flex items-center">
+                <Eye className="h-3 w-3 mr-1" />
+                Print Preview
+              </span>
             </Button>
           </DialogTrigger>
         </div>

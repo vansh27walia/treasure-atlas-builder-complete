@@ -448,9 +448,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {triggerButton ? (
-        <DialogTrigger asChild>
-          {triggerButton}
-        </DialogTrigger>
+        <DialogTrigger asChild>
+          <div>{triggerButton}</div>
+        </DialogTrigger>
       ) : (
         <div className="flex gap-2">
           <Button
@@ -463,12 +463,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             <Download className="h-3 w-3 mr-1" />
             Download Label
           </Button>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
-              <Eye className="h-3 w-3 mr-1" />
-              Print Preview
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 text-purple-700">
+              <span className="flex items-center">
+                <Eye className="h-3 w-3 mr-1" />
+                Print Preview
+              </span>
+            </Button>
+          </DialogTrigger>
         </div>
       )}
 
