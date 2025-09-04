@@ -172,10 +172,10 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           {isLoading ? (
             <span className="text-muted-foreground">Loading addresses...</span>
           ) : (
-            <>
+            <div className="flex items-center">
               <MapPin className="mr-2 h-4 w-4 shrink-0" />
               <span className="truncate">{addressLabel}</span>
-            </>
+            </div>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
