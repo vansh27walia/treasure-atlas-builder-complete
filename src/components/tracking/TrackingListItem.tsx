@@ -124,7 +124,9 @@ const TrackingListItem: React.FC<TrackingListItemProps> = ({
           {item.label_url && (
             <Button size="sm" variant="ghost" asChild className="rounded-full p-2">
               <a href={item.label_url} target="_blank" rel="noopener noreferrer">
-                <Download className="h-4 w-4" />
+                <span className="flex items-center">
+                  <Download className="h-4 w-4" />
+                </span>
               </a>
             </Button>
           )}
