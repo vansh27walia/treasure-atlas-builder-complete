@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import StandardPrintPreview from './StandardPrintPreview';
+import PrintPreview from './PrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -17,49 +17,39 @@ interface NormalShippingLabelOptionsProps {
     service: string;
     carrier: string;
   };
-  labelUrls?: {
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-  };
 }
 
 const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   labelUrl,
   trackingCode,
   shipmentId,
-  shipmentDetails,
-  labelUrls
+  shipmentDetails
 }) => {
   const handleDirectDownload = async () => {
-    // Use PNG URL if available, fallback to main labelUrl
-    const downloadUrl = labelUrls?.png || labelUrl;
-    const isImage = downloadUrl?.includes('.png') || labelUrls?.png;
-    
-    if (downloadUrl) {
+    if (labelUrl) {
       try {
-        toast.loading('Downloading PNG label...');
+        toast.loading('Downloading PDF label...');
         
-        // Fetch the image from Supabase storage
-        const response = await fetch(downloadUrl, {
+        // Fetch the PDF from Supabase storage
+        const response = await fetch(labelUrl, {
           method: 'GET',
           headers: {
-            'Content-Type': isImage ? 'image/png' : 'application/pdf'
+            'Content-Type': 'application/pdf'
           }
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch label: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
         }
         
-        // Get the blob
+        // Get the PDF blob
         const blob = await response.blob();
         
         // Create download link
-        const objectUrl = URL.createObjectURL(blob);
+        const downloadUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.${isImage ? 'png' : 'pdf'}`;
+        link.href = downloadUrl;
+        link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
         link.style.display = 'none';
         
         // Trigger download
@@ -68,12 +58,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         document.body.removeChild(link);
         
         // Clean up
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
         
-        toast.success(`${isImage ? 'PNG' : 'PDF'} label downloaded successfully`);
+        toast.success('PDF label downloaded successfully');
       } catch (error) {
-        console.error('Error downloading label:', error);
-        toast.error('Failed to download label. Please try again.');
+        console.error('Error downloading PDF:', error);
+        toast.error('Failed to download PDF. Please try again.');
       }
     } else {
       toast.error('Label URL not available');
@@ -81,22 +71,31 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
+  const [openToEmailTab, setOpenToEmailTab] = React.useState(false);
+
+  const handleEmailLabel = () => {
+    // Open the Print Preview modal with Email tab active  
+    setOpenToEmailTab(true);
+    setIsEmailModalOpen(true);
+  };
 
   const handlePrintPreview = () => {
-    // Open the StandardPrintPreview modal
+    // Open the Print Preview modal with Preview tab active
+    setOpenToEmailTab(false);
     setIsEmailModalOpen(true);
   };
 
   return (
     <div className="flex flex-col gap-3 w-full">
       {/* Print Preview Option - Top Priority */}
-        <StandardPrintPreview
-        labelUrl={labelUrls?.png || labelUrl}
+      <PrintPreview
+        labelUrl={labelUrl}
         trackingCode={trackingCode}
         shipmentId={shipmentId}
-        labelUrls={labelUrls}
+        shipmentDetails={shipmentDetails}
         isOpenProp={isEmailModalOpen}
         onOpenChangeProp={setIsEmailModalOpen}
+        openToEmailTab={openToEmailTab}
         triggerButton={
           <Button
             variant="outline"
@@ -104,12 +103,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
             onClick={handlePrintPreview}
           >
             <Eye className="h-4 w-4 mr-2" />
-            Print Preview & Email
+            Print Preview
           </Button>
         }
       />
 
-      {/* Download and Quick Email Options - Side by Side */}
+      {/* Download and Email Options - Side by Side */}
       <div className="grid grid-cols-2 gap-3">
         <Button
           variant="outline"
@@ -117,16 +116,16 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           className="border-blue-200 hover:bg-blue-50 text-blue-700 h-11 font-medium"
         >
           <Download className="h-4 w-4 mr-2" />
-          Download PNG
+          Download
         </Button>
 
         <Button
           variant="outline"
-          onClick={handlePrintPreview}
+          onClick={handleEmailLabel}
           className="border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium"
         >
           <Mail className="h-4 w-4 mr-2" />
-          Email Options
+          Email
         </Button>
       </div>
     </div>

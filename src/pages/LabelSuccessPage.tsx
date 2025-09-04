@@ -120,7 +120,6 @@ const LabelSuccessPage: React.FC = () => {
                 labelUrl={labelUrl}
                 trackingCode={trackingCode}
                 shipmentId={shipmentId}
-                labelUrls={{ png: labelUrl, pdf: labelUrl }}
               />
             </div>
           )}
