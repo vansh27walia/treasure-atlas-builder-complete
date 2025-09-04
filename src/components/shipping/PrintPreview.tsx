@@ -170,9 +170,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+    const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
     
-    // Get the original dimensions of the label (e.g., 4x6 inches)
+    // Get the original dimensions of the label
     const { width: originalLabelWidth, height: originalLabelHeight } = originalPage.size();
     
     // Page sizes in points (72 points per inch)
@@ -189,11 +189,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const rotatedLabelWidth = originalLabelHeight;
       const rotatedLabelHeight = originalLabelWidth;
       
-      // This is the key change: setting the x-coordinate to a fixed position
-      // that is much farther to the right. 
-      // The value of 500 places the label's bottom-right corner far to the right.
-      const xOffset = 500;
+      // This is the key change. We want the center of the rotated label to be
+      // at 90% of the page's width.
+      const xCenter = letterWidth * 0.90;
       
+      // We must calculate the x-coordinate for the drawPage function,
+      // which is the bottom-left corner of the UN-ROTATED page.
+      // After rotation, this point will be the bottom-right corner of the rotated label.
+      const xOffset = xCenter + (rotatedLabelHeight / 2);
+
       const margin = 30;
 
       if (layoutOption === '8.5x11-2up') {
