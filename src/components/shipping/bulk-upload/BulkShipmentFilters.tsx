@@ -172,8 +172,10 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              <span className="hidden sm:inline">Filter</span>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">Filter</span>
+              </div>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80">
