@@ -165,14 +165,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const generateLabelPDF = async (fileBytes, layoutOption) => {
+ const generateLabelPDF = async (fileBytes, layoutOption) => {
     const { PDFDocument, degrees } = await import('pdf-lib');
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+    const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
     
-    // Get the original dimensions of the label
+    // Get the original dimensions of the label (e.g., 4x6 inches)
     const { width: originalLabelWidth, height: originalLabelHeight } = originalPage.size();
     
     // Page sizes in points (72 points per inch)
@@ -185,55 +185,64 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     } else {
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
-      // Calculate new dimensions after rotation
-      // The original height becomes the new width after 90-degree rotation.
+      // The new dimensions of the label after 90-degree rotation.
+      // The old height is the new width. The old width is the new height.
       const rotatedLabelWidth = originalLabelHeight;
-      // The original width becomes the new height after 90-degree rotation.
       const rotatedLabelHeight = originalLabelWidth;
       
-      // Correctly calculate the xOffset to horizontally center the rotated label.
-      // We use the 'rotatedLabelWidth' (which is the original height) to center it
-      // on the letter page.
-      const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+      // Calculate the horizontal center position for the rotated label
+      const xCenter = (letterWidth / 2);
       
+      // The `x` coordinate for drawing the rotated page needs to be the page's center
+      // plus half of the rotated label's height.
+      const x = xCenter + (rotatedLabelHeight / 2);
+
       // Top and bottom margins
       const margin = 30;
 
       if (layoutOption === '8.5x11-2up') {
-        // Calculate the y position for the top and bottom labels.
-        const topY = letterHeight - rotatedLabelHeight - margin;
+        // Calculate the vertical positions for the two labels
+        const topY = letterHeight - rotatedLabelWidth - margin;
         const bottomY = margin;
 
         // Draw the top label
         page.drawPage(originalPage, {
-          x: xOffset,
+          x: x,
           y: topY,
-          rotate: degrees(90)
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
         });
 
         // Draw the bottom label
         page.drawPage(originalPage, {
-          x: xOffset,
+          x: x,
           y: bottomY,
-          rotate: degrees(90)
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
         });
       } else if (layoutOption === '8.5x11-top') {
-        const topY = letterHeight - rotatedLabelHeight - margin;
+        const topY = letterHeight - rotatedLabelWidth - margin;
 
         // Draw a single label on the top half
         page.drawPage(originalPage, {
-          x: xOffset,
+          x: x,
           y: topY,
-          rotate: degrees(90)
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
         });
       } else if (layoutOption === '8.5x11-bottom') {
         const bottomY = margin;
 
         // Draw a single label on the bottom half
         page.drawPage(originalPage, {
-          x: xOffset,
+          x: x,
           y: bottomY,
-          rotate: degrees(90)
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
         });
       }
     }
