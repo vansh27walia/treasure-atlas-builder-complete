@@ -165,12 +165,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
- const generateLabelPDF = async (fileBytes, layoutOption) => {
+  const generateLabelPDF = async (fileBytes, layoutOption) => {
   const { PDFDocument, degrees } = await import('pdf-lib');
   const originalPdf = await PDFDocument.load(fileBytes);
   const outputPdf = await PDFDocument.create();
 
-  const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+  const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
   
   // Page sizes in points (72 points per inch)
   const letterWidth = 612; // 8.5"
@@ -189,66 +189,53 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const rotatedLabelWidth = originalLabelHeight;
     const rotatedLabelHeight = originalLabelWidth;
     
-    // To center the rotated label horizontally, you need to use the
-    // rotated height as the reference, and place it at (letterWidth - rotatedLabelHeight) / 2.
-    // However, the `drawPage` x-coordinate is the bottom-left of the original, un-rotated page.
-    // When you rotate by 90 degrees, the x-coordinate becomes the final y-coordinate,
-    // and the y-coordinate becomes the final x-coordinate.
-    // A more straightforward approach is to calculate the final desired coordinates
-    // and then work backwards.
-    
-    // Let's draw the page at the correct rotation and position.
-    // The key is to draw the page and then translate it into position after rotation.
-    // pdf-lib's drawPage uses the lower-left corner as the reference.
-    // When you rotate by 90 degrees, the x-axis rotates to become the y-axis.
-    // The new origin (0,0) of the rotated content is the old (0,0) but now shifted.
-    
-    const xCenter = letterWidth / 2;
-    const yCenter = letterHeight / 2;
-    const halfRotatedLabelWidth = rotatedLabelWidth / 2;
-    const halfRotatedLabelHeight = rotatedLabelHeight / 2;
+    // To center the rotated label horizontally, we can use the letter width minus the rotated label width.
+    const x = (letterWidth - rotatedLabelWidth) / 2;
 
     if (layoutOption === '8.5x11-2up') {
-      // Correcting the top and bottom positions based on the center of the page
-      const topY = yCenter + (letterHeight / 4);
-      const bottomY = yCenter - (letterHeight / 4);
+      // Calculate the correct y-coordinates.
+      // Top label: place it with a margin from the top edge.
+      const topY = letterHeight - rotatedLabelHeight - 30;
+      // Bottom label: place it with a margin from the bottom edge.
+      const bottomY = 30;
 
       // Draw the top label
       page.drawPage(originalPage, {
-        x: xCenter - halfRotatedLabelWidth,
-        y: topY - halfRotatedLabelHeight,
-        rotate: degrees(90)
+        x: x + rotatedLabelHeight,
+        y: topY + rotatedLabelWidth,
+        rotate: degrees(90),
       });
 
       // Draw the bottom label
       page.drawPage(originalPage, {
-        x: xCenter - halfRotatedLabelWidth,
-        y: bottomY - halfRotatedLabelHeight,
-        rotate: degrees(90)
+        x: x + rotatedLabelHeight,
+        y: bottomY + rotatedLabelWidth,
+        rotate: degrees(90),
       });
     } else if (layoutOption === '8.5x11-top') {
-      const topY = yCenter + (letterHeight / 4);
+      const topY = letterHeight - rotatedLabelHeight - 30;
 
       // Draw a single label on the top half
       page.drawPage(originalPage, {
-        x: xCenter - halfRotatedLabelWidth,
-        y: topY - halfRotatedLabelHeight,
-        rotate: degrees(90)
+        x: x + rotatedLabelHeight,
+        y: topY + rotatedLabelWidth,
+        rotate: degrees(90),
       });
     } else if (layoutOption === '8.5x11-bottom') {
-      const bottomY = yCenter - (letterHeight / 4);
+      const bottomY = 30;
 
       // Draw a single label on the bottom half
       page.drawPage(originalPage, {
-        x: xCenter - halfRotatedLabelWidth,
-        y: bottomY - halfRotatedLabelHeight,
-        rotate: degrees(90)
+        x: x + rotatedLabelHeight,
+        y: bottomY + rotatedLabelWidth,
+        rotate: degrees(90),
       });
     }
   }
   
   return await outputPdf.save();
 };
+
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
