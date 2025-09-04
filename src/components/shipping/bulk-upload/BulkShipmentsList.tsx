@@ -795,12 +795,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 className="border-blue-200 text-blue-700 hover:bg-blue-50"
                                 disabled={isEditing}
                               >
-                                {isEditing ? (
-                                  <RefreshCcw className="h-4 w-4 mr-1 animate-spin" />
-                                ) : (
-                                  <Edit className="h-4 w-4 mr-1" />
-                                )}
-                                {isEditing ? 'Updating' : 'Edit'}
+                                <div className="flex items-center">
+                                  {isEditing ? (
+                                    <RefreshCcw className="h-4 w-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <Edit className="h-4 w-4 mr-1" />
+                                  )}
+                                  {isEditing ? 'Updating' : 'Edit'}
+                                </div>
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl">
