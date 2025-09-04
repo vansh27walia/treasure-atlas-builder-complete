@@ -170,7 +170,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const originalPdf = await PDFDocument.load(fileBytes);
   const outputPdf = await PDFDocument.create();
 
-  const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
+  const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
   
   // Page sizes in points (72 points per inch)
   const letterWidth = 612; // 8.5"
@@ -215,50 +215,34 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
       // Draw the top label
       page.drawPage(originalPage, {
-        x: xCenter + halfRotatedLabelHeight, // Correct x position after 90 degree rotation
-        y: topY + halfRotatedLabelWidth,    // Correct y position after 90 degree rotation
-        rotate: degrees(90),
-        x_scale: 1,
-        y_scale: 1,
-        x_translate: -halfRotatedLabelHeight, // Translate back to the center of the label
-        y_translate: -halfRotatedLabelWidth,
+        x: xCenter - halfRotatedLabelWidth,
+        y: topY - halfRotatedLabelHeight,
+        rotate: degrees(90)
       });
 
       // Draw the bottom label
       page.drawPage(originalPage, {
-        x: xCenter + halfRotatedLabelHeight, // Correct x position
-        y: bottomY + halfRotatedLabelWidth,  // Correct y position
-        rotate: degrees(90),
-        x_scale: 1,
-        y_scale: 1,
-        x_translate: -halfRotatedLabelHeight,
-        y_translate: -halfRotatedLabelWidth,
+        x: xCenter - halfRotatedLabelWidth,
+        y: bottomY - halfRotatedLabelHeight,
+        rotate: degrees(90)
       });
     } else if (layoutOption === '8.5x11-top') {
       const topY = yCenter + (letterHeight / 4);
 
       // Draw a single label on the top half
       page.drawPage(originalPage, {
-        x: xCenter + halfRotatedLabelHeight,
-        y: topY + halfRotatedLabelWidth,
-        rotate: degrees(90),
-        x_scale: 1,
-        y_scale: 1,
-        x_translate: -halfRotatedLabelHeight,
-        y_translate: -halfRotatedLabelWidth,
+        x: xCenter - halfRotatedLabelWidth,
+        y: topY - halfRotatedLabelHeight,
+        rotate: degrees(90)
       });
     } else if (layoutOption === '8.5x11-bottom') {
       const bottomY = yCenter - (letterHeight / 4);
 
       // Draw a single label on the bottom half
       page.drawPage(originalPage, {
-        x: xCenter + halfRotatedLabelHeight,
-        y: bottomY + halfRotatedLabelWidth,
-        rotate: degrees(90),
-        x_scale: 1,
-        y_scale: 1,
-        x_translate: -halfRotatedLabelHeight,
-        y_translate: -halfRotatedLabelWidth,
+        x: xCenter - halfRotatedLabelWidth,
+        y: bottomY - halfRotatedLabelHeight,
+        rotate: degrees(90)
       });
     }
   }
