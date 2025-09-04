@@ -182,8 +182,10 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
                 rel="noopener noreferrer"
                 className="flex items-center"
               >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                View
+                <span className="flex items-center">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  View
+                </span>
               </a>
             </Button>
           </div>
