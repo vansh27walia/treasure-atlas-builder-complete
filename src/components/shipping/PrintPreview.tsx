@@ -241,7 +241,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   
   return await outputPdf.save();
 };
-
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
