@@ -56,7 +56,7 @@ const ShippingRateDropdown: React.FC<ShippingRateDropdownProps> = ({
           >
             <div className="flex items-center justify-between w-full">
               {selectedRate ? (
-                <>
+                <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
                     <CarrierLogo carrier={selectedRate.carrier} />
                     <div className="text-left">
@@ -70,12 +70,12 @@ const ShippingRateDropdown: React.FC<ShippingRateDropdownProps> = ({
                     <span className="text-xl font-bold text-purple-700">${selectedRate.rate}</span>
                     {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                   </div>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center justify-between w-full">
                   <span>Select a shipping option</span>
                   {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                </>
+                </div>
               )}
             </div>
           </Button>
