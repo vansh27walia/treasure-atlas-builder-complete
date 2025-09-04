@@ -165,12 +165,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const generateLabelPDF = async (fileBytes, layoutOption) => {
+ const generateLabelPDF = async (fileBytes, layoutOption) => {
   const { PDFDocument, degrees } = await import('pdf-lib');
   const originalPdf = await PDFDocument.load(fileBytes);
   const outputPdf = await PDFDocument.create();
 
-  const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+  const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
   
   // Page sizes in points (72 points per inch)
   const letterWidth = 612; // 8.5"
@@ -189,45 +189,53 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const rotatedLabelWidth = originalLabelHeight;
     const rotatedLabelHeight = originalLabelWidth;
     
-    // To center the rotated label horizontally, we can use the letter width minus the rotated label width.
+    // Calculate horizontal centering for the rotated label
     const x = (letterWidth - rotatedLabelWidth) / 2;
+    
+    // Top and bottom margins
+    const margin = 30;
 
     if (layoutOption === '8.5x11-2up') {
-      // Calculate the correct y-coordinates.
-      // Top label: place it with a margin from the top edge.
-      const topY = letterHeight - rotatedLabelHeight - 30;
-      // Bottom label: place it with a margin from the bottom edge.
-      const bottomY = 30;
+      // Calculate y-coordinates for two labels, vertically centered and spaced
+      const totalLabelSpace = (rotatedLabelHeight * 2) + margin;
+      const startY = (letterHeight - totalLabelSpace) / 2;
+
+      const topY = startY + rotatedLabelHeight + margin;
+      const bottomY = startY;
 
       // Draw the top label
       page.drawPage(originalPage, {
-        x: x + rotatedLabelHeight,
-        y: topY + rotatedLabelWidth,
+        x: x,
+        y: topY,
         rotate: degrees(90),
       });
 
       // Draw the bottom label
       page.drawPage(originalPage, {
-        x: x + rotatedLabelHeight,
-        y: bottomY + rotatedLabelWidth,
+        x: x,
+        y: bottomY,
         rotate: degrees(90),
       });
+
     } else if (layoutOption === '8.5x11-top') {
-      const topY = letterHeight - rotatedLabelHeight - 30;
+      // Position a single label at the top with a margin
+      const topY = letterHeight - rotatedLabelHeight - margin;
 
-      // Draw a single label on the top half
+      // Draw the single label on the top half
       page.drawPage(originalPage, {
-        x: x + rotatedLabelHeight,
-        y: topY + rotatedLabelWidth,
+        x: x,
+        y: topY,
         rotate: degrees(90),
       });
-    } else if (layoutOption === '8.5x11-bottom') {
-      const bottomY = 30;
 
-      // Draw a single label on the bottom half
+    } else if (layoutOption === '8.5x11-bottom') {
+      // Position a single label at the bottom with a margin
+      const bottomY = margin;
+
+      // Draw the single label on the bottom half
       page.drawPage(originalPage, {
-        x: x + rotatedLabelHeight,
-        y: bottomY + rotatedLabelWidth,
+        x: x,
+        y: bottomY,
         rotate: degrees(90),
       });
     }
@@ -235,7 +243,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   
   return await outputPdf.save();
 };
-
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
