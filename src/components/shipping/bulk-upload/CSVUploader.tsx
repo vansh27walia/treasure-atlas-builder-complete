@@ -55,7 +55,7 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onFileUpload }) => {
             />
             <label htmlFor="csv-upload">
               <Button variant="outline" className="cursor-pointer" asChild>
-                <span>
+                <span className="flex items-center">
                   <Upload className="h-4 w-4 mr-2" />
                   Choose CSV File
                 </span>
