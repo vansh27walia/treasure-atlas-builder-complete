@@ -170,7 +170,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const originalPdf = await PDFDocument.load(fileBytes);
   const outputPdf = await PDFDocument.create();
 
-  const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+  const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
   
   // Page sizes in points (72 points per inch)
   const letterWidth = 612; // 8.5"
@@ -186,22 +186,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const page = outputPdf.addPage([letterWidth, letterHeight]);
     
     // Calculate new dimensions after rotation
-    const rotatedLabelWidth = originalLabelHeight;
-    const rotatedLabelHeight = originalLabelWidth;
+    const rotatedLabelWidth = originalLabelHeight; // 6 inches
+    const rotatedLabelHeight = originalLabelWidth; // 4 inches
     
-    // Calculate horizontal centering for the rotated label
+    // Correctly calculate the horizontal starting position to center the rotated label.
+    // The rotated label is 6 inches wide (432 points).
+    // The letter page is 8.5 inches wide (612 points).
+    // The remaining space is (612 - 432) = 180 points.
+    // To center, divide this space by 2.
     const x = (letterWidth - rotatedLabelWidth) / 2;
     
     // Top and bottom margins
     const margin = 30;
 
     if (layoutOption === '8.5x11-2up') {
-      // Calculate y-coordinates for two labels, vertically centered and spaced
-      const totalLabelSpace = (rotatedLabelHeight * 2) + margin;
-      const startY = (letterHeight - totalLabelSpace) / 2;
-
-      const topY = startY + rotatedLabelHeight + margin;
-      const bottomY = startY;
+      const topY = letterHeight - rotatedLabelHeight - margin;
+      const bottomY = margin;
 
       // Draw the top label
       page.drawPage(originalPage, {
@@ -218,10 +218,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
 
     } else if (layoutOption === '8.5x11-top') {
-      // Position a single label at the top with a margin
       const topY = letterHeight - rotatedLabelHeight - margin;
 
-      // Draw the single label on the top half
+      // Draw a single label on the top half
       page.drawPage(originalPage, {
         x: x,
         y: topY,
@@ -229,10 +228,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
 
     } else if (layoutOption === '8.5x11-bottom') {
-      // Position a single label at the bottom with a margin
       const bottomY = margin;
 
-      // Draw the single label on the bottom half
+      // Draw a single label on the bottom half
       page.drawPage(originalPage, {
         x: x,
         y: bottomY,
