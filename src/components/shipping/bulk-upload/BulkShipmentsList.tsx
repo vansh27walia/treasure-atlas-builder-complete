@@ -382,11 +382,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                <div className="flex items-center">
+                <span className="flex items-center">
                   <Brain className="w-4 h-4 mr-2" />
                   AI Optimize
                   <ChevronDown className="w-4 h-4 ml-2" />
-                </div>
+                </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-64 bg-white border-2 border-purple-200 shadow-xl z-50">
@@ -795,14 +795,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 className="border-blue-200 text-blue-700 hover:bg-blue-50"
                                 disabled={isEditing}
                               >
-                                <div className="flex items-center">
+                                <span className="flex items-center">
                                   {isEditing ? (
                                     <RefreshCcw className="h-4 w-4 mr-1 animate-spin" />
                                   ) : (
                                     <Edit className="h-4 w-4 mr-1" />
                                   )}
                                   {isEditing ? 'Updating' : 'Edit'}
-                                </div>
+                                </span>
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl">
