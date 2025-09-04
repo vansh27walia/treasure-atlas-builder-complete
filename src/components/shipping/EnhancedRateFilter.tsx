@@ -192,13 +192,15 @@ const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
                 activeFiltersCount > 0 ? 'border-purple-500 bg-purple-50' : ''
               }`}
             >
-              <Filter className="h-4 w-4 mr-2" />
-              Advanced
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2 h-5 px-2 text-xs bg-purple-100 text-purple-700 animate-pulse">
-                  {activeFiltersCount}
-                </Badge>
-              )}
+              <div className="flex items-center">
+                <Filter className="h-4 w-4 mr-2" />
+                Advanced
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="ml-2 h-5 px-2 text-xs bg-purple-100 text-purple-700 animate-pulse">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </div>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-4 bg-white/95 backdrop-blur-md border-gray-200 shadow-xl">
