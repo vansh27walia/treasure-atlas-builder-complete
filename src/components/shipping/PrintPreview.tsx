@@ -170,7 +170,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const originalPdf = await PDFDocument.load(fileBytes);
   const outputPdf = await PDFDocument.create();
 
-  const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
+  const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
   
   // Page sizes in points (72 points per inch)
   const letterWidth = 612; // 8.5"
