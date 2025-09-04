@@ -165,12 +165,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const generateLabelPDF = async (fileBytes, layoutOption) => {
-    const { PDFDocument, degrees } = await import('pdf-lib');
-    const originalPdf = await PDFDocument.load(fileBytes);
-    const outputPdf = await PDFDocument.create();
+  const generateLabelPDF = async (fileBytes, layoutOption) => {
+    const { PDFDocument, degrees } = await import('pdf-lib');
+    const originalPdf = await PDFDocument.load(fileBytes);
+    const outputPdf = await PDFDocument.create();
 
-    const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
+    const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
     const { width: rotatedLabelHeight, height: rotatedLabelWidth } = originalPage.size();
     
     // Page sizes in points (72 points per inch)
@@ -192,45 +192,45 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         const topY = letterHeight - rotatedLabelWidth - 30; // 30pt margin from top
         const bottomY = 30; // 30pt margin from bottom
 
-        // Draw the top label
-        page.drawPage(originalPage, {
-          x: xOffset,
-          y: topY,
-          rotate: degrees(90),
-          x_scale: 1,
-          y_scale: 1
-        });
+        // Draw the top label
+        page.drawPage(originalPage, {
+          x: xOffset,
+          y: topY,
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
+        });
 
-        // Draw the bottom label
-        page.drawPage(originalPage, {
-          x: xOffset,
-          y: bottomY,
-          rotate: degrees(90),
-          x_scale: 1,
-          y_scale: 1
-        });
+        // Draw the bottom label
+        page.drawPage(originalPage, {
+          x: xOffset,
+          y: bottomY,
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
+        });
       } else if (layoutOption === '8.5x11-top') {
         const topY = letterHeight - rotatedLabelWidth - 30;
 
-        // Draw a single label on the top half
-        page.drawPage(originalPage, {
-          x: xOffset,
-          y: topY,
-          rotate: degrees(90),
-          x_scale: 1,
-          y_scale: 1
-        });
+        // Draw a single label on the top half
+        page.drawPage(originalPage, {
+          x: xOffset,
+          y: topY,
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
+        });
       } else if (layoutOption === '8.5x11-bottom') {
         const bottomY = 30;
 
-        // Draw a single label on the bottom half
-        page.drawPage(originalPage, {
-          x: xOffset,
-          y: bottomY,
-          rotate: degrees(90),
-          x_scale: 1,
-          y_scale: 1
-        });
+        // Draw a single label on the bottom half
+        page.drawPage(originalPage, {
+          x: xOffset,
+          y: bottomY,
+          rotate: degrees(90),
+          xScale: 1,
+          yScale: 1
+        });
       }
     }
     
