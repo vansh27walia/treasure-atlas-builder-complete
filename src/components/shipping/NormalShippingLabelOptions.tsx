@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import PrintPreview from './PrintPreview';
+import StandardPrintPreview from './StandardPrintPreview';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -81,32 +81,22 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
-  const [openToEmailTab, setOpenToEmailTab] = React.useState(false);
-
-  const handleEmailLabel = () => {
-    // Open the Print Preview modal with Email tab active  
-    setOpenToEmailTab(true);
-    setIsEmailModalOpen(true);
-  };
 
   const handlePrintPreview = () => {
-    // Open the Print Preview modal with Preview tab active
-    setOpenToEmailTab(false);
+    // Open the StandardPrintPreview modal
     setIsEmailModalOpen(true);
   };
 
   return (
     <div className="flex flex-col gap-3 w-full">
       {/* Print Preview Option - Top Priority */}
-        <PrintPreview
+        <StandardPrintPreview
         labelUrl={labelUrls?.png || labelUrl}
         trackingCode={trackingCode}
         shipmentId={shipmentId}
-        shipmentDetails={shipmentDetails}
         labelUrls={labelUrls}
         isOpenProp={isEmailModalOpen}
         onOpenChangeProp={setIsEmailModalOpen}
-        openToEmailTab={openToEmailTab}
         triggerButton={
           <Button
             variant="outline"
@@ -114,12 +104,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
             onClick={handlePrintPreview}
           >
             <Eye className="h-4 w-4 mr-2" />
-            Print Preview
+            Print Preview & Email
           </Button>
         }
       />
 
-      {/* Download and Email Options - Side by Side */}
+      {/* Download and Quick Email Options - Side by Side */}
       <div className="grid grid-cols-2 gap-3">
         <Button
           variant="outline"
@@ -127,16 +117,16 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           className="border-blue-200 hover:bg-blue-50 text-blue-700 h-11 font-medium"
         >
           <Download className="h-4 w-4 mr-2" />
-          Download
+          Download PNG
         </Button>
 
         <Button
           variant="outline"
-          onClick={handleEmailLabel}
+          onClick={handlePrintPreview}
           className="border-green-200 hover:bg-green-50 text-green-700 h-11 font-medium"
         >
           <Mail className="h-4 w-4 mr-2" />
-          Email
+          Email Options
         </Button>
       </div>
     </div>
