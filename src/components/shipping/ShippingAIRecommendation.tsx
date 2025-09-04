@@ -116,8 +116,10 @@ const RecommendationButton: React.FC<RecommendationButtonProps> = ({
           onClick={onClick}
           className={`${color} hover:opacity-90 text-white py-2 px-4 rounded-md flex items-center justify-center transition-all`}
         >
-          {icon}
-          <span className="ml-2">{label}</span>
+          <div className="flex items-center">
+            {icon}
+            <span className="ml-2">{label}</span>
+          </div>
         </button>
       </TooltipTrigger>
       <TooltipContent>
