@@ -170,7 +170,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
+    const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
     
     // Get the original dimensions of the label (e.g., 4x6 inches)
     const { width: originalLabelWidth, height: originalLabelHeight } = originalPage.size();
@@ -186,16 +186,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const page = outputPdf.addPage([letterWidth, letterHeight]);
       
       // Calculate new dimensions after rotation
-      // The original height becomes the new width after 90-degree rotation.
       const rotatedLabelWidth = originalLabelHeight;
-      // The original width becomes the new height after 90-degree rotation.
       const rotatedLabelHeight = originalLabelWidth;
       
-      // This is the key fix for the x-axis. It correctly centers the
-      // rotated label horizontally by using its new width.
-      const xOffset = (letterWidth - rotatedLabelWidth) / 2;
+      // This is the key change: setting the x-coordinate to a fixed position
+      // that is much farther to the right. 
+      // The value of 500 places the label's bottom-right corner far to the right.
+      const xOffset = 500;
       
-      // Top and bottom margins
       const margin = 30;
 
       if (layoutOption === '8.5x11-2up') {
