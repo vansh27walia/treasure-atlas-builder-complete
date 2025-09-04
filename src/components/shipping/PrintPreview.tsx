@@ -160,7 +160,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     const originalPdf = await PDFDocument.load(fileBytes);
     const outputPdf = await PDFDocument.create();
 
-    const [originalPage] = await outputPdf.embedPage(originalPdf.getPage(0));
+    const originalPage = await outputPdf.embedPage(originalPdf.getPage(0));
     
     // Get the original dimensions of the label (e.g., 4x6 inches)
     const { width: originalLabelWidth, height: originalLabelHeight } = originalPage.size();
