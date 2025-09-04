@@ -100,7 +100,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
-      if (batchResult?.consolidatedLabelUrls?.pdf) {
+      if (batchResult?.consolidatedLabelUrls?.png) {
+        setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.png);
+        setPreviewType('image');
+        setSelectedFormat('8.5x11-2up');
+      } else if (batchResult?.consolidatedLabelUrls?.pdf) {
         setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
         setPreviewType('pdf');
         setSelectedFormat('8.5x11-2up');
@@ -110,13 +114,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         setPreviewType('placeholder');
       }
     } else {
-      if (labelUrls?.pdf) {
-        setCurrentPreviewUrl(labelUrls.pdf);
-        setPreviewType('pdf');
-        loadPdfBytes(labelUrls.pdf);
+      if (labelUrls?.png) {
+        setCurrentPreviewUrl(labelUrls.png);
+        setPreviewType('image');
       } else if (labelUrl && labelUrl.endsWith('.png')) {
         setCurrentPreviewUrl(labelUrl);
         setPreviewType('image');
+      } else if (labelUrls?.pdf) {
+        setCurrentPreviewUrl(labelUrls.pdf);
+        setPreviewType('pdf');
+        loadPdfBytes(labelUrls.pdf);
       } else if (labelUrl && labelUrl.endsWith('.pdf')) {
         setCurrentPreviewUrl(labelUrl);
         setPreviewType('pdf');
@@ -277,7 +284,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+  const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'png') => {
     try {
       toast.loading(`Preparing ${format.toUpperCase()} download...`);
       

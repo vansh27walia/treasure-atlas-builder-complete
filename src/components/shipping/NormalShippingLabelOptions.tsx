@@ -17,39 +17,49 @@ interface NormalShippingLabelOptionsProps {
     service: string;
     carrier: string;
   };
+  labelUrls?: {
+    png?: string;
+    pdf?: string;
+    zpl?: string;
+  };
 }
 
 const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   labelUrl,
   trackingCode,
   shipmentId,
-  shipmentDetails
+  shipmentDetails,
+  labelUrls
 }) => {
   const handleDirectDownload = async () => {
-    if (labelUrl) {
+    // Use PNG URL if available, fallback to main labelUrl
+    const downloadUrl = labelUrls?.png || labelUrl;
+    const isImage = downloadUrl?.includes('.png') || labelUrls?.png;
+    
+    if (downloadUrl) {
       try {
-        toast.loading('Downloading PDF label...');
+        toast.loading('Downloading PNG label...');
         
-        // Fetch the PDF from Supabase storage
-        const response = await fetch(labelUrl, {
+        // Fetch the image from Supabase storage
+        const response = await fetch(downloadUrl, {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/pdf'
+            'Content-Type': isImage ? 'image/png' : 'application/pdf'
           }
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch label: ${response.status} ${response.statusText}`);
         }
         
-        // Get the PDF blob
+        // Get the blob
         const blob = await response.blob();
         
         // Create download link
-        const downloadUrl = URL.createObjectURL(blob);
+        const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        link.href = objectUrl;
+        link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.${isImage ? 'png' : 'pdf'}`;
         link.style.display = 'none';
         
         // Trigger download
@@ -58,12 +68,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
         document.body.removeChild(link);
         
         // Clean up
-        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
         
-        toast.success('PDF label downloaded successfully');
+        toast.success(`${isImage ? 'PNG' : 'PDF'} label downloaded successfully`);
       } catch (error) {
-        console.error('Error downloading PDF:', error);
-        toast.error('Failed to download PDF. Please try again.');
+        console.error('Error downloading label:', error);
+        toast.error('Failed to download label. Please try again.');
       }
     } else {
       toast.error('Label URL not available');
@@ -88,11 +98,12 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   return (
     <div className="flex flex-col gap-3 w-full">
       {/* Print Preview Option - Top Priority */}
-      <PrintPreview
-        labelUrl={labelUrl}
+        <PrintPreview
+        labelUrl={labelUrls?.png || labelUrl}
         trackingCode={trackingCode}
         shipmentId={shipmentId}
         shipmentDetails={shipmentDetails}
+        labelUrls={labelUrls}
         isOpenProp={isEmailModalOpen}
         onOpenChangeProp={setIsEmailModalOpen}
         openToEmailTab={openToEmailTab}
