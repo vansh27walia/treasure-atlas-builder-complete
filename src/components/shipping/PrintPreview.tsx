@@ -97,6 +97,43 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [emailSubject, setEmailSubject] = useState('Shipping Label');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
+  const convertPngToPdf = async (imageUrl: string): Promise<string> => {
+    const { PDFDocument } = await import('pdf-lib');
+    
+    // Fetch the PNG image
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    const imageBytes = await response.arrayBuffer();
+    
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    
+    // Embed the PNG image
+    const pngImage = await pdfDoc.embedPng(imageBytes);
+    
+    // Get image dimensions
+    const { width, height } = pngImage.scale(1);
+    
+    // Create a page with the same dimensions as the image
+    const page = pdfDoc.addPage([width, height]);
+    
+    // Draw the image on the page
+    page.drawImage(pngImage, {
+      x: 0,
+      y: 0,
+      width: width,
+      height: height,
+    });
+    
+    // Save the PDF and create object URL
+    const pdfBytes = await pdfDoc.save();
+    setOriginalPdfBytes(pdfBytes);
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    return URL.createObjectURL(blob);
+  };
+
   // Load and process PDF for client-side format conversion
   useEffect(() => {
     if (isBatchPreview) {
@@ -114,9 +151,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         setCurrentPreviewUrl(labelUrls.pdf);
         setPreviewType('pdf');
         loadPdfBytes(labelUrls.pdf);
-      } else if (labelUrl && labelUrl.endsWith('.png')) {
-        setCurrentPreviewUrl(labelUrl);
-        setPreviewType('image');
+      } else if (labelUrl && labelUrl.toLowerCase().includes('.png')) {
+        // Convert PNG to PDF for preview
+        convertPngToPdf(labelUrl).then(pdfUrl => {
+          setCurrentPreviewUrl(pdfUrl);
+          setPreviewType('pdf');
+        }).catch(error => {
+          console.error('Error converting PNG to PDF:', error);
+          setCurrentPreviewUrl(labelUrl);
+          setPreviewType('image');
+        });
       } else if (labelUrl && labelUrl.endsWith('.pdf')) {
         setCurrentPreviewUrl(labelUrl);
         setPreviewType('pdf');
