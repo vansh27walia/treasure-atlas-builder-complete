@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, FileText, CreditCard, RefreshCw } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
-import PrintPreview from '@/components/shipping/PrintPreview';
+import IndependentBatchPrintPreview from '@/components/shipping/IndependentBatchPrintPreview';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 import { toast } from 'sonner';
 
@@ -371,15 +371,12 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
         )}
       </div>
 
-      {/* Print Preview Modal */}
+      {/* Independent Batch Print Preview Modal */}
       {results.batchResult && (
-        <PrintPreview
-          isOpenProp={batchPrintPreviewModalOpen}
-          onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl=""
-          trackingCode={null}
+        <IndependentBatchPrintPreview
+          isOpen={batchPrintPreviewModalOpen}
+          onClose={() => setBatchPrintPreviewModalOpen(false)}
           batchResult={results.batchResult}
-          isBatchPreview={true}
         />
       )}
     </div>
