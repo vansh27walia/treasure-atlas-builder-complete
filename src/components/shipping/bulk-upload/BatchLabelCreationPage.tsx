@@ -270,8 +270,8 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           </Card>
         </div>
 
-        {/* Batch Actions - Show only after payment */}
-        {labelsCreated && (
+        {/* Batch Actions - Available before and after payment */}
+        {successfulLabels.length > 0 && (
           <Card className="p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">Batch Actions</h2>
             <div className="flex flex-wrap gap-4">
