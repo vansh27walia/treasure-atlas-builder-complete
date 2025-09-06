@@ -71,7 +71,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     const link = document.createElement('a');
     link.href = results.batchResult.consolidatedLabelUrls[format]!;
     link.download = `consolidated_labels_${Date.now()}.${format}`;
-    link.target = '_blank';
+    
+    // Check if the format is ZPL or EPL and set target to '' to force direct download
+    if (format === 'zpl' || format === 'epl') {
+        link.target = '';
+    } else {
+        link.target = '_blank';
+    }
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
