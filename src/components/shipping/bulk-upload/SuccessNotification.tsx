@@ -8,7 +8,8 @@ import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
-import EnhancedPrintPreview from '@/components/shipping/EnhancedPrintPreview';
+// Import the new PrintPreview component
+import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -30,7 +31,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showBatchPreview, setShowBatchPreview] = useState(false);
-  
+
   console.log('SuccessNotification received results:', results);
 
   // Safely get shipments array
@@ -61,7 +62,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
-  
+
   const handleDownloadConsolidated = (format: 'pdf' | 'png' | 'zpl' | 'epl') => {
     if (!results.batchResult?.consolidatedLabelUrls[format]) {
       toast.error(`${format.toUpperCase()} consolidated labels not available`);
@@ -76,7 +77,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     document.body.removeChild(link);
     toast.success(`Downloaded consolidated ${format.toUpperCase()} labels`);
   };
-  
+
   const handleDownloadManifest = () => {
     if (!results.batchResult?.scanFormUrl) {
       toast.error('Scan form not available');
@@ -96,11 +97,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   if (!shouldShowNotification) {
     return null;
   }
-  
+
   const displayTotal = totalProcessed || results.total || 0;
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
   const displayFailed = failedShipments.length || results.failed || 0;
-  
+
   return (
     <div className="space-y-8">
       {/* Success Header - Enhanced Design */}
@@ -123,17 +124,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="text-3xl font-bold text-blue-600 mb-2">{displayTotal}</div>
           <div className="font-medium text-blue-800">Total Processed</div>
         </Card>
-        
+
         <Card className="p-6 text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200 shadow-lg">
           <div className="text-3xl font-bold text-green-600 mb-2">{displaySuccessful}</div>
           <div className="font-medium text-green-800">Labels Created</div>
         </Card>
-        
+
         <Card className="p-6 text-center bg-gradient-to-br from-red-50 to-red-100 border-red-200 shadow-lg">
           <div className="text-3xl font-bold text-red-600 mb-2">{displayFailed}</div>
           <div className="font-medium text-red-800">Failed</div>
         </Card>
-        
+
         <Card className="p-6 text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 shadow-lg">
           <div className="text-3xl font-bold text-purple-600 mb-2">${results.totalCost?.toFixed(2) || '0.00'}</div>
           <div className="font-medium text-purple-800">Total Cost</div>
@@ -154,14 +155,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 <p className="text-gray-600 text-sm">Preview and print all labels with format options</p>
               </div>
             </div>
-            
+
             {results.batchResult?.consolidatedLabelUrls?.pdf && (
-              <EnhancedPrintPreview
+              // Replace EnhancedPrintPreview with the new PrintPreview component
+              <PrintPreview
                 labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
                 trackingCode={`Batch-${results.batchResult.batchId}`}
                 shipmentId={results.batchResult.batchId}
+                batchResult={results.batchResult}
+                isBatchPreview={true}
                 triggerButton={
-                  <Button 
+                  <Button
                     className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
                   >
                     <Eye className="mr-2 h-5 w-5" />
@@ -181,14 +185,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               <p className="text-gray-600">Download all your labels in various formats or send via email</p>
             </div>
           </div>
-          
+
           {/* Consolidated Download Grid */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Consolidated Label Downloads</h3>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Button 
-                onClick={() => handleDownloadConsolidated('pdf')} 
-                className="bg-red-600 hover:bg-red-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+              <Button
+                onClick={() => handleDownloadConsolidated('pdf')}
+                className="bg-red-600 hover:bg-red-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200"
                 disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
               >
                 <Download className="h-6 w-6 mb-2" />
@@ -198,9 +202,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 </div>
               </Button>
 
-              <Button 
-                onClick={() => handleDownloadConsolidated('zpl')} 
-                className="bg-blue-600 hover:bg-blue-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+              <Button
+                onClick={() => handleDownloadConsolidated('zpl')}
+                className="bg-blue-600 hover:bg-blue-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200"
                 disabled={!results.batchResult?.consolidatedLabelUrls?.zpl}
               >
                 <Download className="h-6 w-6 mb-2" />
@@ -210,9 +214,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 </div>
               </Button>
 
-              <Button 
-                onClick={() => handleDownloadConsolidated('epl')} 
-                className="bg-orange-600 hover:bg-orange-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200" 
+              <Button
+                onClick={() => handleDownloadConsolidated('epl')}
+                className="bg-orange-600 hover:bg-orange-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200"
                 disabled={!results.batchResult?.consolidatedLabelUrls?.epl}
               >
                 <Download className="h-6 w-6 mb-2" />
@@ -226,20 +230,31 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-4">
-            <Button 
-              onClick={() => setShowEmailModal(true)} 
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg" 
-              size="lg"
-            >
-              <Mail className="mr-2 h-5 w-5" />
-              Email Labels
-            </Button>
+            {/* Replace EmailLabelsModal with the new PrintPreview component */}
+            <PrintPreview
+              isOpenProp={showEmailModal}
+              onOpenChangeProp={setShowEmailModal}
+              openToEmailTab={true}
+              labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || ''} // Or any available label URL
+              trackingCode={`Batch-${results.batchResult.batchId}`}
+              batchResult={results.batchResult}
+              isBatchPreview={true}
+              triggerButton={
+                <Button
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
+                  size="lg"
+                >
+                  <Mail className="mr-2 h-5 w-5" />
+                  Email Labels
+                </Button>
+              }
+            />
 
             {results.batchResult?.scanFormUrl && (
-              <Button 
-                onClick={handleDownloadManifest} 
-                variant="outline" 
-                className="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 shadow-lg" 
+              <Button
+                onClick={handleDownloadManifest}
+                variant="outline"
+                className="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 shadow-lg"
                 size="lg"
               >
                 <FileText className="mr-2 h-5 w-5" />
@@ -259,10 +274,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <p className="text-gray-700 mb-6 max-w-2xl mx-auto">
               Your shipments have been processed successfully. Click below to create and download all shipping labels at once.
             </p>
-            <Button 
-              onClick={onCreateLabels} 
-              disabled={isCreatingLabels} 
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg" 
+            <Button
+              onClick={onCreateLabels}
+              disabled={isCreatingLabels}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
               size="lg"
             >
               {isCreatingLabels ? (
@@ -288,15 +303,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <h2 className="text-xl font-semibold text-gray-900">Individual Label Management</h2>
             <p className="text-gray-600 mt-1">View and download individual shipping labels for each shipment</p>
           </div>
-          <LabelResultsTable 
-            shipments={allShipments} 
+          <LabelResultsTable
+            shipments={allShipments}
             onDownloadLabel={(url: string, format?: string) => {
               if (url && url.trim() !== '') {
                 onDownloadSingleLabel(url, format);
               } else {
                 toast.error('Invalid label URL - cannot download');
               }
-            }} 
+            }}
           />
         </Card>
       )}
@@ -322,13 +337,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </Card>
       )}
-
-      {/* Email Modal */}
-      <EmailLabelsModal 
-        isOpen={showEmailModal} 
-        onClose={() => setShowEmailModal(false)} 
-        batchResult={results.batchResult || null} 
-      />
     </div>
   );
 };
