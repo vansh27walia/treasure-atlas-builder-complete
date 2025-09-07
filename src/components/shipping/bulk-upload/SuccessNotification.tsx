@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye, Loader2 } from 'lucide-react';
-import { BulkUploadResult, BatchResult, Shipment, ShipmentStatus } from '@/types/shipping';
+import { BulkUploadResult, BatchResult, BulkShipment } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
 
@@ -36,12 +36,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   console.log('SuccessNotification received results:', results);
 
   // Safely get shipments array
-  let allShipments: Shipment[] = [];
+  let allShipments: BulkShipment[] = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
   } else if (results.processedShipments && typeof results.processedShipments === 'object') {
     const shipmentValues = Object.values(results.processedShipments);
-    allShipments = shipmentValues.filter(item => item && typeof item === 'object' && 'id' in item) as Shipment[];
+    allShipments = shipmentValues.filter(item => item && typeof item === 'object' && 'id' in item) as BulkShipment[];
   }
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
 
