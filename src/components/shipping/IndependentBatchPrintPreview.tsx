@@ -80,21 +80,18 @@ const IndependentBatchPrintPreview: React.FC<IndependentBatchPrintPreviewProps> 
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Top Action Bar */}
+            {/* Top Action Bar with better Email button placement */}
             <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-blue-900">Label Actions</h3>
-                <div className="flex items-center gap-3">
-                  {/* Email Button */}
-                  <Button 
-                    onClick={handleEmailClick}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    size="sm"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email Labels
-                  </Button>
-                </div>
+                <h3 className="text-lg font-medium text-blue-900">Batch Label Actions</h3>
+                <Button 
+                  onClick={handleEmailClick}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+                  size="lg"
+                >
+                  <Mail className="h-5 w-5 mr-2" />
+                  Email Labels
+                </Button>
               </div>
             </Card>
 
@@ -115,35 +112,37 @@ const IndependentBatchPrintPreview: React.FC<IndependentBatchPrintPreviewProps> 
                   </div>
                 </Button>
 
-                {/* Batch Label ZPL */}
-                {batchResult?.consolidatedLabelUrls.zpl && (
-                  <Button
-                    onClick={() => handleDownload('zpl')}
-                    className="h-16 bg-purple-600 hover:bg-purple-700 text-white flex flex-col items-center justify-center"
-                    size="lg"
-                  >
-                    <FileText className="h-6 w-6 mb-1" />
-                    <div className="text-center">
-                      <div className="font-semibold">Batch Label ZPL</div>
-                      <div className="text-xs opacity-90">Download ZPL</div>
+                {/* Batch Label ZPL - Always show */}
+                <Button
+                  onClick={() => handleDownload('zpl')}
+                  className="h-16 bg-blue-600 hover:bg-blue-700 text-white flex flex-col items-center justify-center"
+                  size="lg"
+                  disabled={!batchResult?.consolidatedLabelUrls.zpl}
+                >
+                  <FileText className="h-6 w-6 mb-1" />
+                  <div className="text-center">
+                    <div className="font-semibold">Batch Label ZPL</div>
+                    <div className="text-xs opacity-90">
+                      {batchResult?.consolidatedLabelUrls.zpl ? 'Download ZPL' : 'Not Available'}
                     </div>
-                  </Button>
-                )}
+                  </div>
+                </Button>
 
-                {/* Batch Label EPL */}
-                {batchResult?.consolidatedLabelUrls.epl && (
-                  <Button
-                    onClick={() => handleDownload('epl')}
-                    className="h-16 bg-orange-600 hover:bg-orange-700 text-white flex flex-col items-center justify-center"
-                    size="lg"
-                  >
-                    <FileText className="h-6 w-6 mb-1" />
-                    <div className="text-center">
-                      <div className="font-semibold">Batch Label EPL</div>
-                      <div className="text-xs opacity-90">Download EPL</div>
+                {/* Batch Label EPL - Always show */}
+                <Button
+                  onClick={() => handleDownload('epl')}
+                  className="h-16 bg-purple-600 hover:bg-purple-700 text-white flex flex-col items-center justify-center"
+                  size="lg"
+                  disabled={!batchResult?.consolidatedLabelUrls.epl}
+                >
+                  <FileText className="h-6 w-6 mb-1" />
+                  <div className="text-center">
+                    <div className="font-semibold">Batch Label EPL</div>
+                    <div className="text-xs opacity-90">
+                      {batchResult?.consolidatedLabelUrls.epl ? 'Download EPL' : 'Not Available'}
                     </div>
-                  </Button>
-                )}
+                  </div>
+                </Button>
               </div>
             </Card>
 
