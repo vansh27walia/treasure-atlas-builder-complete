@@ -1,15 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye } from 'lucide-react';
-import { BulkUploadResult } from '@/types/shipping';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { CheckCircle, Download, FileText, PrinterIcon, Mail, Package, Sparkles, Eye, Loader2 } from 'lucide-react';
+import { BulkUploadResult, BatchResult, Shipment, ShipmentStatus } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
-import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
-import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
-// Import the new PrintPreview component
-import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -31,16 +30,18 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showBatchPreview, setShowBatchPreview] = useState(false);
+  const [email, setEmail] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   console.log('SuccessNotification received results:', results);
 
   // Safely get shipments array
-  let allShipments = [];
+  let allShipments: Shipment[] = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
   } else if (results.processedShipments && typeof results.processedShipments === 'object') {
     const shipmentValues = Object.values(results.processedShipments);
-    allShipments = shipmentValues.filter(item => item && typeof item === 'object' && 'id' in item);
+    allShipments = shipmentValues.filter(item => item && typeof item === 'object' && 'id' in item) as Shipment[];
   }
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
 
@@ -74,9 +75,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     // Check if the format is ZPL or EPL and set target to '' to force direct download
     if (format === 'zpl' || format === 'epl') {
-        link.target = '';
+      link.target = '';
     } else {
-        link.target = '_blank';
+      link.target = '_blank';
     }
 
     document.body.appendChild(link);
@@ -99,6 +100,41 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     document.body.removeChild(link);
     toast.success('Downloaded pickup manifest');
   };
+
+  // Logic from PrintPreview component
+  const handlePrint = useCallback(() => {
+    const printWindow = window.open(results.batchResult?.consolidatedLabelUrls?.pdf, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+        toast.success("Printing your labels...");
+      };
+    } else {
+      toast.error("Could not open print window. Please check your pop-up blocker.");
+    }
+  }, [results.batchResult]);
+
+  const handleEmailLabels = useCallback(async () => {
+    if (!email) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      // Dummy email sending logic - replace with your actual API call
+      console.log(`Sending labels to ${email}...`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+      toast.success(`Labels sent to ${email}!`);
+      setShowEmailModal(false);
+      setEmail('');
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      toast.error("Failed to send email. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  }, [email]);
 
   // Don't show if no data
   if (!shouldShowNotification) {
@@ -164,22 +200,35 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             </div>
 
             {results.batchResult?.consolidatedLabelUrls?.pdf && (
-              // Replace EnhancedPrintPreview with the new PrintPreview component
-              <PrintPreview
-                labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
-                trackingCode={`Batch-${results.batchResult.batchId}`}
-                shipmentId={results.batchResult.batchId}
-                batchResult={results.batchResult}
-                isBatchPreview={true}
-                triggerButton={
+              <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+                <DialogTrigger asChild>
                   <Button
                     className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg h-12 px-8 font-semibold"
                   >
                     <Eye className="mr-2 h-5 w-5" />
                     Print Preview All Labels
                   </Button>
-                }
-              />
+                </DialogTrigger>
+                <DialogContent className="min-w-[90vw] h-[90vh] flex flex-col p-0">
+                  <DialogHeader className="p-4 border-b">
+                    <DialogTitle>Print Preview: Batch Labels</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-grow flex items-center justify-center bg-gray-100">
+                    <iframe
+                      src={results.batchResult.consolidatedLabelUrls.pdf}
+                      className="w-full h-full"
+                      title="Label Preview"
+                      frameBorder="0"
+                    ></iframe>
+                  </div>
+                  <div className="p-4 border-t flex justify-end gap-2">
+                    <Button onClick={handlePrint}>
+                      <PrinterIcon className="mr-2 h-4 w-4" />
+                      Print
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
 
@@ -237,16 +286,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-4">
-            {/* Replace EmailLabelsModal with the new PrintPreview component */}
-            <PrintPreview
-              isOpenProp={showEmailModal}
-              onOpenChangeProp={setShowEmailModal}
-              openToEmailTab={true}
-              labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || ''} // Or any available label URL
-              trackingCode={`Batch-${results.batchResult.batchId}`}
-              batchResult={results.batchResult}
-              isBatchPreview={true}
-              triggerButton={
+            <Dialog open={showEmailModal} onOpenChange={setShowEmailModal}>
+              <DialogTrigger asChild>
                 <Button
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
                   size="lg"
@@ -254,8 +295,32 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                   <Mail className="mr-2 h-5 w-5" />
                   Email Labels
                 </Button>
-              }
-            />
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Email Labels</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500">Enter the email address to send a link to download the labels.</p>
+                  <Input
+                    type="email"
+                    placeholder="Enter email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <Button onClick={handleEmailLabels} disabled={isSending}>
+                    {isSending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Send'
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {results.batchResult?.scanFormUrl && (
               <Button
