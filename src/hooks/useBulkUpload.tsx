@@ -261,11 +261,94 @@ export const useBulkUpload = () => {
       totalInsurance: totalInsuranceCost
     });
     
-    toast.success('Shipment updated and row totals recalculated');
+    toast.success('Shipment updated successfully');
+    
+    // Automatically fetch new rates for the edited shipment
+    console.log('Auto-fetching new rates for edited shipment:', shipmentId);
+    setTimeout(() => {
+      handleRefreshRates(shipmentId);
+    }, 500); // Small delay to ensure state is updated
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
-    console.log('Refresh rates for shipment:', shipmentId);
+    if (!results || !pickupAddress) return;
+    
+    setIsFetchingRates(true);
+    const shipment = results.processedShipments.find(s => s.id === shipmentId);
+    
+    if (!shipment) {
+      toast.error('Shipment not found');
+      setIsFetchingRates(false);
+      return;
+    }
+
+    try {
+      console.log('Fetching new rates for edited shipment:', shipmentId);
+      
+      // Create a temporary CSV content for this single shipment
+      const csvHeader = 'to_name,to_street1,to_city,to_state,to_zip,to_country,weight,length,width,height,to_company,to_street2,to_phone,to_email,reference';
+      const csvRow = `"${shipment.details?.to_name || shipment.recipient}","${shipment.details?.to_street1 || ''}","${shipment.details?.to_city || ''}","${shipment.details?.to_state || ''}","${shipment.details?.to_zip || ''}","${shipment.details?.to_country || 'US'}","${shipment.details?.weight || 1}","${shipment.details?.length || 1}","${shipment.details?.width || 1}","${shipment.details?.height || 1}","${shipment.details?.to_company || ''}","${shipment.details?.to_street2 || ''}","${shipment.details?.phone_number || ''}","${shipment.details?.to_email || ''}","${shipment.details?.reference || ''}"`;
+      
+      const csvContent = `${csvHeader}\n${csvRow}`;
+
+      // Use the same edge function as initial upload
+      const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
+        body: { 
+          csvContent: csvContent,
+          pickupAddress: pickupAddress
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data && data.processedShipments && data.processedShipments.length > 0) {
+        const updatedShipmentData = data.processedShipments[0];
+        
+        // Update the specific shipment with new rates
+        const updatedShipments = results.processedShipments.map(s => {
+          if (s.id === shipmentId) {
+            return {
+              ...s,
+              availableRates: updatedShipmentData.availableRates,
+              // Reset selected rate since we have new options
+              selectedRateId: undefined,
+              carrier: '',
+              service: '',
+              rate: 0
+            };
+          }
+          return s;
+        });
+
+        // Recalculate totals
+        const totalCost = updatedShipments.reduce((sum, shipment) => {
+          return sum + (shipment.rate || 0);
+        }, 0);
+        
+        const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+          return sum + (shipment.insurance_cost || 0);
+        }, 0);
+
+        setResults({
+          ...results,
+          processedShipments: updatedShipments,
+          totalCost,
+          totalInsurance
+        });
+
+        toast.success('New rates fetched successfully! Please select a rate.');
+      } else {
+        throw new Error('No rates received from updated shipment data');
+      }
+
+    } catch (error) {
+      console.error('Error fetching new rates:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch new rates');
+    } finally {
+      setIsFetchingRates(false);
+    }
   };
 
   const handleBulkApplyCarrier = (carrier: string) => {
@@ -548,6 +631,11 @@ export const useBulkUpload = () => {
     handleOpenBatchPrintPreview,
     handlePaymentSuccess,
     handleAddPaymentMethod,
-    handleDownloadTemplate
+    handleDownloadTemplate,
+    handleCreateLabels,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels
   };
 };
