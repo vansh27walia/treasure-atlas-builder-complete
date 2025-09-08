@@ -115,12 +115,22 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
   // Create a wrapper function that matches the modal's expected signature
   const handleShipmentEdit = (shipmentId: string, updates: Partial<BulkShipment>) => {
-    if (!results) return;
+    console.log('BulkUploadView: Edit shipment called', { shipmentId, updates });
+    
+    if (!results) {
+      console.error('No results available for editing');
+      return;
+    }
     
     const shipment = results.processedShipments.find(s => s.id === shipmentId);
-    if (!shipment) return;
+    if (!shipment) {
+      console.error('Shipment not found for editing:', shipmentId);
+      return;
+    }
 
+    // Create the updated shipment object and call the hook function
     const updatedShipment = { ...shipment, ...updates };
+    console.log('BulkUploadView: Calling handleEditShipment with updated shipment');
     handleEditShipment(updatedShipment);
   };
 

@@ -53,7 +53,10 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
   };
 
   const handleSave = () => {
+    console.log('EditShipmentModal: Starting save process', { shipmentId: shipment.id, editData });
+    
     if (!validateShipment()) {
+      console.log('EditShipmentModal: Validation failed');
       return;
     }
 
@@ -79,17 +82,18 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       }
     };
 
-    console.log('Saving shipment edit with validation:', {
+    console.log('EditShipmentModal: Saving shipment with calculated updates:', {
       shipmentId: shipment.id,
       isFedEx,
       hasPhoneNumber: !!editData.phone_number,
       isInternational,
+      insuranceCost,
       updates
     });
 
     onEditShipment(shipment.id, updates);
     setOpen(false);
-    toast.success('Shipment updated successfully');
+    toast.success('Shipment updated and saved successfully! Fetching new rates...');
   };
 
   return (
