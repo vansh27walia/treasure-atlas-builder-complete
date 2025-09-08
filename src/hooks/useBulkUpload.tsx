@@ -131,22 +131,29 @@ export const useBulkUpload = () => {
       return shipment;
     });
     
-    // FIXED: Calculate totals by summing shipping rates and insurance costs separately
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
+    // ENHANCED: Calculate totals correctly - sum of all row totals
+    const totalShippingCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
     }, 0);
     
-    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+    const totalInsuranceCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.insurance_cost || 0);
     }, 0);
     
-    console.log('Rate selection - Updated totals with insurance:', {
-      totalCost,
-      totalInsurance,
-      finalTotal: totalCost + totalInsurance,
-      shipmentBreakdown: updatedShipments.map(s => ({ 
+    // The final total for payment is the sum of all individual row totals
+    const grandTotal = updatedShipments.reduce((sum, shipment) => {
+      const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
+      return sum + rowTotal;
+    }, 0);
+    
+    console.log('Rate selection - Row-by-row totals calculation:', {
+      totalShippingCost,
+      totalInsuranceCost,
+      grandTotal,
+      verification: `${totalShippingCost} + ${totalInsuranceCost} = ${grandTotal}`,
+      rowBreakdown: updatedShipments.map(s => ({ 
         id: s.id, 
-        rate: s.rate, 
+        rate: s.rate || 0, 
         insurance: s.insurance_cost || 0,
         rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
       }))
@@ -155,8 +162,8 @@ export const useBulkUpload = () => {
     setResults({
       ...results,
       processedShipments: updatedShipments,
-      totalCost,
-      totalInsurance
+      totalCost: totalShippingCost,
+      totalInsurance: totalInsuranceCost
     });
   };
 
@@ -194,49 +201,67 @@ export const useBulkUpload = () => {
       if (shipment.id === shipmentId) {
         const updatedShipment = { ...shipment, ...updates };
         
-        // Ensure insurance cost is properly calculated if not provided in updates
-        if (updates.details?.declared_value !== undefined || updates.details?.insurance_enabled !== undefined) {
-          const insuranceEnabled = updatedShipment.details?.insurance_enabled !== false;
-          const declaredValue = updatedShipment.details?.declared_value || 0;
-          
-          if (!updates.insurance_cost) {
-            updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
-              ? Math.max(declaredValue * 0.02, 1) 
-              : 0;
-          }
+        // Validate FedEx phone number requirement
+        if (updatedShipment.carrier?.toLowerCase().includes('fedex') && 
+            !updatedShipment.details?.phone_number?.trim()) {
+          toast.error('FedEx shipments require a phone number');
+          return shipment; // Return unchanged if validation fails
         }
+        
+        // Check for international customs requirements
+        const isInternational = updatedShipment.details?.to_country !== 'US' && 
+                              updatedShipment.details?.to_country !== 'USA';
+        if (isInternational) {
+          toast.warning('International shipment - ensure customs documents are complete');
+        }
+        
+        // Ensure insurance cost is properly calculated
+        const insuranceEnabled = updatedShipment.details?.insurance_enabled !== false;
+        const declaredValue = updatedShipment.details?.declared_value || 0;
+        
+        // Always recalculate insurance cost based on current settings
+        updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
+          ? Math.max(declaredValue * 0.02, 1) 
+          : 0;
         
         return updatedShipment;
       }
       return shipment;
     });
     
-    // FIXED: Recalculate totals after edit including insurance
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
+    // ENHANCED: Recalculate all totals properly - sum of row totals
+    const totalShippingCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
     }, 0);
     
-    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+    const totalInsuranceCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.insurance_cost || 0);
     }, 0);
     
-    console.log('Edit shipment - Recalculated totals:', {
+    // Calculate grand total (sum of all row totals)
+    const grandTotal = updatedShipments.reduce((sum, shipment) => {
+      const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
+      return sum + rowTotal;
+    }, 0);
+    
+    console.log('Edit shipment - Row-by-row recalculation:', {
       shipmentId,
       updates,
-      totalCost,
-      totalInsurance,
-      finalTotal: totalCost + totalInsurance,
+      totalShippingCost,
+      totalInsuranceCost,
+      grandTotal,
+      verification: `${totalShippingCost} + ${totalInsuranceCost} = ${grandTotal}`,
       updatedShipment: updatedShipments.find(s => s.id === shipmentId)
     });
     
     setResults({
       ...results,
       processedShipments: updatedShipments,
-      totalCost,
-      totalInsurance
+      totalCost: totalShippingCost,
+      totalInsurance: totalInsuranceCost
     });
     
-    toast.success('Shipment updated and totals recalculated');
+    toast.success('Shipment updated and row totals recalculated');
   };
 
   const handleRefreshRates = async (shipmentId: string) => {

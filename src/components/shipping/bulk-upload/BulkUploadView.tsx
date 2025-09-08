@@ -28,6 +28,7 @@ import { BulkShipment } from '@/types/shipping';
 import { useBulkUpload } from './useBulkUpload';
 import OrderSummary from './OrderSummary';
 import BulkPaymentModal from './BulkPaymentModal';
+import EditShipmentModal from './EditShipmentModal';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -110,6 +111,17 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       return `${address.street1 || ''}, ${address.city || ''}, ${address.state || ''}`.replace(/^,\s*|,\s*$/g, '');
     }
     return 'Address not available';
+  };
+
+  // Create a wrapper function that matches the modal's expected signature
+  const handleShipmentEdit = (shipmentId: string, updates: Partial<BulkShipment>) => {
+    if (!results) return;
+    
+    const shipment = results.processedShipments.find(s => s.id === shipmentId);
+    if (!shipment) return;
+
+    const updatedShipment = { ...shipment, ...updates };
+    handleEditShipment(updatedShipment);
   };
 
   return (
@@ -215,16 +227,10 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              toast.info('Edit functionality available - right-click for advanced options');
-                            }}
-                            className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
-                          >
-                            Edit
-                          </Button>
+                          <EditShipmentModal
+                            shipment={shipment}
+                            onEditShipment={handleShipmentEdit}
+                          />
                           <Button 
                             variant="outline" 
                             size="sm"
