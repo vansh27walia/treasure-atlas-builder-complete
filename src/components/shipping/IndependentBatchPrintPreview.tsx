@@ -146,7 +146,7 @@ const IndependentBatchPrintPreview: React.FC<IndependentBatchPrintPreviewProps> 
               </div>
             </Card>
 
-            {/* PDF Preview */}
+            {/* Independent PDF Preview - No format controls */}
             <Card className="p-4">
               <h4 className="text-lg font-medium text-gray-900 mb-4">Label Preview</h4>
               <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '600px' }}>
@@ -154,8 +154,13 @@ const IndependentBatchPrintPreview: React.FC<IndependentBatchPrintPreviewProps> 
                   src={batchResult.consolidatedLabelUrls.pdf}
                   width="100%"
                   height="100%"
-                  title="Batch Labels Preview"
+                  title="Independent Batch Labels Preview"
                   className="border-0"
+                  style={{ 
+                    zoom: 1,
+                    transform: 'none',
+                    transformOrigin: 'top left'
+                  }}
                 />
               </div>
             </Card>
@@ -193,13 +198,12 @@ const IndependentBatchPrintPreview: React.FC<IndependentBatchPrintPreviewProps> 
               </Card>
             )}
 
-            {/* Information Card */}
+            {/* Simplified Batch Information */}
             <Card className="p-4 bg-gray-50">
               <h4 className="font-medium text-gray-900 mb-2">Batch Information</h4>
               <div className="text-sm text-gray-600 space-y-1">
                 <p><strong>Batch ID:</strong> {batchResult.batchId}</p>
                 <p><strong>Available Formats:</strong> PDF (ready), ZPL {batchResult?.consolidatedLabelUrls.zpl ? '(ready)' : '(not available)'}, EPL {batchResult?.consolidatedLabelUrls.epl ? '(ready)' : '(not available)'}</p>
-                <p><strong>Email:</strong> Use the email button to send labels to multiple recipients</p>
               </div>
             </Card>
           </div>
