@@ -40,19 +40,35 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   };
 
   const handleSave = async () => {
-    // Apply the changes to the shipment
+    // Calculate insurance cost based on new declared value
+    const insuranceEnabled = shipment.details?.insurance_enabled !== false;
+    const insuranceCost = insuranceEnabled && editData.declared_value > 0 
+      ? Math.max(editData.declared_value * 0.02, 1) 
+      : 0;
+    
+    // Apply the changes to the shipment with updated insurance cost
     const updates = {
       customer_name: editData.customer_name,
       recipient: editData.customer_name,
+      insurance_cost: insuranceCost,
       details: {
         ...shipment.details,
         weight: parseWeightInput(editData.weight),
         length: editData.length,
         width: editData.width,
         height: editData.height,
-        declared_value: editData.declared_value
+        declared_value: editData.declared_value,
+        insurance_enabled: insuranceEnabled
       }
     };
+    
+    console.log('Saving shipment edit with insurance calculation:', {
+      shipmentId: shipment.id,
+      declaredValue: editData.declared_value,
+      insuranceEnabled,
+      insuranceCost,
+      updates
+    });
     
     onEditShipment(shipment.id, updates);
     setIsEditing(false);
@@ -179,14 +195,30 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
           insuranceEnabled={shipment.details?.insurance_enabled !== false}
           declaredValue={editData.declared_value}
           onInsuranceToggle={(id, enabled) => {
+            const newInsuranceCost = enabled && editData.declared_value > 0 
+              ? Math.max(editData.declared_value * 0.02, 1) 
+              : 0;
+            
+            console.log('Insurance toggle:', { id, enabled, declaredValue: editData.declared_value, insuranceCost: newInsuranceCost });
+            
             onEditShipment(id, {
-              details: { ...shipment.details, insurance_enabled: enabled }
+              details: { ...shipment.details, insurance_enabled: enabled },
+              insurance_cost: newInsuranceCost
             });
           }}
           onDeclaredValueChange={(id, value) => {
             setEditData(prev => ({ ...prev, declared_value: value }));
+            
+            const insuranceEnabled = shipment.details?.insurance_enabled !== false;
+            const newInsuranceCost = insuranceEnabled && value > 0 
+              ? Math.max(value * 0.02, 1) 
+              : 0;
+              
+            console.log('Declared value change:', { id, value, insuranceEnabled, insuranceCost: newInsuranceCost });
+            
             onEditShipment(id, {
-              details: { ...shipment.details, declared_value: value }
+              details: { ...shipment.details, declared_value: value },
+              insurance_cost: newInsuranceCost
             });
           }}
         />

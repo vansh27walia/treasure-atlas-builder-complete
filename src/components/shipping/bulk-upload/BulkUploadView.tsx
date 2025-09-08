@@ -214,14 +214,26 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                         ${rowTotal.toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleRemoveShipment(shipment.id)}
-                          className="hover:bg-red-50 hover:border-red-300 hover:text-red-700"
-                        >
-                          Remove
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              toast.info('Edit functionality available - right-click for advanced options');
+                            }}
+                            className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleRemoveShipment(shipment.id)}
+                            className="hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -245,7 +257,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             successfulCount={results.successful}
             totalCost={results.totalCost}
             totalInsurance={results.totalInsurance || 0}
-            onDownloadAllLabels={() => console.log('Download all labels')}
+            onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}
             onAddPaymentMethod={handleAddPaymentMethod}
             isPaying={isPaying}

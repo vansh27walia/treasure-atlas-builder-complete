@@ -110,29 +110,37 @@ export const useBulkUpload = () => {
       if (shipment.id === shipmentId) {
         const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
         if (selectedRate) {
-          return {
+          const updatedShipment = {
             ...shipment,
             selectedRateId: rateId,
             carrier: selectedRate.carrier,
             service: selectedRate.service,
             rate: parseFloat(selectedRate.rate)
           };
+          
+          // Ensure insurance cost is calculated based on current settings
+          const insuranceEnabled = updatedShipment.details?.insurance_enabled !== false;
+          const declaredValue = updatedShipment.details?.declared_value || 0;
+          updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
+            ? Math.max(declaredValue * 0.02, 1) 
+            : 0;
+          
+          return updatedShipment;
         }
       }
       return shipment;
     });
     
-    // FIXED: Calculate totals by summing each row's (rate + insurance)
+    // FIXED: Calculate totals by summing shipping rates and insurance costs separately
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
     }, 0);
     
-    // FIXED: Calculate total insurance separately - sum of each row's insurance
     const totalInsurance = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.insurance_cost || 0);
     }, 0);
     
-    console.log('Rate selection - Updated totals:', {
+    console.log('Rate selection - Updated totals with insurance:', {
       totalCost,
       totalInsurance,
       finalTotal: totalCost + totalInsurance,
@@ -184,12 +192,26 @@ export const useBulkUpload = () => {
     
     const updatedShipments = results.processedShipments.map(shipment => {
       if (shipment.id === shipmentId) {
-        return { ...shipment, ...updates };
+        const updatedShipment = { ...shipment, ...updates };
+        
+        // Ensure insurance cost is properly calculated if not provided in updates
+        if (updates.details?.declared_value !== undefined || updates.details?.insurance_enabled !== undefined) {
+          const insuranceEnabled = updatedShipment.details?.insurance_enabled !== false;
+          const declaredValue = updatedShipment.details?.declared_value || 0;
+          
+          if (!updates.insurance_cost) {
+            updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
+              ? Math.max(declaredValue * 0.02, 1) 
+              : 0;
+          }
+        }
+        
+        return updatedShipment;
       }
       return shipment;
     });
     
-    // FIXED: Recalculate totals after edit
+    // FIXED: Recalculate totals after edit including insurance
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.rate || 0);
     }, 0);
@@ -198,6 +220,15 @@ export const useBulkUpload = () => {
       return sum + (shipment.insurance_cost || 0);
     }, 0);
     
+    console.log('Edit shipment - Recalculated totals:', {
+      shipmentId,
+      updates,
+      totalCost,
+      totalInsurance,
+      finalTotal: totalCost + totalInsurance,
+      updatedShipment: updatedShipments.find(s => s.id === shipmentId)
+    });
+    
     setResults({
       ...results,
       processedShipments: updatedShipments,
@@ -205,7 +236,7 @@ export const useBulkUpload = () => {
       totalInsurance
     });
     
-    toast.success('Shipment updated');
+    toast.success('Shipment updated and totals recalculated');
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
