@@ -65,7 +65,24 @@ serve(async (req) => {
       throw new Error("Payment method not found or doesn't belong to user");
     }
 
-    // Create and confirm payment intent off-session
+    // Create and confirm payment intent off-session  
+    // Limit metadata to avoid Stripe's 500 character limit
+    let limitedShippingDetails = null;
+    if (shipping_details) {
+      const detailsString = JSON.stringify(shipping_details);
+      if (detailsString.length > 400) { // Leave room for other metadata
+        // Create a summary of shipping details that fits in metadata
+        const summary = {
+          shipmentCount: shipping_details.shipmentCount || 0,
+          totalCost: shipping_details.totalCost || 0,
+          pickupAddress: shipping_details.pickupAddress?.name || 'Unknown'
+        };
+        limitedShippingDetails = JSON.stringify(summary);
+      } else {
+        limitedShippingDetails = detailsString;
+      }
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency: currency,
@@ -77,7 +94,7 @@ serve(async (req) => {
       metadata: {
         user_id: user.id,
         transaction_type: "shipping",
-        shipping_details: shipping_details ? JSON.stringify(shipping_details) : null
+        shipping_summary: limitedShippingDetails
       }
     });
 

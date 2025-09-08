@@ -216,7 +216,7 @@ serve(async (req) => {
     console.log("Processing EasyPost bulk upload with pickup address:", pickupAddress.name);
     console.log("CSV content length:", csvContent.length);
 
-    // Parse the CSV content following EasyPost format
+        // Parse CSV content following EasyPost format
     const rows = parseCSV(csvContent);
     
     if (rows.length < 2) {
@@ -297,8 +297,9 @@ serve(async (req) => {
           to_email: getValue(fieldIndexes.to_email),
         };
 
+        // FIXED: Parse weight as pounds (no conversion needed)
         const parcel = {
-          weight: parseFloat(getValue(fieldIndexes.weight)) || 1.0,
+          weight: parseFloat(getValue(fieldIndexes.weight)) || 1.0, // Weight in pounds
           length: parseFloat(getValue(fieldIndexes.length)) || 12,
           width: parseFloat(getValue(fieldIndexes.width)) || 8,
           height: parseFloat(getValue(fieldIndexes.height)) || 4,
@@ -307,7 +308,7 @@ serve(async (req) => {
         const reference = getValue(fieldIndexes.reference);
         
         console.log(`Row ${i} to_address:`, toAddress);
-        console.log(`Row ${i} parcel:`, parcel);
+        console.log(`Row ${i} parcel (weights in pounds):`, parcel);
         
         // Validate required address fields
         if (!toAddress.to_name || !toAddress.to_street1 || !toAddress.to_city || 

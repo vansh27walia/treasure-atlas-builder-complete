@@ -20,7 +20,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
   const [open, setOpen] = useState(false);
   const [editData, setEditData] = useState({
     customer_name: shipment.customer_name || shipment.recipient || '',
-    weight: shipment.details?.weight || 1,
+    weight: shipment.details?.weight || 1, // Already in pounds from backend
     length: shipment.details?.length || 1,
     width: shipment.details?.width || 1,
     height: shipment.details?.height || 1,
@@ -190,7 +190,9 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
                 step="0.1"
                 min="0.1"
+                placeholder="Weight in pounds"
               />
+              <p className="text-xs text-gray-500 mt-1">Enter weight in pounds (e.g., 2.5 for 2.5 lbs)</p>
             </div>
 
             <div className="grid grid-cols-3 gap-2">

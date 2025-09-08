@@ -265,11 +265,8 @@ const BulkUpload: React.FC = () => {
                   }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
-                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                  if (shipment) {
-                    handleEditShipment(shipment);
-                  }
+                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {
+                  handleEditShipment(shipmentId, updates);
                 }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
                   </div>
                   

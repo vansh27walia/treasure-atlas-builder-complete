@@ -149,10 +149,25 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  const handleEditShipment = async (shipment: BulkShipment) => {
+  const handleEditShipment = async (shipmentId: string, updates: Partial<BulkShipment>) => {
+    if (!results) return;
+    
     try {
+      console.log('Editing shipment with updates:', { shipmentId, updates });
+      
+      // Find the shipment to edit
+      const shipment = results.processedShipments.find(s => s.id === shipmentId);
+      if (!shipment) {
+        console.error('Shipment not found for editing:', shipmentId);
+        toast.error('Shipment not found');
+        return;
+      }
+      
+      // Create the updated shipment
+      const updatedShipment = { ...shipment, ...updates };
+      
       // First update the shipment details using the original function
-      await originalHandleEditShipment(shipment);
+      await originalHandleEditShipment(updatedShipment);
       
       // Then refresh rates for the updated shipment
       console.log('Refreshing rates after shipment edit...');
@@ -161,7 +176,7 @@ export const useBulkUpload = () => {
       // ENHANCED: Recalculate row totals after edit
       if (results) {
         const updatedShipments = results.processedShipments.map(s => 
-          s.id === shipment.id ? shipment : s
+          s.id === shipment.id ? updatedShipment : s
         );
         
         // Calculate new totals properly - sum of all row totals

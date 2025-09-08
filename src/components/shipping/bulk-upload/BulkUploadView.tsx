@@ -128,10 +128,9 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       return;
     }
 
-    // Create the updated shipment object and call the hook function
-    const updatedShipment = { ...shipment, ...updates };
-    console.log('BulkUploadView: Calling handleEditShipment with updated shipment');
-    handleEditShipment(updatedShipment);
+    // Call the hook function with the correct signature
+    console.log('BulkUploadView: Calling handleEditShipment with shipmentId and updates');
+    handleEditShipment(shipmentId, updates);
   };
 
   return (

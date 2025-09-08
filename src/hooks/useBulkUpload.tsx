@@ -195,6 +195,7 @@ export const useBulkUpload = () => {
   };
 
   const handleEditShipment = (shipmentId: string, updates: Partial<BulkShipment>) => {
+    console.log('useBulkUpload: handleEditShipment called with:', { shipmentId, updates });
     if (!results) return;
     
     const updatedShipments = results.processedShipments.map(shipment => {
@@ -263,11 +264,11 @@ export const useBulkUpload = () => {
     
     toast.success('Shipment updated successfully');
     
-    // Automatically fetch new rates for the edited shipment
-    console.log('Auto-fetching new rates for edited shipment:', shipmentId);
+    // Auto-refresh rates after edit with proper delay
+    console.log('Edit completed successfully, triggering rate refresh for:', shipmentId);
     setTimeout(() => {
       handleRefreshRates(shipmentId);
-    }, 500); // Small delay to ensure state is updated
+    }, 1000); // Increased delay to ensure state updates are complete
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
