@@ -205,6 +205,7 @@ export const useBulkUpload = () => {
     
     console.log('📦 Current shipments before edit:', results.processedShipments.length);
     
+    // STEP 1: SAVE CHANGES LOCALLY FIRST (as user requested)
     const updatedShipments = results.processedShipments.map(shipment => {
       if (shipment.id === shipmentId) {
         console.log('🎯 Found shipment to update:', shipmentId);
@@ -238,7 +239,7 @@ export const useBulkUpload = () => {
           ? Math.max(declaredValue * 0.02, 1) 
           : 0;
         
-        console.log('✅ Shipment successfully updated:', {
+        console.log('✅ Shipment successfully updated LOCALLY (WEIGHT IN POUNDS):', {
           id: shipmentId,
           weightInPounds: updatedShipment.details?.weight,
           dimensions: {
@@ -270,7 +271,7 @@ export const useBulkUpload = () => {
       return sum + rowTotal;
     }, 0);
     
-    console.log('💰 Totals recalculated after edit:', {
+    console.log('💰 Totals recalculated after LOCAL edit:', {
       totalShippingCost,
       totalInsuranceCost,
       grandTotal,
@@ -278,8 +279,8 @@ export const useBulkUpload = () => {
       updatedShipment: updatedShipments.find(s => s.id === shipmentId)
     });
     
-    // Update the results state
-    console.log('💾 Updating results state...');
+    // Update the results state LOCALLY FIRST
+    console.log('💾 Updating results state LOCALLY...');
     setResults({
       ...results,
       processedShipments: updatedShipments,
@@ -287,22 +288,22 @@ export const useBulkUpload = () => {
       totalInsurance: totalInsuranceCost
     });
     
-    console.log('✅ Results state updated successfully');
-    toast.success('✅ Shipment details saved! Fetching new rates...');
+    console.log('✅ Results state updated LOCALLY successfully');
+    toast.success('✅ Changes saved locally! Fetching new rates using NORMAL SHIPPING format...');
     
-    // Auto-refresh rates after edit with proper delay
-    console.log('🔄 Scheduling rate refresh for shipment:', shipmentId);
+    // STEP 2: Auto-refresh rates using NORMAL SHIPPING format (get-shipping-rates)
+    console.log('🔄 Scheduling NORMAL SHIPPING rate refresh for shipment:', shipmentId);
     setTimeout(() => {
-      console.log('⏰ Rate refresh timer triggered, calling handleRefreshRates...');
+      console.log('⏰ Rate refresh timer triggered, calling handleRefreshRates with NORMAL SHIPPING...');
       handleRefreshRates(shipmentId);
     }, 1500); // Increased delay to ensure state updates are complete
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
-    console.log('🔄 ENHANCED handleRefreshRates called for shipment:', shipmentId);
+    console.log('🔄 NORMAL SHIPPING handleRefreshRates called for shipment:', shipmentId);
     
     if (!results || !pickupAddress) {
-      console.error('❌ Missing requirements for rate refresh:', { 
+      console.error('❌ Missing requirements for NORMAL SHIPPING rate refresh:', { 
         hasResults: !!results, 
         hasPickupAddress: !!pickupAddress 
       });
@@ -310,7 +311,7 @@ export const useBulkUpload = () => {
       return;
     }
     
-    console.log('📍 CONFIRMED FROM ADDRESS (Pickup Address):', {
+    console.log('📍 CONFIRMED FROM ADDRESS (Pickup Address) for NORMAL SHIPPING:', {
       id: pickupAddress.id,
       name: pickupAddress.name,
       street1: pickupAddress.street1,
@@ -332,7 +333,7 @@ export const useBulkUpload = () => {
     }
 
     try {
-      console.log('🚚 RATE REFRESH - Processing shipment with SAVED CHANGES:', { 
+      console.log('🚚 NORMAL SHIPPING RATE REFRESH - Processing shipment with SAVED CHANGES:', { 
         shipmentId, 
         originalWeight: shipment.details?.weight,
         originalDimensions: {
@@ -360,9 +361,8 @@ export const useBulkUpload = () => {
       const width = Number(shipment.details?.width || 1);
       const height = Number(shipment.details?.height || 1);
       const phone = shipment.details?.phone_number || shipment.customer_phone || '';
-      const reference = shipment.details?.reference || '';
       
-      console.log('📦 FINAL PACKAGE DETAILS for API call (WEIGHT IN POUNDS):', {
+      console.log('📦 NORMAL SHIPPING FINAL PACKAGE DETAILS for API call (WEIGHT IN POUNDS):', {
         weightInPounds: weight,
         dimensions: { length, width, height },
         phone: phone,
@@ -371,60 +371,82 @@ export const useBulkUpload = () => {
         hasRequiredPhone: !!phone
       });
       
-      // ENHANCED: Create COMPLETE CSV content matching process-bulk-upload format exactly
-      const csvHeader = 'to_name,to_street1,to_city,to_state,to_zip,to_country,weight,length,width,height,to_company,to_street2,to_phone,to_email,reference';
-      const csvRow = [
-        `"${to_name}"`,
-        `"${to_street1}"`,
-        `"${to_city}"`,
-        `"${to_state}"`,
-        `"${to_zip}"`,
-        `"${to_country}"`,
-        `"${weight}"`, // POUNDS ONLY - no conversion
-        `"${length}"`,
-        `"${width}"`,
-        `"${height}"`,
-        `"${shipment.details?.to_company || shipment.customer_company || ''}"`,
-        `"${shipment.details?.to_street2 || ''}"`,
-        `"${phone}"`,
-        `"${shipment.details?.to_email || shipment.customer_email || ''}"`,
-        `"${reference}"`
-      ].join(',');
+      // CRITICAL: Use EXACTLY the same format as NORMAL SHIPPING (EnhancedShippingForm)
+      const payload = {
+        fromAddress: {
+          name: pickupAddress.name || '',
+          company: pickupAddress.company || '',
+          street1: pickupAddress.street1 || '',
+          street2: pickupAddress.street2 || '',
+          city: pickupAddress.city || '',
+          state: pickupAddress.state || '',
+          zip: pickupAddress.zip || '',
+          country: pickupAddress.country || 'US',
+          phone: pickupAddress.phone || ''
+        },
+        toAddress: {
+          name: to_name,
+          company: shipment.details?.to_company || '',
+          street1: to_street1,
+          street2: shipment.details?.to_street2 || '',
+          city: to_city,
+          state: to_state,
+          zip: to_zip,
+          country: to_country,
+          phone: phone
+        },
+        parcel: {
+          // CRITICAL: Weight in POUNDS ONLY (as user specified - NO OUNCES!)
+          weight: weight,
+          weight_unit: 'lb', // Always pounds - NO ounces
+          length: length,
+          width: width,
+          height: height,
+          predefined_package: 'box'
+        },
+        options: {},
+        carriers: ['usps', 'ups', 'fedex', 'dhl'], // Same as normal shipping
+        customs_info: null // Can be enhanced for international later
+      };
       
-      const csvContent = `${csvHeader}\n${csvRow}`;
-      
-      console.log('📄 COMPLETE CSV for rate refresh (SAVED CHANGES + FROM ADDRESS):', csvContent);
-      console.log('📍 PICKUP ADDRESS being sent:', JSON.stringify(pickupAddress, null, 2));
+      console.log('📄 NORMAL SHIPPING payload (get-shipping-rates):', payload);
 
-      // ENHANCED: Call process-bulk-upload with COMPLETE data (FROM + TO addresses)
-      console.log('🌐 Calling process-bulk-upload edge function with COMPLETE DATA...');
-      const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
-        body: { 
-          csvContent: csvContent,
-          pickupAddress: pickupAddress // CRITICAL: FROM ADDRESS included
-        }
+      // CRITICAL: Use get-shipping-rates (SAME as normal shipping) NOT process-bulk-upload
+      console.log('🌐 Calling get-shipping-rates (NORMAL SHIPPING FORMAT) with COMPLETE DATA...');
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: payload
       });
 
       if (error) {
-        console.error('❌ Edge function error during rate refresh:', error);
-        throw new Error(`Rate refresh failed: ${error.message || 'Unknown API error'}`);
+        console.error('❌ NORMAL SHIPPING Edge function error during rate refresh:', error);
+        throw new Error(`NORMAL SHIPPING rate refresh failed: ${error.message || 'Unknown API error'}`);
       }
 
-      if (data && data.processedShipments && data.processedShipments.length > 0) {
-        const updatedShipmentData = data.processedShipments[0];
-        console.log('✅ SUCCESS! Received NEW rates with SAVED changes:', {
-          ratesCount: updatedShipmentData.availableRates?.length || 0,
-          newWeightUsed: updatedShipmentData.details?.weight,
-          fromAddressUsed: data.pickupAddress
+      if (data && data.rates && Array.isArray(data.rates) && data.rates.length > 0) {
+        console.log('✅ SUCCESS! Received NEW rates using NORMAL SHIPPING FORMAT:', {
+          ratesCount: data.rates.length,
+          newWeightUsed: weight,
+          fromAddressUsed: pickupAddress.name
         });
-        console.log('📋 New rates preview:', updatedShipmentData.availableRates?.slice(0, 3).map(r => `${r.carrier} ${r.service}: $${r.rate}`));
+        console.log('📋 New NORMAL SHIPPING rates preview:', data.rates.slice(0, 3).map((r: any) => `${r.carrier} ${r.service}: $${r.rate}`));
         
-        // Update ONLY the specific shipment with new rates (preserve all changes made)
+        // Convert normal shipping rates to bulk shipment format
+        const normalizedRates = data.rates.map((rate: any) => ({
+          id: rate.id || `rate_${Date.now()}_${Math.random()}`,
+          carrier: rate.carrier,
+          service: rate.service,
+          rate: rate.rate,
+          delivery_days: rate.delivery_days || 0,
+          delivery_date: rate.delivery_date || '',
+          currency: rate.currency || 'USD'
+        }));
+        
+        // Update ONLY the specific shipment with new rates from NORMAL SHIPPING (preserve all changes made)
         const updatedShipments = results.processedShipments.map(s => {
           if (s.id === shipmentId) {
             return {
               ...s, // Keep all existing changes from edit
-              availableRates: updatedShipmentData.availableRates || [],
+              availableRates: normalizedRates,
               // Reset rate selection so user can choose from new rates
               selectedRateId: undefined,
               carrier: '',
@@ -443,14 +465,14 @@ export const useBulkUpload = () => {
           return sum + rowTotal;
         }, 0);
 
-        console.log('💰 TOTALS after rate refresh:', {
+        console.log('💰 TOTALS after NORMAL SHIPPING rate refresh:', {
           totalShippingCost,
           totalInsuranceCost, 
           grandTotal,
           verification: `${totalShippingCost} + ${totalInsuranceCost} = ${grandTotal}`
         });
 
-        console.log('💾 Updating results with REFRESHED rates and SAVED changes...');
+        console.log('💾 Updating results with NORMAL SHIPPING REFRESHED rates and SAVED changes...');
         setResults({
           ...results,
           processedShipments: updatedShipments,
@@ -458,19 +480,19 @@ export const useBulkUpload = () => {
           totalInsurance: totalInsuranceCost
         });
 
-        toast.success(`✅ RATES REFRESHED! Found ${updatedShipmentData.availableRates?.length || 0} new rates with your saved changes. Please select one.`);
-        console.log('🎉 Rate refresh completed successfully with saved changes!');
+        toast.success(`✅ RATES REFRESHED using NORMAL SHIPPING! Found ${normalizedRates.length} new rates with your saved changes. Please select one.`);
+        console.log('🎉 NORMAL SHIPPING rate refresh completed successfully with saved changes!');
       } else {
-        console.error('❌ No rate data received from API response:', data);
-        throw new Error('No rates returned from API after refresh');
+        console.error('❌ No rate data received from NORMAL SHIPPING API response:', data);
+        throw new Error('No rates returned from NORMAL SHIPPING API after refresh');
       }
 
     } catch (error) {
-      console.error('❌ CRITICAL ERROR during rate refresh:', error);
-      toast.error(`❌ Failed to refresh rates: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
+      console.error('❌ CRITICAL ERROR during NORMAL SHIPPING rate refresh:', error);
+      toast.error(`❌ Failed to refresh rates using NORMAL SHIPPING: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     } finally {
       setIsFetchingRates(false);
-      console.log('🔄 Rate refresh process completed (success or failure)');
+      console.log('🔄 NORMAL SHIPPING rate refresh process completed (success or failure)');
     }
   };
 

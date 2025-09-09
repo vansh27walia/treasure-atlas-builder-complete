@@ -78,6 +78,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       ? Math.max(declared_value * 0.02, 1) 
       : 0;
 
+    // STEP 1: SAVE CHANGES LOCALLY FIRST (as requested by user)
     const updates: Partial<BulkShipment> = {
       customer_name: editData.customer_name,
       recipient: editData.customer_name,
@@ -102,7 +103,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       }
     };
 
-    console.log('EditShipmentModal: Saving updates (WEIGHT IN POUNDS):', {
+    console.log('EditShipmentModal: Saving updates locally first (WEIGHT IN POUNDS):', {
       shipmentId: shipment.id,
       weightInPounds: weight,
       dimensions: { length, width, height },
@@ -114,20 +115,20 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
     });
 
     try {
-      // Call the parent's edit handler
-      console.log('EditShipmentModal: Calling onEditShipment...');
+      // STEP 1: Save locally first (as user requested)
+      console.log('EditShipmentModal: Saving locally first...');
       onEditShipment(shipment.id, updates);
       
-      // Close modal immediately
+      // Close modal after successful local save
       setOpen(false);
       
-      // Show success message
-      toast.success('✅ Shipment saved! New rates being fetched...');
+      // Show local save success
+      toast.success('✅ Changes saved locally! Fetching new rates...');
       
-      console.log('EditShipmentModal: Save completed successfully');
+      console.log('EditShipmentModal: Local save completed successfully');
     } catch (error) {
-      console.error('EditShipmentModal: Error saving shipment:', error);
-      toast.error('❌ Failed to save shipment changes');
+      console.error('EditShipmentModal: Error saving shipment locally:', error);
+      toast.error('❌ Failed to save shipment changes locally');
     }
   };
 
@@ -218,7 +219,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
           <div className="space-y-4">
             <div>
               <Label htmlFor="weight" className="font-semibold text-blue-700 text-lg">
-                📦 Weight - POUNDS ONLY (lbs)
+                📦 Weight - POUNDS ONLY (lbs) - NO OUNCES!
               </Label>
               <Input
                 id="weight"
@@ -227,17 +228,17 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
                 step="0.1"
                 min="0.1"
-                placeholder="Enter weight in POUNDS (e.g., 2.5)"
+                placeholder="Enter weight in POUNDS ONLY (e.g., 2.5)"
                 className="border-blue-300 focus:border-blue-500 text-lg font-semibold bg-blue-50"
               />
-              <div className="bg-blue-100 p-2 rounded mt-2 border border-blue-300">
-                <p className="text-sm text-blue-800 font-bold">
-                  ⚠️ CRITICAL: Enter weight in POUNDS only
+              <div className="bg-blue-100 p-3 rounded mt-2 border-2 border-blue-400">
+                <p className="text-sm text-blue-900 font-bold">
+                  🚫 NO OUNCES! POUNDS ONLY! 🚫
                 </p>
-                <p className="text-xs text-blue-600">
-                  • 2.5 pounds = enter "2.5"<br/>
-                  • 1 pound = enter "1.0"<br/>
-                  • NO ounces conversion needed
+                <p className="text-xs text-blue-700 font-semibold">
+                  • 2.5 pounds = enter "2.5" (NOT ounces)<br/>
+                  • 1 pound = enter "1.0" (NOT ounces)<br/>
+                  • System ONLY accepts POUNDS - NO conversion
                 </p>
               </div>
             </div>
