@@ -20,7 +20,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
   const [open, setOpen] = useState(false);
   const [editData, setEditData] = useState({
     customer_name: shipment.customer_name || shipment.recipient || '',
-    weight: Number(shipment.details?.weight || 1), // Ensure weight is always displayed in pounds
+    weight: Number(shipment.details?.weight || 1), // ALWAYS IN POUNDS - NO CONVERSION
     length: Number(shipment.details?.length || 1),
     width: Number(shipment.details?.width || 1),
     height: Number(shipment.details?.height || 1),
@@ -217,7 +217,9 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
           {/* Package Dimensions */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="weight" className="font-semibold text-green-700">Weight (lbs) - POUNDS ONLY</Label>
+              <Label htmlFor="weight" className="font-semibold text-blue-700 text-lg">
+                📦 Weight - POUNDS ONLY (lbs)
+              </Label>
               <Input
                 id="weight"
                 type="number"
@@ -225,10 +227,19 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
                 step="0.1"
                 min="0.1"
-                placeholder="Weight in pounds"
-                className="border-green-200 focus:border-green-500"
+                placeholder="Enter weight in POUNDS (e.g., 2.5)"
+                className="border-blue-300 focus:border-blue-500 text-lg font-semibold bg-blue-50"
               />
-              <p className="text-xs text-green-600 mt-1 font-medium">⚠️ ALWAYS enter weight in POUNDS only (e.g., 2.5 lbs = 2.5)</p>
+              <div className="bg-blue-100 p-2 rounded mt-2 border border-blue-300">
+                <p className="text-sm text-blue-800 font-bold">
+                  ⚠️ CRITICAL: Enter weight in POUNDS only
+                </p>
+                <p className="text-xs text-blue-600">
+                  • 2.5 pounds = enter "2.5"<br/>
+                  • 1 pound = enter "1.0"<br/>
+                  • NO ounces conversion needed
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2">

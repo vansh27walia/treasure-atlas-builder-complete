@@ -299,23 +299,26 @@ export const useBulkUpload = () => {
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
-    console.log('🔄 handleRefreshRates called for shipment:', shipmentId);
+    console.log('🔄 ENHANCED handleRefreshRates called for shipment:', shipmentId);
     
     if (!results || !pickupAddress) {
       console.error('❌ Missing requirements for rate refresh:', { 
         hasResults: !!results, 
         hasPickupAddress: !!pickupAddress 
       });
-      toast.error('Missing results or pickup address for rate refresh');
+      toast.error('❌ Missing pickup address! Please set a pickup address in settings first.');
       return;
     }
     
-    console.log('📍 FROM ADDRESS (Pickup Address):', {
+    console.log('📍 CONFIRMED FROM ADDRESS (Pickup Address):', {
+      id: pickupAddress.id,
       name: pickupAddress.name,
       street1: pickupAddress.street1,
+      street2: pickupAddress.street2,
       city: pickupAddress.city,
       state: pickupAddress.state,
-      zip: pickupAddress.zip
+      zip: pickupAddress.zip,
+      country: pickupAddress.country
     });
     
     setIsFetchingRates(true);
@@ -323,52 +326,52 @@ export const useBulkUpload = () => {
     
     if (!shipment) {
       console.error('❌ Shipment not found:', shipmentId);
-      toast.error('Shipment not found');
+      toast.error('❌ Shipment not found for rate refresh');
       setIsFetchingRates(false);
       return;
     }
 
     try {
-      console.log('🚚 Refreshing rates for shipment:', { 
+      console.log('🚚 RATE REFRESH - Processing shipment with SAVED CHANGES:', { 
         shipmentId, 
-        shipmentDetails: shipment.details,
-        recipient: shipment.recipient,
-        currentWeight: shipment.details?.weight,
-        currentDimensions: {
+        originalWeight: shipment.details?.weight,
+        originalDimensions: {
           length: shipment.details?.length,
           width: shipment.details?.width,
           height: shipment.details?.height
-        }
+        },
+        recipient: shipment.recipient,
+        phoneNumber: shipment.details?.phone_number,
+        country: shipment.details?.to_country
       });
       
-      // Extract address info from shipment - handle both formats
-      const addressParts = typeof shipment.customer_address === 'string' 
-        ? shipment.customer_address.split(', ') 
-        : [];
-      
-      // Build complete address info with fallbacks - USING UPDATED VALUES
+      // Extract address info from shipment details (should have updated values from edit)
       const to_name = shipment.details?.to_name || shipment.recipient || shipment.customer_name || 'Unknown';
-      const to_street1 = shipment.details?.to_street1 || (addressParts[0] || 'Unknown Street');
-      const to_city = shipment.details?.to_city || (addressParts[1] || 'Unknown City');
+      const to_street1 = shipment.details?.to_street1 || shipment.customer_address?.split(', ')[0] || 'Unknown Street';
+      const to_city = shipment.details?.to_city || shipment.customer_address?.split(', ')[1] || 'Unknown City';
+      const addressParts = shipment.customer_address?.split(', ') || [];
       const to_state = shipment.details?.to_state || (addressParts[2]?.split(' ')[0] || 'CA');
       const to_zip = shipment.details?.to_zip || (addressParts[2]?.split(' ')[1] || '90210');
       const to_country = shipment.details?.to_country || 'US';
       
-      // CRITICAL: Use the UPDATED weight and dimensions from the edit
-      const weight = Number(shipment.details?.weight || 1);
+      // CRITICAL: Use the UPDATED weight and dimensions from the edit (POUNDS ONLY)
+      const weight = Number(shipment.details?.weight || 1); // POUNDS - no conversion
       const length = Number(shipment.details?.length || 1);
       const width = Number(shipment.details?.width || 1);
       const height = Number(shipment.details?.height || 1);
       const phone = shipment.details?.phone_number || shipment.customer_phone || '';
+      const reference = shipment.details?.reference || '';
       
-      console.log('📦 Using UPDATED package details for rate refresh:', {
+      console.log('📦 FINAL PACKAGE DETAILS for API call (WEIGHT IN POUNDS):', {
         weightInPounds: weight,
         dimensions: { length, width, height },
         phone: phone,
-        hasPhoneForFedEx: !!phone && shipment.carrier?.toLowerCase().includes('fedex')
+        country: to_country,
+        isFedEx: shipment.carrier?.toLowerCase().includes('fedex'),
+        hasRequiredPhone: !!phone
       });
       
-      // Create properly formatted CSV content with FROM ADDRESS included via pickupAddress
+      // ENHANCED: Create COMPLETE CSV content matching process-bulk-upload format exactly
       const csvHeader = 'to_name,to_street1,to_city,to_state,to_zip,to_country,weight,length,width,height,to_company,to_street2,to_phone,to_email,reference';
       const csvRow = [
         `"${to_name}"`,
@@ -377,7 +380,7 @@ export const useBulkUpload = () => {
         `"${to_state}"`,
         `"${to_zip}"`,
         `"${to_country}"`,
-        `"${weight}"`, // Weight in POUNDS
+        `"${weight}"`, // POUNDS ONLY - no conversion
         `"${length}"`,
         `"${width}"`,
         `"${height}"`,
@@ -385,40 +388,44 @@ export const useBulkUpload = () => {
         `"${shipment.details?.to_street2 || ''}"`,
         `"${phone}"`,
         `"${shipment.details?.to_email || shipment.customer_email || ''}"`,
-        `"${shipment.details?.reference || ''}"`
+        `"${reference}"`
       ].join(',');
       
       const csvContent = `${csvHeader}\n${csvRow}`;
       
-      console.log('📄 CSV content for rate refresh (includes updated weight in POUNDS):', csvContent);
-      console.log('📍 FROM ADDRESS will be provided by pickupAddress parameter:', pickupAddress.name);
+      console.log('📄 COMPLETE CSV for rate refresh (SAVED CHANGES + FROM ADDRESS):', csvContent);
+      console.log('📍 PICKUP ADDRESS being sent:', JSON.stringify(pickupAddress, null, 2));
 
-      // Use the same edge function as initial upload - FROM ADDRESS included via pickupAddress
-      console.log('🌐 Calling process-bulk-upload edge function with FROM ADDRESS...');
+      // ENHANCED: Call process-bulk-upload with COMPLETE data (FROM + TO addresses)
+      console.log('🌐 Calling process-bulk-upload edge function with COMPLETE DATA...');
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: csvContent,
-          pickupAddress: pickupAddress // This provides the FROM ADDRESS
+          pickupAddress: pickupAddress // CRITICAL: FROM ADDRESS included
         }
       });
 
       if (error) {
-        console.error('❌ Edge function error:', error);
-        throw new Error(`Rate fetch failed: ${error.message}`);
+        console.error('❌ Edge function error during rate refresh:', error);
+        throw new Error(`Rate refresh failed: ${error.message || 'Unknown API error'}`);
       }
 
       if (data && data.processedShipments && data.processedShipments.length > 0) {
         const updatedShipmentData = data.processedShipments[0];
-        console.log('✅ Received updated rates:', updatedShipmentData.availableRates?.length || 0);
+        console.log('✅ SUCCESS! Received NEW rates with SAVED changes:', {
+          ratesCount: updatedShipmentData.availableRates?.length || 0,
+          newWeightUsed: updatedShipmentData.details?.weight,
+          fromAddressUsed: data.pickupAddress
+        });
         console.log('📋 New rates preview:', updatedShipmentData.availableRates?.slice(0, 3).map(r => `${r.carrier} ${r.service}: $${r.rate}`));
         
-        // Update the specific shipment with new rates
+        // Update ONLY the specific shipment with new rates (preserve all changes made)
         const updatedShipments = results.processedShipments.map(s => {
           if (s.id === shipmentId) {
             return {
-              ...s,
+              ...s, // Keep all existing changes from edit
               availableRates: updatedShipmentData.availableRates || [],
-              // Keep current selection if still available, otherwise reset
+              // Reset rate selection so user can choose from new rates
               selectedRateId: undefined,
               carrier: '',
               service: '',
@@ -428,35 +435,42 @@ export const useBulkUpload = () => {
           return s;
         });
 
-        // Recalculate totals
-        const totalCost = updatedShipments.reduce((sum, shipment) => {
-          return sum + (shipment.rate || 0);
-        }, 0);
-        
-        const totalInsurance = updatedShipments.reduce((sum, shipment) => {
-          return sum + (shipment.insurance_cost || 0);
+        // ENHANCED: Recalculate totals properly (row-by-row sum)
+        const totalShippingCost = updatedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
+        const totalInsuranceCost = updatedShipments.reduce((sum, shipment) => sum + (shipment.insurance_cost || 0), 0);
+        const grandTotal = updatedShipments.reduce((sum, shipment) => {
+          const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
+          return sum + rowTotal;
         }, 0);
 
-        console.log('💾 Updating results with new rates...');
+        console.log('💰 TOTALS after rate refresh:', {
+          totalShippingCost,
+          totalInsuranceCost, 
+          grandTotal,
+          verification: `${totalShippingCost} + ${totalInsuranceCost} = ${grandTotal}`
+        });
+
+        console.log('💾 Updating results with REFRESHED rates and SAVED changes...');
         setResults({
           ...results,
           processedShipments: updatedShipments,
-          totalCost,
-          totalInsurance
+          totalCost: totalShippingCost,
+          totalInsurance: totalInsuranceCost
         });
 
-        toast.success(`✅ New rates fetched! Found ${updatedShipmentData.availableRates?.length || 0} rates. Please select one.`);
-        console.log('🎉 Rate refresh completed successfully!');
+        toast.success(`✅ RATES REFRESHED! Found ${updatedShipmentData.availableRates?.length || 0} new rates with your saved changes. Please select one.`);
+        console.log('🎉 Rate refresh completed successfully with saved changes!');
       } else {
-        throw new Error('No rates received from updated shipment data');
+        console.error('❌ No rate data received from API response:', data);
+        throw new Error('No rates returned from API after refresh');
       }
 
     } catch (error) {
-      console.error('❌ Error refreshing rates:', error);
-      toast.error(`❌ Failed to refresh rates: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ CRITICAL ERROR during rate refresh:', error);
+      toast.error(`❌ Failed to refresh rates: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     } finally {
       setIsFetchingRates(false);
-      console.log('🔄 Rate refresh process completed');
+      console.log('🔄 Rate refresh process completed (success or failure)');
     }
   };
 
