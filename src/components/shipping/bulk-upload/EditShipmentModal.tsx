@@ -84,7 +84,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       insurance_cost: insuranceCost,
       details: {
         ...shipment.details,
-        // Ensure weight is stored in pounds (no conversion needed)
+        // POUNDS ONLY - Weight is stored in pounds (no conversion needed)
         weight: weight,
         length: length,
         width: width,
@@ -93,29 +93,41 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
         insurance_enabled: editData.insurance_enabled,
         phone_number: editData.phone_number,
         to_country: editData.to_country,
-        // Preserve existing address fields
+        // Update all address fields properly
         to_name: editData.customer_name,
+        to_street1: shipment.details?.to_street1 || '',
+        to_city: shipment.details?.to_city || '',
+        to_state: shipment.details?.to_state || '',
+        to_zip: shipment.details?.to_zip || '',
       }
     };
 
-    console.log('EditShipmentModal: Saving with weight in pounds:', {
+    console.log('EditShipmentModal: Saving updates (WEIGHT IN POUNDS):', {
       shipmentId: shipment.id,
-      weight: weight,
+      weightInPounds: weight,
       dimensions: { length, width, height },
       isFedEx,
       hasPhoneNumber: !!editData.phone_number,
       isInternational,
       insuranceCost,
-      updates
+      fullUpdates: updates
     });
 
     try {
+      // Call the parent's edit handler
+      console.log('EditShipmentModal: Calling onEditShipment...');
       onEditShipment(shipment.id, updates);
+      
+      // Close modal immediately
       setOpen(false);
-      toast.success('Shipment saved successfully! New rates will be fetched automatically...');
+      
+      // Show success message
+      toast.success('✅ Shipment saved! New rates being fetched...');
+      
+      console.log('EditShipmentModal: Save completed successfully');
     } catch (error) {
-      console.error('Error saving shipment:', error);
-      toast.error('Failed to save shipment changes');
+      console.error('EditShipmentModal: Error saving shipment:', error);
+      toast.error('❌ Failed to save shipment changes');
     }
   };
 
