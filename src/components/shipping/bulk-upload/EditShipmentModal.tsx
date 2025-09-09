@@ -20,11 +20,11 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
   const [open, setOpen] = useState(false);
   const [editData, setEditData] = useState({
     customer_name: shipment.customer_name || shipment.recipient || '',
-    weight: shipment.details?.weight || 1, // Already in pounds from backend
-    length: shipment.details?.length || 1,
-    width: shipment.details?.width || 1,
-    height: shipment.details?.height || 1,
-    declared_value: shipment.details?.declared_value || 100,
+    weight: Number(shipment.details?.weight || 1), // Ensure weight is always displayed in pounds
+    length: Number(shipment.details?.length || 1),
+    width: Number(shipment.details?.width || 1),
+    height: Number(shipment.details?.height || 1),
+    declared_value: Number(shipment.details?.declared_value || 100),
     insurance_enabled: shipment.details?.insurance_enabled !== false,
     phone_number: shipment.details?.phone_number || '',
     to_country: shipment.details?.to_country || 'US'
@@ -52,7 +52,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     console.log('EditShipmentModal: Starting save process', { shipmentId: shipment.id, editData });
     
     if (!validateShipment()) {
@@ -60,9 +60,22 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       return;
     }
 
+    // Ensure all numeric values are properly converted
+    const weight = Number(editData.weight);
+    const length = Number(editData.length);
+    const width = Number(editData.width);
+    const height = Number(editData.height);
+    const declared_value = Number(editData.declared_value);
+
+    // Validate numeric inputs
+    if (weight <= 0 || length <= 0 || width <= 0 || height <= 0) {
+      toast.error('All dimensions and weight must be greater than 0');
+      return;
+    }
+
     // Calculate insurance cost based on declared value and enabled status
-    const insuranceCost = editData.insurance_enabled && editData.declared_value > 0 
-      ? Math.max(editData.declared_value * 0.02, 1) 
+    const insuranceCost = editData.insurance_enabled && declared_value > 0 
+      ? Math.max(declared_value * 0.02, 1) 
       : 0;
 
     const updates: Partial<BulkShipment> = {
@@ -71,19 +84,24 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       insurance_cost: insuranceCost,
       details: {
         ...shipment.details,
-        weight: editData.weight,
-        length: editData.length,
-        width: editData.width,
-        height: editData.height,
-        declared_value: editData.declared_value,
+        // Ensure weight is stored in pounds (no conversion needed)
+        weight: weight,
+        length: length,
+        width: width,
+        height: height,
+        declared_value: declared_value,
         insurance_enabled: editData.insurance_enabled,
         phone_number: editData.phone_number,
-        to_country: editData.to_country
+        to_country: editData.to_country,
+        // Preserve existing address fields
+        to_name: editData.customer_name,
       }
     };
 
-    console.log('EditShipmentModal: Saving shipment with calculated updates:', {
+    console.log('EditShipmentModal: Saving with weight in pounds:', {
       shipmentId: shipment.id,
+      weight: weight,
+      dimensions: { length, width, height },
       isFedEx,
       hasPhoneNumber: !!editData.phone_number,
       isInternational,
@@ -91,9 +109,14 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
       updates
     });
 
-    onEditShipment(shipment.id, updates);
-    setOpen(false);
-    toast.success('Shipment updated and saved successfully! Fetching new rates...');
+    try {
+      onEditShipment(shipment.id, updates);
+      setOpen(false);
+      toast.success('Shipment saved successfully! New rates will be fetched automatically...');
+    } catch (error) {
+      console.error('Error saving shipment:', error);
+      toast.error('Failed to save shipment changes');
+    }
   };
 
   return (
@@ -182,7 +205,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
           {/* Package Dimensions */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="weight">Weight (lbs)</Label>
+              <Label htmlFor="weight" className="font-semibold text-green-700">Weight (lbs) - POUNDS ONLY</Label>
               <Input
                 id="weight"
                 type="number"
@@ -191,13 +214,14 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                 step="0.1"
                 min="0.1"
                 placeholder="Weight in pounds"
+                className="border-green-200 focus:border-green-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Enter weight in pounds (e.g., 2.5 for 2.5 lbs)</p>
+              <p className="text-xs text-green-600 mt-1 font-medium">⚠️ ALWAYS enter weight in POUNDS only (e.g., 2.5 lbs = 2.5)</p>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <Label htmlFor="length">Length</Label>
+                <Label htmlFor="length">Length (inches)</Label>
                 <Input
                   id="length"
                   type="number"
@@ -205,10 +229,11 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                   onChange={(e) => setEditData(prev => ({ ...prev, length: Number(e.target.value) }))}
                   step="0.1"
                   min="0.1"
+                  placeholder="Length"
                 />
               </div>
               <div>
-                <Label htmlFor="width">Width</Label>
+                <Label htmlFor="width">Width (inches)</Label>
                 <Input
                   id="width"
                   type="number"
@@ -216,10 +241,11 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                   onChange={(e) => setEditData(prev => ({ ...prev, width: Number(e.target.value) }))}
                   step="0.1"
                   min="0.1"
+                  placeholder="Width"
                 />
               </div>
               <div>
-                <Label htmlFor="height">Height</Label>
+                <Label htmlFor="height">Height (inches)</Label>
                 <Input
                   id="height"
                   type="number"
@@ -227,6 +253,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                   onChange={(e) => setEditData(prev => ({ ...prev, height: Number(e.target.value) }))}
                   step="0.1"
                   min="0.1"
+                  placeholder="Height"
                 />
               </div>
             </div>

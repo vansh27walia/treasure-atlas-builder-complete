@@ -272,7 +272,10 @@ export const useBulkUpload = () => {
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
-    if (!results || !pickupAddress) return;
+    if (!results || !pickupAddress) {
+      toast.error('Missing results or pickup address for rate refresh');
+      return;
+    }
     
     setIsFetchingRates(true);
     const shipment = results.processedShipments.find(s => s.id === shipmentId);
@@ -284,13 +287,53 @@ export const useBulkUpload = () => {
     }
 
     try {
-      console.log('Fetching new rates for edited shipment:', shipmentId);
+      console.log('Refreshing rates for shipment:', { 
+        shipmentId, 
+        shipmentDetails: shipment.details,
+        recipient: shipment.recipient 
+      });
       
-      // Create a temporary CSV content for this single shipment
+      // Extract address info from shipment - handle both formats
+      const addressParts = typeof shipment.customer_address === 'string' 
+        ? shipment.customer_address.split(', ') 
+        : [];
+      
+      // Build complete address info with fallbacks
+      const to_name = shipment.details?.to_name || shipment.recipient || shipment.customer_name || 'Unknown';
+      const to_street1 = shipment.details?.to_street1 || (addressParts[0] || 'Unknown Street');
+      const to_city = shipment.details?.to_city || (addressParts[1] || 'Unknown City');
+      const to_state = shipment.details?.to_state || (addressParts[2]?.split(' ')[0] || 'CA');
+      const to_zip = shipment.details?.to_zip || (addressParts[2]?.split(' ')[1] || '90210');
+      const to_country = shipment.details?.to_country || 'US';
+      const weight = Number(shipment.details?.weight || 1);
+      const length = Number(shipment.details?.length || 1);
+      const width = Number(shipment.details?.width || 1);
+      const height = Number(shipment.details?.height || 1);
+      const phone = shipment.details?.phone_number || shipment.customer_phone || '';
+      
+      // Create properly formatted CSV content
       const csvHeader = 'to_name,to_street1,to_city,to_state,to_zip,to_country,weight,length,width,height,to_company,to_street2,to_phone,to_email,reference';
-      const csvRow = `"${shipment.details?.to_name || shipment.recipient}","${shipment.details?.to_street1 || ''}","${shipment.details?.to_city || ''}","${shipment.details?.to_state || ''}","${shipment.details?.to_zip || ''}","${shipment.details?.to_country || 'US'}","${shipment.details?.weight || 1}","${shipment.details?.length || 1}","${shipment.details?.width || 1}","${shipment.details?.height || 1}","${shipment.details?.to_company || ''}","${shipment.details?.to_street2 || ''}","${shipment.details?.phone_number || ''}","${shipment.details?.to_email || ''}","${shipment.details?.reference || ''}"`;
+      const csvRow = [
+        `"${to_name}"`,
+        `"${to_street1}"`,
+        `"${to_city}"`,
+        `"${to_state}"`,
+        `"${to_zip}"`,
+        `"${to_country}"`,
+        `"${weight}"`,
+        `"${length}"`,
+        `"${width}"`,
+        `"${height}"`,
+        `"${shipment.details?.to_company || shipment.customer_company || ''}"`,
+        `"${shipment.details?.to_street2 || ''}"`,
+        `"${phone}"`,
+        `"${shipment.details?.to_email || shipment.customer_email || ''}"`,
+        `"${shipment.details?.reference || ''}"`
+      ].join(',');
       
       const csvContent = `${csvHeader}\n${csvRow}`;
+      
+      console.log('CSV content for rate refresh:', csvContent);
 
       // Use the same edge function as initial upload
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
@@ -301,19 +344,21 @@ export const useBulkUpload = () => {
       });
 
       if (error) {
-        throw new Error(error.message);
+        console.error('Edge function error:', error);
+        throw new Error(`Rate fetch failed: ${error.message}`);
       }
 
       if (data && data.processedShipments && data.processedShipments.length > 0) {
         const updatedShipmentData = data.processedShipments[0];
+        console.log('Received updated rates:', updatedShipmentData.availableRates?.length || 0);
         
         // Update the specific shipment with new rates
         const updatedShipments = results.processedShipments.map(s => {
           if (s.id === shipmentId) {
             return {
               ...s,
-              availableRates: updatedShipmentData.availableRates,
-              // Reset selected rate since we have new options
+              availableRates: updatedShipmentData.availableRates || [],
+              // Keep current selection if still available, otherwise reset
               selectedRateId: undefined,
               carrier: '',
               service: '',
@@ -339,14 +384,14 @@ export const useBulkUpload = () => {
           totalInsurance
         });
 
-        toast.success('New rates fetched successfully! Please select a rate.');
+        toast.success(`New rates fetched successfully! Found ${updatedShipmentData.availableRates?.length || 0} rates. Please select one.`);
       } else {
         throw new Error('No rates received from updated shipment data');
       }
 
     } catch (error) {
-      console.error('Error fetching new rates:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch new rates');
+      console.error('Error refreshing rates:', error);
+      toast.error(`Failed to refresh rates: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsFetchingRates(false);
     }
