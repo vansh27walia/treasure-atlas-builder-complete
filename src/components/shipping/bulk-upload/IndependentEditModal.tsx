@@ -147,12 +147,12 @@ const IndependentEditModal: React.FC<IndependentEditModalProps> = ({
         },
         toAddress: {
           name: editData.customer_name,
-          company: shipment.details?.to_company || '',
-          street1: shipment.details?.to_street1 || '',
-          street2: shipment.details?.to_street2 || '',
-          city: shipment.details?.to_city || '',
-          state: shipment.details?.to_state || '',
-          zip: shipment.details?.to_zip || '',
+          company: shipment.to_company || shipment.details?.to_company || '',
+          street1: shipment.to_street1 || shipment.details?.to_street1 || shipment.recipient_address || '',
+          street2: shipment.to_street2 || shipment.details?.to_street2 || '',
+          city: shipment.to_city || shipment.details?.to_city || '',
+          state: shipment.to_state || shipment.details?.to_state || '',
+          zip: shipment.to_zip || shipment.details?.to_zip || '',
           country: editData.to_country,
           phone: editData.phone_number,
         },
@@ -163,6 +163,15 @@ const IndependentEditModal: React.FC<IndependentEditModalProps> = ({
           weight: weight // POUNDS ONLY
         }
       };
+
+      console.log('IndependentEditModal: Address data being sent:', {
+        fromAddress: requestData.fromAddress,
+        toAddress: requestData.toAddress,
+        hasToStreet1: !!requestData.toAddress.street1,
+        hasToCity: !!requestData.toAddress.city,
+        hasToState: !!requestData.toAddress.state,
+        hasToZip: !!requestData.toAddress.zip
+      });
 
       console.log('IndependentEditModal: Fetching new rates with FROM address...', requestData);
       
