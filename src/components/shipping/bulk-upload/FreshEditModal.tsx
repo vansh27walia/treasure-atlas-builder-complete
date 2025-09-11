@@ -57,16 +57,33 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
       const addressObj = typeof shipment.customer_address === 'string' 
         ? { street1: shipment.customer_address, street2: '', city: '', state: '', zip: '' }
         : shipment.customer_address || {};
+
+      // Properly format fromAddress (pickup address)
+      const fromAddress = {
+        name: pickupAddress?.name || pickupAddress?.company || 'Sender',
+        company: pickupAddress?.company || '',
+        street1: pickupAddress?.street1 || '',
+        street2: pickupAddress?.street2 || '',
+        city: pickupAddress?.city || '',
+        state: pickupAddress?.state || '',
+        zip: pickupAddress?.zip || '',
+        country: pickupAddress?.country || 'US',
+        phone: pickupAddress?.phone || '',
+        email: pickupAddress?.email || ''
+      };
         
+      // Properly format toAddress (customer address)
       const toAddress = {
-        name: localData.recipient,
+        name: localData.recipient || shipment.customer_name || '',
+        company: shipment.company || '',
         street1: addressObj.street1 || '',
         street2: addressObj.street2 || '',
-        city: addressObj.city || '',
-        state: addressObj.state || '',
-        zip: addressObj.zip || '',
-        country: localData.country,
-        phone: localData.phone || ''
+        city: addressObj.city || shipment.city || '',
+        state: addressObj.state || shipment.state || '',
+        zip: addressObj.zip || shipment.zip || '',
+        country: localData.country || 'US',
+        phone: localData.phone || shipment.phone || '',
+        email: shipment.email || ''
       };
 
       // Format parcel data - convert pounds to ounces for backend
@@ -77,6 +94,8 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
         height: localData.height
       };
 
+      console.log('Sending payload:', { fromAddress, toAddress, parcel, declaredValue: localData.declared_value });
+
       // Use normal shipping rate endpoint
       const response = await fetch('/functions/v1/get-shipping-rates', {
         method: 'POST',
@@ -84,7 +103,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          fromAddress: pickupAddress,
+          fromAddress,
           toAddress,
           parcel,
           declaredValue: localData.declared_value
