@@ -101,7 +101,7 @@ const BulkUpload: React.FC = () => {
             break;
           case 'balanced':
             selectedRate = shipment.availableRates.reduce((best, rate) => {
-              const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
+              const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (best.delivery_days || 5);
               const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
               return rateScore > bestScore ? rate : best;
             });
@@ -260,14 +260,14 @@ const BulkUpload: React.FC = () => {
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
                       <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
-                    setSortField(field as any);
-                    setSortDirection(direction as any);
-                  }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
+                      setSortField(field as any);
+                      setSortDirection(direction as any);
+                    }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
                     <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {
-                  handleEditShipment(shipmentId, updates);
-                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
+                    handleEditShipment(shipmentId, updates);
+                  }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
@@ -330,11 +330,11 @@ const BulkUpload: React.FC = () => {
                   </div>
                   
                   <UploadError onRetry={() => window.location.reload()} onSelectNewFile={() => {
-                const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-                if (fileInput) {
-                  fileInput.click();
-                }
-              }} errorMessage="Upload failed. Please check your file format and try again." />
+                  const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                  if (fileInput) {
+                    fileInput.click();
+                  }
+                }} errorMessage="Upload failed. Please check your file format and try again." />
                 </div>}
             </CardContent>
           </Card>
