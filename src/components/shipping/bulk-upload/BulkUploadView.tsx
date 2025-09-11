@@ -28,8 +28,7 @@ import { BulkShipment } from '@/types/shipping';
 import { useBulkUpload } from './useBulkUpload';
 import OrderSummary from './OrderSummary';
 import BulkPaymentModal from './BulkPaymentModal';
-import IndependentEditModal from './IndependentEditModal';
-import { useIndependentEdit } from '@/hooks/useIndependentEdit';
+import EditShipmentModal from './EditShipmentModal';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -78,14 +77,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     handlePaymentSuccess,
     handleAddPaymentMethod,
   } = useBulkUpload();
-
-  // Independent edit functionality
-  const { handleLocalUpdate } = useIndependentEdit(results, (updatedResults) => {
-    // Update the results through the bulk upload hook
-    // This will trigger re-render with new data
-    Object.assign(results || {}, updatedResults);
-    window.dispatchEvent(new CustomEvent('bulkUploadUpdate'));
-  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -245,12 +236,11 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <IndependentEditModal
+                          <EditShipmentModal
                             shipment={shipment}
-                            pickupAddress={pickupAddress}
-                            onLocalUpdate={handleLocalUpdate}
+                            onEditShipment={handleShipmentEdit}
                           />
-                          <Button
+                          <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => handleRemoveShipment(shipment.id)}
