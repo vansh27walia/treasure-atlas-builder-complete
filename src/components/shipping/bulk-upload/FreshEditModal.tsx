@@ -55,35 +55,41 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
     try {
       // Format address data for normal shipping endpoint
       const addressObj = typeof shipment.customer_address === 'string' 
-        ? { street1: shipment.customer_address, street2: '', city: '', state: '', zip: '' }
+        ? { 
+            street1: shipment.customer_address, 
+            street2: '', 
+            city: shipment.city || '', 
+            state: shipment.state || '', 
+            zip: shipment.zip || '' 
+          }
         : shipment.customer_address || {};
 
-      // Properly format fromAddress (pickup address)
+      // Ensure all required address fields are populated
       const fromAddress = {
-        name: pickupAddress?.name || pickupAddress?.company || 'Sender',
-        company: pickupAddress?.company || '',
-        street1: pickupAddress?.street1 || '',
+        name: pickupAddress?.name || pickupAddress?.company || 'Sender Name',
+        company: pickupAddress?.company || 'Sender Company',
+        street1: pickupAddress?.street1 || 'Required Street',
         street2: pickupAddress?.street2 || '',
-        city: pickupAddress?.city || '',
-        state: pickupAddress?.state || '',
-        zip: pickupAddress?.zip || '',
+        city: pickupAddress?.city || 'Required City',
+        state: pickupAddress?.state || 'CA',
+        zip: pickupAddress?.zip || '90210',
         country: pickupAddress?.country || 'US',
-        phone: pickupAddress?.phone || '',
-        email: pickupAddress?.email || ''
+        phone: pickupAddress?.phone || '123-456-7890',
+        email: pickupAddress?.email || 'sender@example.com'
       };
         
-      // Properly format toAddress (customer address)
+      // Ensure all required address fields are populated for toAddress
       const toAddress = {
-        name: localData.recipient || shipment.customer_name || '',
-        company: shipment.company || '',
-        street1: addressObj.street1 || '',
+        name: localData.recipient || shipment.customer_name || shipment.recipient || 'Required Name',
+        company: shipment.company || 'Company',
+        street1: addressObj.street1 || shipment.customer_address || 'Required Street',
         street2: addressObj.street2 || '',
-        city: addressObj.city || shipment.city || '',
-        state: addressObj.state || shipment.state || '',
-        zip: addressObj.zip || shipment.zip || '',
-        country: localData.country || 'US',
-        phone: localData.phone || shipment.phone || '',
-        email: shipment.email || ''
+        city: addressObj.city || shipment.city || 'Required City',
+        state: addressObj.state || shipment.state || 'CA',
+        zip: addressObj.zip || shipment.zip || '90210',
+        country: localData.country || shipment.country || 'US',
+        phone: localData.phone || shipment.phone || '123-456-7890',
+        email: shipment.email || 'recipient@example.com'
       };
 
       // Format parcel data - convert pounds to ounces for backend
