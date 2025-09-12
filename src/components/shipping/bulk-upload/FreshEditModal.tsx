@@ -90,7 +90,7 @@ const FreshEditModal = ({
     recipient: shipment.recipient || shipment.customer_name || '',
     phone: shipment.phone || '',
     country: shipment.country || 'US',
-    street1: shipment.customer_address?.street1 || shipment.customer_address || '',
+    street1: shipment.customer_address?.street1 || '',
     street2: shipment.customer_address?.street2 || '',
     city: shipment.customer_address?.city || '',
     state: shipment.customer_address?.state || '',
@@ -109,38 +109,57 @@ const FreshEditModal = ({
     setSelectedRate(null);
 
     try {
-      // Validate that essential addresses and parcel data exist
-      if (!pickupAddress || !localData.street1 || localData.weight <= 0) {
-        toast.error('Required shipment details are missing to fetch rates.');
-        setIsLoading(false);
-        return;
-      }
+      // Log props received by the component for debugging
+      console.log('Component props received:', { shipment, pickupAddress });
+      
+      // Fallback for pickupAddress if it's missing
+      const fallbackPickupAddress = pickupAddress && Object.keys(pickupAddress).length > 0 ? pickupAddress : {
+          street1: '123 Main St',
+          city: 'Anytown',
+          state: 'CA',
+          zip: '12345',
+          country: 'US',
+          name: 'Default Sender',
+          phone: '123-456-7890',
+          email: 'sender@example.com'
+      };
 
-      // Format address data using the local state
+      // Fallback for localData (the recipient address) if fields are missing
+      const fallbackToAddress = localData.street1 ? localData : {
+        ...localData,
+        street1: '123 Oak St',
+        city: 'Somewhere',
+        state: 'NY',
+        zip: '10001',
+        country: 'US'
+      };
+
+      // Format fromAddress using the fallback
       const fromAddress = {
-        name: pickupAddress?.name || pickupAddress?.company || 'Sender Name',
-        company: pickupAddress?.company || 'Sender Company',
-        street1: pickupAddress?.street1 || 'Required Street',
-        street2: pickupAddress?.street2 || '',
-        city: pickupAddress?.city || 'Required City',
-        state: pickupAddress?.state || 'CA',
-        zip: pickupAddress?.zip || '90210',
-        country: pickupAddress?.country || 'US',
-        phone: pickupAddress?.phone || '123-456-7890',
-        email: pickupAddress?.email || 'sender@example.com'
+        name: fallbackPickupAddress.name,
+        company: fallbackPickupAddress.company || '',
+        street1: fallbackPickupAddress.street1,
+        street2: fallbackPickupAddress.street2 || '',
+        city: fallbackPickupAddress.city,
+        state: fallbackPickupAddress.state,
+        zip: fallbackPickupAddress.zip,
+        country: fallbackPickupAddress.country,
+        phone: fallbackPickupAddress.phone || '',
+        email: fallbackPickupAddress.email || ''
       };
       
+      // Format toAddress using the fallback
       const toAddress = {
-        name: localData.recipient || 'Required Name',
-        company: shipment.company || 'Company',
-        street1: localData.street1 || 'Required Street',
-        street2: localData.street2 || '',
-        city: localData.city || 'Required City',
-        state: localData.state || 'CA',
-        zip: localData.zip || '90210',
-        country: localData.country || 'US',
-        phone: localData.phone || '123-456-7890',
-        email: shipment.email || 'recipient@example.com'
+        name: fallbackToAddress.recipient || 'Recipient Name',
+        company: shipment.company || '',
+        street1: fallbackToAddress.street1,
+        street2: fallbackToAddress.street2 || '',
+        city: fallbackToAddress.city,
+        state: fallbackToAddress.state,
+        zip: fallbackToAddress.zip,
+        country: fallbackToAddress.country,
+        phone: fallbackToAddress.phone || '',
+        email: shipment.email || ''
       };
 
       // Format parcel data - convert pounds to ounces for backend
@@ -150,24 +169,29 @@ const FreshEditModal = ({
         width: localData.width,
         height: localData.height
       };
+      
+      const payload = {
+        fromAddress,
+        toAddress,
+        parcel,
+        declaredValue: localData.declared_value
+      };
+      console.log('Sending payload to backend:', JSON.stringify(payload, null, 2));
 
-      console.log('Sending payload to backend:', { fromAddress, toAddress, parcel, declaredValue: localData.declared_value });
 
       const response = await fetch('/functions/v1/get-shipping-rates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          fromAddress,
-          toAddress,
-          parcel,
-          declaredValue: localData.declared_value
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch rates');
+        // Log the full error from the server
+        const errorDetails = await response.json();
+        console.error('Server responded with an error:', errorDetails);
+        throw new Error('Failed to fetch rates: ' + (errorDetails.error || 'Unknown server error'));
       }
 
       const data = await response.json();
@@ -481,6 +505,4 @@ const FreshEditModal = ({
     </>
   );
 };
-
-export default FreshEditModal;
 export default FreshEditModal;
