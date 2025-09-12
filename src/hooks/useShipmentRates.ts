@@ -51,21 +51,21 @@ export const useShipmentRates = (
               body: {
                 fromAddress: results.pickupAddress,
                 toAddress: {
-                  name: shipment.details?.name,
-                  company: shipment.details?.company,
-                  street1: shipment.details?.street1,
-                  street2: shipment.details?.street2,
-                  city: shipment.details?.city,
-                  state: shipment.details?.state,
-                  zip: shipment.details?.zip,
-                  country: shipment.details?.country,
-                  phone: shipment.details?.phone,
+                  name: shipment.details?.to_name || shipment.customer_name || shipment.recipient,
+                  company: shipment.details?.to_company || shipment.customer_company || '',
+                  street1: shipment.details?.to_street1,
+                  street2: shipment.details?.to_street2 || '',
+                  city: shipment.details?.to_city,
+                  state: shipment.details?.to_state,
+                  zip: shipment.details?.to_zip,
+                  country: shipment.details?.to_country || 'US',
+                  phone: shipment.details?.to_phone || shipment.customer_phone || '',
                 },
                 parcel: {
-                  length: shipment.details?.parcel_length || 8,
-                  width: shipment.details?.parcel_width || 6,
-                  height: shipment.details?.parcel_height || 4,
-                  weight: shipment.details?.parcel_weight || 16,
+                  length: (shipment.details?.length ?? shipment.details?.parcel_length ?? 8),
+                  width: (shipment.details?.width ?? shipment.details?.parcel_width ?? 6),
+                  height: (shipment.details?.height ?? shipment.details?.parcel_height ?? 4),
+                  weight: (shipment.details?.weight ?? shipment.details?.parcel_weight ?? 16),
                 }
               }
             });
@@ -187,21 +187,21 @@ export const useShipmentRates = (
         body: {
           fromAddress: results.pickupAddress,
           toAddress: {
-            name: shipment.details?.name,
-            company: shipment.details?.company,
-            street1: shipment.details?.street1,
-            street2: shipment.details?.street2,
-            city: shipment.details?.city,
-            state: shipment.details?.state,
-            zip: shipment.details?.zip,
-            country: shipment.details?.country,
-            phone: shipment.details?.phone,
+            name: shipment.details?.to_name || shipment.customer_name || shipment.recipient,
+            company: shipment.details?.to_company || shipment.customer_company || '',
+            street1: shipment.details?.to_street1,
+            street2: shipment.details?.to_street2 || '',
+            city: shipment.details?.to_city,
+            state: shipment.details?.to_state,
+            zip: shipment.details?.to_zip,
+            country: shipment.details?.to_country || 'US',
+            phone: shipment.details?.to_phone || shipment.customer_phone || '',
           },
           parcel: {
-            length: shipment.details?.parcel_length || 8,
-            width: shipment.details?.parcel_width || 6,
-            height: shipment.details?.parcel_height || 4,
-            weight: shipment.details?.parcel_weight || 16,
+            length: (shipment.details?.length ?? shipment.details?.parcel_length ?? 8),
+            width: (shipment.details?.width ?? shipment.details?.parcel_width ?? 6),
+            height: (shipment.details?.height ?? shipment.details?.parcel_height ?? 4),
+            weight: (shipment.details?.weight ?? shipment.details?.parcel_weight ?? 16),
           }
         }
       });

@@ -122,7 +122,8 @@ export const useShipmentUpload = () => {
         totalCost: data.totalCost,
         processedShipments,
         failedShipments: data.failedShipments || [],
-        uploadStatus: 'editing'
+        uploadStatus: 'editing',
+        pickupAddress: pickupAddress
       };
       
       setResults(resultData);
