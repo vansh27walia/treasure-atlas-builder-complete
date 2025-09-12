@@ -16,16 +16,16 @@ const Dialog = ({ open, onOpenChange, children }) => {
     </div>
   );
 };
-const DialogContent = ({ children }) => <div>{children}</div>;
+const DialogContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
 const DialogHeader = ({ children }) => <div className="flex flex-col space-y-1.5 text-center sm:text-left">{children}</div>;
 const DialogTitle = ({ children }) => <h2 className="text-lg font-semibold leading-none tracking-tight">{children}</h2>;
-const DialogTrigger = ({ asChild, children, onClick }) => {
+const DialogTrigger = ({ asChild, children, onClick = () => {} }) => {
   if (asChild) {
     return React.cloneElement(children, { onClick });
   }
   return <button onClick={onClick}>{children}</button>;
 };
-const Button = ({ variant, size, onClick, children, disabled, className }) => {
+const Button = ({ variant = "default", size = "default", onClick, children, disabled = false, className = "" }) => {
   let baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   if (variant === 'outline') {
     baseClasses += ' border border-gray-300 bg-white text-gray-700 hover:bg-gray-100';
@@ -37,7 +37,7 @@ const Button = ({ variant, size, onClick, children, disabled, className }) => {
   } else {
     baseClasses += ' h-10 px-4 py-2';
   }
-  return <button className={`${baseClasses} ${className}`} onClick={onClick} disabled={disabled}>{children}</button>;
+  return <button className={`${baseClasses} ${className || ''}`} onClick={onClick} disabled={disabled}>{children}</button>;
 };
 const Input = (props) => <input className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" {...props} />;
 const Label = (props) => <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" {...props} />;
