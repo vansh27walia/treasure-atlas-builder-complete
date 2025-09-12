@@ -93,97 +93,99 @@ const parseCSV = (csvContent: string): string[][] => {
   return result;
 };
 
-// Create EasyPost shipment and fetch live rates with enhanced carrier information
-const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, parcel: any, reference?: string): Promise<{ shipment: any, rates: ShippingRate[] }> => {
+// Fetch rates using get-shipping-rates edge function (proper Supabase flow)
+const fetchRatesViaSupabaseEdgeFunction = async (fromAddress: any, toAddress: any, parcel: any, reference?: string): Promise<{ shipmentId: string, rates: ShippingRate[] }> => {
   try {
-    console.log('Creating EasyPost shipment for live rate fetching');
+    console.log('Fetching rates via Supabase get-shipping-rates edge function');
     
-    const apiKey = Deno.env.get('EASYPOST_API_KEY');
-    if (!apiKey) {
-      throw new Error('EasyPost API key not configured');
+    // Create Supabase client for edge function calls
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration not available');
     }
 
-    // Create shipment via EasyPost API
-    const shipmentData = {
-      shipment: {
-        to_address: {
-          name: toAddress.to_name,
-          company: toAddress.to_company || '',
-          street1: toAddress.to_street1,
-          street2: toAddress.to_street2 || '',
-          city: toAddress.to_city,
-          state: toAddress.to_state,
-          zip: toAddress.to_zip,
-          country: toAddress.to_country,
-          phone: toAddress.to_phone || '',
-          email: toAddress.to_email || '',
-        },
-        from_address: {
-          name: fromAddress.name || fromAddress.street1,
-          company: fromAddress.company || '',
-          street1: fromAddress.street1,
-          street2: fromAddress.street2 || '',
-          city: fromAddress.city,
-          state: fromAddress.state,
-          zip: fromAddress.zip,
-          country: fromAddress.country,
-          phone: fromAddress.phone || '',
-        },
-        parcel: {
-          length: parcel.length,
-          width: parcel.width,
-          height: parcel.height,
-          weight: parcel.weight,
-        },
-        reference: reference || ''
-      }
+    // Format request for get-shipping-rates edge function
+    const rateRequest = {
+      fromAddress: {
+        name: fromAddress.name || fromAddress.street1,
+        company: fromAddress.company || '',
+        street1: fromAddress.street1,
+        street2: fromAddress.street2 || '',
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country || 'US',
+        phone: fromAddress.phone || '',
+        email: fromAddress.email || ''
+      },
+      toAddress: {
+        name: toAddress.to_name,
+        company: toAddress.to_company || '',
+        street1: toAddress.to_street1,
+        street2: toAddress.to_street2 || '',
+        city: toAddress.to_city,
+        state: toAddress.to_state,
+        zip: toAddress.to_zip,
+        country: toAddress.to_country || 'US',
+        phone: toAddress.to_phone || '',
+        email: toAddress.to_email || ''
+      },
+      parcel: {
+        length: parcel.length,
+        width: parcel.width,
+        height: parcel.height,
+        weight: parcel.weight,
+      },
+      options: reference ? { reference } : {}
     };
 
-    console.log('Sending shipment request to EasyPost:', JSON.stringify(shipmentData));
+    console.log('Calling get-shipping-rates edge function with:', JSON.stringify(rateRequest));
 
-    const response = await fetch('https://api.easypost.com/v2/shipments', {
+    // Call get-shipping-rates edge function instead of EasyPost directly
+    const response = await fetch(`${supabaseUrl}/functions/v1/get-shipping-rates`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${supabaseKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(shipmentData),
+      body: JSON.stringify(rateRequest),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('EasyPost API error:', response.status, errorText);
-      throw new Error(`EasyPost API error: ${response.status} - ${errorText}`);
+      console.error('get-shipping-rates edge function error:', response.status, errorText);
+      throw new Error(`Rate fetching error: ${response.status} - ${errorText}`);
     }
 
-    const shipment = await response.json();
-    console.log('EasyPost shipment created with ID:', shipment.id);
-    console.log('Available live rates count:', shipment.rates?.length || 0);
+    const data = await response.json();
+    console.log('get-shipping-rates response received:', data);
     
-    if (!shipment.rates || shipment.rates.length === 0) {
-      throw new Error('No live rates returned from EasyPost API');
+    if (!data.rates || data.rates.length === 0) {
+      throw new Error('No rates returned from get-shipping-rates edge function');
     }
     
-    // Convert EasyPost rates to our format with enhanced carrier information
-    const rates: ShippingRate[] = shipment.rates.map((rate: any) => ({
+    // Convert rates to our format
+    const rates: ShippingRate[] = data.rates.map((rate: any) => ({
       id: rate.id,
       carrier: rate.carrier,
       service: rate.service,
       rate: parseFloat(rate.rate).toFixed(2),
-      currency: rate.currency,
+      currency: rate.currency || 'USD',
       delivery_days: rate.delivery_days || 3,
       delivery_date: rate.delivery_date,
-      shipment_id: shipment.id,
+      shipment_id: data.shipmentId,
       carrier_account_id: rate.carrier_account_id,
       list_rate: rate.list_rate ? parseFloat(rate.list_rate).toFixed(2) : undefined,
       retail_rate: rate.retail_rate ? parseFloat(rate.retail_rate).toFixed(2) : undefined,
     }));
 
-    console.log(`Successfully created shipment and fetched ${rates.length} live rates with full carrier details`);
-    return { shipment, rates };
+    console.log(`Successfully fetched ${rates.length} rates via Supabase edge function with markup applied`);
+    return { shipmentId: data.shipmentId, rates };
 
   } catch (error) {
-    console.error('Error creating shipment and fetching live rates:', error);
+    console.error('Error fetching rates via Supabase edge function:', error);
     throw error;
   }
 };
@@ -316,16 +318,16 @@ serve(async (req) => {
           throw new Error(`Missing required fields in row ${i}: to_name, to_street1, to_city, to_state, to_zip are required`);
         }
         
-        // Create EasyPost shipment and fetch live rates
-        console.log(`Creating EasyPost shipment for row ${i}`);
-        const { shipment, rates } = await createShipmentAndFetchRates(
+        // Fetch rates via Supabase get-shipping-rates edge function
+        console.log(`Fetching rates via Supabase edge function for row ${i}`);
+        const { shipmentId, rates } = await fetchRatesViaSupabaseEdgeFunction(
           pickupAddress,
           toAddress,
           parcel,
           reference
         );
         
-        console.log(`Created shipment ${shipment.id} with ${rates.length} live rates for row ${i}`);
+        console.log(`Fetched ${rates.length} rates via Supabase edge function for row ${i}`);
         
         // Select cheapest rate by default
         const selectedRate = rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
@@ -337,7 +339,7 @@ serve(async (req) => {
         // Create shipment result with proper customer details
         const shipmentResult: ShipmentResult = {
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
-          easypost_id: shipment.id,
+          easypost_id: shipmentId,
           tracking_code: '',
           label_url: '',
           status: "completed",
@@ -373,13 +375,13 @@ serve(async (req) => {
         };
         
         processedShipments.push(shipmentResult);
-        console.log(`Successfully processed EasyPost row ${i}`);
+        console.log(`Successfully processed row ${i} via Supabase edge function`);
         
       } catch (error) {
         console.error(`Error processing row ${i}:`, error);
         failedShipments.push({
           row: i,
-          error: 'EasyPost Processing Error',
+          error: 'Rate Fetching Error',
           details: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
@@ -389,7 +391,7 @@ serve(async (req) => {
     const failed = failedShipments.length;
     const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
     
-    console.log(`EasyPost processing complete: ${successful} successful, ${failed} failed, total cost: $${totalCost}`);
+    console.log(`Supabase processing complete: ${successful} successful, ${failed} failed, total cost: $${totalCost}`);
     
     return new Response(
       JSON.stringify({ 
@@ -399,19 +401,19 @@ serve(async (req) => {
         totalCost,
         processedShipments,
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments using live EasyPost API with full carrier details`,
+        message: `Processed ${successful} out of ${total} shipments using Supabase get-shipping-rates edge function with markup applied`,
         pickupAddress: pickupAddress.name
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
     
   } catch (error) {
-    console.error('Error in EasyPost process-bulk-upload function:', error);
+    console.error('Error in Supabase process-bulk-upload function:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'EasyPost Processing Error', 
+        error: 'Supabase Processing Error', 
         message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your CSV format follows EasyPost structure and ensure all required fields are present'
+        details: 'Please check your CSV format and ensure all required fields are present. Rates are fetched via Supabase edge function.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
