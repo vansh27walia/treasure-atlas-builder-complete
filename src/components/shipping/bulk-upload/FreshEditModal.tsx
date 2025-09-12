@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Edit, RefreshCw } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping';
 
 // Inline utility functions
-const convertOuncesToPounds = (ounces: number) => ounces / 16;
-const convertPoundsToOunces = (pounds: number) => pounds * 16;
+const convertOuncesToPounds = (ounces) => ounces / 16;
+const convertPoundsToOunces = (pounds) => pounds * 16;
 
 // In-file component definitions to replace external imports
-const Dialog = ({ open, onOpenChange, children }: any) => {
+const Dialog = ({ open, onOpenChange, children }) => {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -17,16 +16,16 @@ const Dialog = ({ open, onOpenChange, children }: any) => {
     </div>
   );
 };
-const DialogContent = ({ children }: any) => <div>{children}</div>;
-const DialogHeader = ({ children }: any) => <div className="flex flex-col space-y-1.5 text-center sm:text-left">{children}</div>;
-const DialogTitle = ({ children }: any) => <h2 className="text-lg font-semibold leading-none tracking-tight">{children}</h2>;
-const DialogTrigger = ({ asChild, children, onClick }: any) => {
+const DialogContent = ({ children }) => <div>{children}</div>;
+const DialogHeader = ({ children }) => <div className="flex flex-col space-y-1.5 text-center sm:text-left">{children}</div>;
+const DialogTitle = ({ children }) => <h2 className="text-lg font-semibold leading-none tracking-tight">{children}</h2>;
+const DialogTrigger = ({ asChild, children, onClick }) => {
   if (asChild) {
     return React.cloneElement(children, { onClick });
   }
   return <button onClick={onClick}>{children}</button>;
 };
-const Button = ({ variant, size, onClick, children, disabled, className }: any) => {
+const Button = ({ variant, size, onClick, children, disabled, className }) => {
   let baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   if (variant === 'outline') {
     baseClasses += ' border border-gray-300 bg-white text-gray-700 hover:bg-gray-100';
@@ -40,24 +39,24 @@ const Button = ({ variant, size, onClick, children, disabled, className }: any) 
   }
   return <button className={`${baseClasses} ${className}`} onClick={onClick} disabled={disabled}>{children}</button>;
 };
-const Input = (props: any) => <input className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" {...props} />;
-const Label = (props: any) => <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" {...props} />;
-const Select = ({ value, onValueChange, children }: any) => {
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+const Input = (props) => <input className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" {...props} />;
+const Label = (props) => <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" {...props} />;
+const Select = ({ value, onValueChange, children }) => {
+  const handleChange = (e) => {
     onValueChange(e.target.value);
   };
   return <select value={value} onChange={handleChange} className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{children}</select>;
 };
-const SelectContent = ({ children }: any) => children;
-const SelectItem = ({ value, children }: any) => <option value={value}>{children}</option>;
-const SelectTrigger = ({ children }: any) => children;
-const SelectValue = ({ placeholder }: any) => <>{placeholder}</>;
+const SelectContent = ({ children }) => children;
+const SelectItem = ({ value, children }) => <option value={value}>{children}</option>;
+const SelectTrigger = ({ children }) => children;
+const SelectValue = ({ placeholder }) => <>{placeholder}</>;
 
 // Simple toast notification system
 const useToast = () => {
-  const [toasts, setToasts] = useState<any[]>([]);
+  const [toasts, setToasts] = useState([]);
 
-  const addToast = (message: string, type: string) => {
+  const addToast = (message, type) => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
@@ -68,44 +67,34 @@ const useToast = () => {
   return {
     toasts,
     toast: {
-      success: (message: string) => addToast(message, 'success'),
-      error: (message: string) => addToast(message, 'error'),
-      warning: (message: string) => addToast(message, 'warning'),
+      success: (message) => addToast(message, 'success'),
+      error: (message) => addToast(message, 'error'),
+      warning: (message) => addToast(message, 'warning'),
     },
   };
 };
 
-interface FreshEditModalProps {
-  shipment: BulkShipment;
-  pickupAddress: any;
-  onUpdateShipment: (shipmentId: string, updatedShipment: BulkShipment) => void;
-}
-
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: number;
-  delivery_days?: number;
-  delivery_date?: string;
-}
-
-const FreshEditModal: React.FC<FreshEditModalProps> = ({
+const FreshEditModal = ({
   shipment,
   pickupAddress,
   onUpdateShipment
 }) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [rates, setRates] = useState<ShippingRate[]>([]);
-  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  const [rates, setRates] = useState([]);
+  const [selectedRate, setSelectedRate] = useState(null);
   const { toasts, toast } = useToast();
   
-  // Local state for shipment data - always in pounds for display
+  // Local state for shipment data - now including address fields
   const [localData, setLocalData] = useState({
     recipient: shipment.recipient || shipment.customer_name || '',
     phone: shipment.phone || '',
     country: shipment.country || 'US',
+    street1: shipment.customer_address?.street1 || shipment.customer_address || '',
+    street2: shipment.customer_address?.street2 || '',
+    city: shipment.customer_address?.city || '',
+    state: shipment.customer_address?.state || '',
+    zip: shipment.customer_address?.zip || '',
     weight: convertOuncesToPounds(shipment.weight || 0),
     length: shipment.length || 0,
     width: shipment.width || 0,
@@ -121,24 +110,13 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
 
     try {
       // Validate that essential addresses and parcel data exist
-      if (!pickupAddress || !shipment.customer_address || localData.weight <= 0) {
+      if (!pickupAddress || !localData.street1 || localData.weight <= 0) {
         toast.error('Required shipment details are missing to fetch rates.');
         setIsLoading(false);
         return;
       }
 
-      // Format address data for normal shipping endpoint
-      const addressObj = typeof shipment.customer_address === 'string' 
-        ? { 
-            street1: shipment.customer_address, 
-            street2: '', 
-            city: shipment.city || '', 
-            state: shipment.state || '', 
-            zip: shipment.zip || '' 
-          }
-        : shipment.customer_address || {};
-
-      // Ensure all required address fields are populated
+      // Format address data using the local state
       const fromAddress = {
         name: pickupAddress?.name || pickupAddress?.company || 'Sender Name',
         company: pickupAddress?.company || 'Sender Company',
@@ -152,17 +130,16 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
         email: pickupAddress?.email || 'sender@example.com'
       };
       
-      // Ensure all required address fields are populated for toAddress
       const toAddress = {
-        name: localData.recipient || shipment.customer_name || shipment.recipient || 'Required Name',
+        name: localData.recipient || 'Required Name',
         company: shipment.company || 'Company',
-        street1: addressObj.street1 || shipment.customer_address || 'Required Street',
-        street2: addressObj.street2 || '',
-        city: addressObj.city || shipment.city || 'Required City',
-        state: addressObj.state || shipment.state || 'CA',
-        zip: addressObj.zip || shipment.zip || '90210',
-        country: localData.country || shipment.country || 'US',
-        phone: localData.phone || shipment.phone || '123-456-7890',
+        street1: localData.street1 || 'Required Street',
+        street2: localData.street2 || '',
+        city: localData.city || 'Required City',
+        state: localData.state || 'CA',
+        zip: localData.zip || '90210',
+        country: localData.country || 'US',
+        phone: localData.phone || '123-456-7890',
         email: shipment.email || 'recipient@example.com'
       };
 
@@ -220,11 +197,18 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
       : 0;
 
     // Create updated shipment with local changes
-    const updatedShipment: BulkShipment = {
+    const updatedShipment = {
       ...shipment,
       recipient: localData.recipient,
       phone: localData.phone,
       country: localData.country,
+      customer_address: {
+        street1: localData.street1,
+        street2: localData.street2,
+        city: localData.city,
+        state: localData.state,
+        zip: localData.zip
+      },
       weight: convertPoundsToOunces(localData.weight), // Store as ounces in data
       length: localData.length,
       width: localData.width,
@@ -238,9 +222,8 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
       rate_id: selectedRate.id
     };
 
-    // This is the key part:
-    // This function passes the updated shipment data to the parent component.
-    // The parent component is responsible for saving this data to the backend.
+    console.log('Data prepared for parent component:', updatedShipment);
+
     onUpdateShipment(shipment.id, updatedShipment);
     
     setOpen(false);
@@ -258,7 +241,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
   return (
     <>
       <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map((t: any) => (
+        {toasts.map((t) => (
           <div key={t.id} className={`p-4 rounded-lg shadow-lg text-white ${t.type === 'success' ? 'bg-green-500' : t.type === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`}>
             {t.message}
           </div>
@@ -285,7 +268,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                 <Input
                   id="recipient"
                   value={localData.recipient}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, recipient: e.target.value }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, recipient: e.target.value }))}
                   placeholder="Enter recipient name"
                 />
               </div>
@@ -295,14 +278,64 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                 <Input
                   id="phone"
                   value={localData.phone}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="Enter phone number"
                 />
               </div>
 
               <div>
+                <Label htmlFor="street1">Street 1</Label>
+                <Input
+                  id="street1"
+                  value={localData.street1}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, street1: e.target.value }))}
+                  placeholder="Enter street address"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="street2">Street 2</Label>
+                <Input
+                  id="street2"
+                  value={localData.street2}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, street2: e.target.value }))}
+                  placeholder="Enter apartment or unit"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={localData.city}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="Enter city"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  value={localData.state}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, state: e.target.value }))}
+                  placeholder="Enter state code (e.g., CA)"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="zip">Zip Code</Label>
+                <Input
+                  id="zip"
+                  value={localData.zip}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, zip: e.target.value }))}
+                  placeholder="Enter zip code"
+                />
+              </div>
+
+              <div>
                 <Label htmlFor="country">Country</Label>
-                <Select value={localData.country} onValueChange={(value: any) => setLocalData(prev => ({ ...prev, country: value }))}>
+                <Select value={localData.country} onValueChange={(value) => setLocalData(prev => ({ ...prev, country: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
@@ -322,7 +355,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                   step="0.1"
                   min="0"
                   value={localData.weight}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
                   placeholder="Weight in pounds"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Enter weight in pounds only</p>
@@ -335,7 +368,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                   type="number"
                   min="0"
                   value={localData.length}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, length: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, length: parseFloat(e.target.value) || 0 }))}
                   placeholder="Length in inches"
                 />
               </div>
@@ -347,7 +380,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                   type="number"
                   min="0"
                   value={localData.width}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
                   placeholder="Width in inches"
                 />
               </div>
@@ -359,7 +392,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                   type="number"
                   min="0"
                   value={localData.height}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
                   placeholder="Height in inches"
                 />
               </div>
@@ -372,7 +405,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                   min="0"
                   step="0.01"
                   value={localData.declared_value}
-                  onChange={(e: any) => setLocalData(prev => ({ ...prev, declared_value: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, declared_value: parseFloat(e.target.value) || 0 }))}
                   placeholder="Declared value"
                 />
               </div>
@@ -384,7 +417,7 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
                 type="checkbox"
                 id="insurance"
                 checked={localData.insurance_enabled}
-                onChange={(e: any) => setLocalData(prev => ({ ...prev, insurance_enabled: e.target.checked }))}
+                onChange={(e) => setLocalData(prev => ({ ...prev, insurance_enabled: e.target.checked }))}
                 className="h-4 w-4"
               />
               <Label htmlFor="insurance">Enable Insurance</Label>
@@ -449,4 +482,5 @@ const FreshEditModal: React.FC<FreshEditModalProps> = ({
   );
 };
 
+export default FreshEditModal;
 export default FreshEditModal;
