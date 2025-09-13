@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
@@ -76,6 +75,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setSelectedCarrierFilter,
     handlePaymentSuccess,
     handleAddPaymentMethod,
+    // THE KEY CHANGE IS HERE: WE NEED TO ACCESS THE STATE SETTER
+    setResults,
   } = useBulkUpload();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -113,14 +114,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     return 'Address not available';
   };
 
-  // Fresh independent edit handler - updates locally only
+  // Fresh independent edit handler - now correctly updates local state
   const handleFreshEdit = (shipmentId: string, updatedShipment: BulkShipment) => {
     if (!results) {
       console.error('No results available for editing');
       return;
     }
     
-    // Update the shipment locally in the results
+    // Update the shipment immutably in the results
     const updatedShipments = results.processedShipments.map(s => 
       s.id === shipmentId ? updatedShipment : s
     );
@@ -129,20 +130,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     const totalCost = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
     const totalInsurance = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
     
-    // Update results state with new data
-    const updatedResults = {
+    // THE FIX: Use the setResults function from the hook to properly update the state
+    setResults({
       ...results,
       processedShipments: updatedShipments,
       totalCost,
       totalInsurance
-    };
-    
-    // This would update the state in the hook if we had access to the setter
-    // For now, we're simulating local update by modifying the existing results object
-    Object.assign(results, updatedResults);
-    
-    // Force a re-render by updating a state that causes the component to re-render
-    // This is a workaround since we don't have direct access to the state setter
+    });
+
     console.log('Shipment updated locally:', updatedShipment);
   };
 
