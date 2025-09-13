@@ -521,6 +521,7 @@ export const useBulkUpload = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
+    setResults,
     setSearchTerm,
     setSortField,
     setSortDirection,
