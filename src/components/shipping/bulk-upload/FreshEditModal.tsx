@@ -67,53 +67,38 @@ const FreshEditModal = ({
       // Log props received by the component for debugging
       console.log('Component props received:', { shipment, pickupAddress });
       
-      // Fallback for pickupAddress if it's missing
-      const fallbackPickupAddress = pickupAddress && Object.keys(pickupAddress).length > 0 ? pickupAddress : {
-          street1: '123 Main St',
-          city: 'Anytown',
-          state: 'CA',
-          zip: '12345',
-          country: 'US',
-          name: 'Default Sender',
-          phone: '123-456-7890',
-          email: 'sender@example.com'
-      };
+      // Validate pickupAddress (must be provided from parent/hook)
+      if (!pickupAddress || !pickupAddress.street1 || !pickupAddress.city || !pickupAddress.state || !pickupAddress.zip || !pickupAddress.country) {
+        toast.error('Pickup address is missing. Please set your pickup address in Settings.');
+        setIsLoading(false);
+        return;
+      }
 
-      // Fallback for localData (the recipient address) if fields are missing
-      const fallbackToAddress = localData.street1 ? localData : {
-        ...localData,
-        street1: '123 Oak St',
-        city: 'Somewhere',
-        state: 'NY',
-        zip: '10001',
-        country: 'US'
-      };
-
-      // Format fromAddress using the fallback
+      // Use provided pickupAddress directly (no fake fallbacks)
       const fromAddress = {
-        name: fallbackPickupAddress.name,
-        company: fallbackPickupAddress.company || '',
-        street1: fallbackPickupAddress.street1,
-        street2: fallbackPickupAddress.street2 || '',
-        city: fallbackPickupAddress.city,
-        state: fallbackPickupAddress.state,
-        zip: fallbackPickupAddress.zip,
-        country: fallbackPickupAddress.country,
-        phone: fallbackPickupAddress.phone || '',
-        email: fallbackPickupAddress.email || ''
+        name: pickupAddress.name || pickupAddress.company || 'Sender',
+        company: pickupAddress.company || '',
+        street1: pickupAddress.street1,
+        street2: pickupAddress.street2 || '',
+        city: pickupAddress.city,
+        state: pickupAddress.state,
+        zip: pickupAddress.zip,
+        country: pickupAddress.country,
+        phone: pickupAddress.phone || '',
+        email: pickupAddress.email || ''
       };
       
-      // Format toAddress using the fallback
+      // Use local form data as-is for recipient
       const toAddress = {
-        name: fallbackToAddress.recipient || 'Recipient Name',
+        name: localData.recipient || 'Recipient',
         company: shipment.company || '',
-        street1: fallbackToAddress.street1,
-        street2: fallbackToAddress.street2 || '',
-        city: fallbackToAddress.city,
-        state: fallbackToAddress.state,
-        zip: fallbackToAddress.zip,
-        country: fallbackToAddress.country,
-        phone: fallbackToAddress.phone || '',
+        street1: localData.street1,
+        street2: localData.street2 || '',
+        city: localData.city,
+        state: localData.state,
+        zip: localData.zip,
+        country: localData.country,
+        phone: localData.phone || '',
         email: shipment.email || ''
       };
 
@@ -171,7 +156,12 @@ const FreshEditModal = ({
       ? Math.max(1, localData.declared_value * 0.01) 
       : 0;
 
-    // Create updated shipment with local changes
+    // Normalize weight to ounces based on selected unit
+    const weightOzToSave = weightUnit === 'lb' 
+      ? convertPoundsToOunces(localData.weight) 
+      : kgToOunces(localData.weight);
+
+    // Create updated shipment with local changes (replace details with normalized structure)
     const updatedShipment = {
       ...shipment,
       recipient: localData.recipient,
@@ -184,17 +174,51 @@ const FreshEditModal = ({
         state: localData.state,
         zip: localData.zip
       },
-      weight: convertPoundsToOunces(localData.weight), // Store as ounces in data
+      // package
+      weight: weightOzToSave, // store ounces
       length: localData.length,
       width: localData.width,
       height: localData.height,
       declared_value: localData.declared_value,
       insurance_enabled: localData.insurance_enabled,
       insurance_cost: insuranceCost,
+      // selected rate
       carrier: selectedRate.carrier,
       service: selectedRate.service,
       rate: selectedRate.rate,
-      rate_id: selectedRate.id
+      rate_id: selectedRate.id,
+      // normalized details for backend compatibility
+      details: {
+        to_name: localData.recipient,
+        to_phone: localData.phone,
+        to_country: localData.country,
+        to_street1: localData.street1,
+        to_street2: localData.street2,
+        to_city: localData.city,
+        to_state: localData.state,
+        to_zip: localData.zip,
+        length: localData.length,
+        width: localData.width,
+        height: localData.height,
+        weight: weightOzToSave,
+        parcel_length: localData.length,
+        parcel_width: localData.width,
+        parcel_height: localData.height,
+        parcel_weight: weightOzToSave
+      },
+      // persist pickup address on the shipment for later steps
+      pickup_address: pickupAddress ? {
+        name: pickupAddress.name || pickupAddress.company || '',
+        company: pickupAddress.company || '',
+        street1: pickupAddress.street1 || '',
+        street2: pickupAddress.street2 || '',
+        city: pickupAddress.city || '',
+        state: pickupAddress.state || '',
+        zip: pickupAddress.zip || '',
+        country: pickupAddress.country || 'US',
+        phone: pickupAddress.phone || '',
+        email: pickupAddress.email || ''
+      } : undefined
     };
 
     console.log('Data prepared for parent component:', updatedShipment);
@@ -207,7 +231,7 @@ const FreshEditModal = ({
 
   const handleOpenModal = () => {
     setOpen(true);
-    // Auto-fetch rates when modal opens
+    // Auto-fetch rates when modal opens, ensuring pickupAddress is present
     setTimeout(() => {
       fetchRatesFromNormalShipping();
     }, 100);
@@ -319,17 +343,42 @@ const FreshEditModal = ({
               </div>
 
               <div>
-                <Label htmlFor="weight">Weight (POUNDS ONLY)</Label>
-                <Input
-                  id="weight"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={localData.weight}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-                  placeholder="Weight in pounds"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Enter weight in pounds only</p>
+                <Label htmlFor="weight">Weight</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    id="weight"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={localData.weight}
+                    onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                    placeholder={weightUnit === 'lb' ? 'Weight in pounds' : 'Weight in kilograms'}
+                    className="col-span-2"
+                  />
+                  <Select
+                    value={weightUnit}
+                    onValueChange={(val: 'lb' | 'kg') => {
+                      setWeightUnit((prevUnit) => {
+                        // Convert displayed weight when switching units
+                        if (prevUnit === 'lb' && val === 'kg') {
+                          setLocalData(prev => ({ ...prev, weight: poundsToKg(prev.weight) }));
+                        } else if (prevUnit === 'kg' && val === 'lb') {
+                          setLocalData(prev => ({ ...prev, weight: kgToPounds(prev.weight) }));
+                        }
+                        return val;
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lb">lb</SelectItem>
+                      <SelectItem value="kg">kg</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Default is pounds (lb). Switch to kg if needed.</p>
               </div>
 
               <div>
