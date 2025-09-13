@@ -1,104 +1,59 @@
 import React, { useState } from 'react';
 import { Edit, RefreshCw } from 'lucide-react';
 
-// Inline utility functions
-const convertOuncesToPounds = (ounces) => ounces / 16;
-const convertPoundsToOunces = (pounds) => pounds * 16;
+// Use project UI components and utils instead of inline stubs
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { convertOuncesToPounds, convertPoundsToOunces } from "@/utils/weightConversion";
 
-// In-file component definitions to replace external imports
-const Dialog = ({ open, onOpenChange, children }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-lg transform transition-all scale-100 opacity-100">
-        {children}
-      </div>
-    </div>
-  );
-};
-const DialogContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
-const DialogHeader = ({ children }) => <div className="flex flex-col space-y-1.5 text-center sm:text-left">{children}</div>;
-const DialogTitle = ({ children }) => <h2 className="text-lg font-semibold leading-none tracking-tight">{children}</h2>;
-const DialogTrigger = ({ asChild, children, onClick = () => {} }) => {
-  if (asChild) {
-    return React.cloneElement(children, { onClick });
-  }
-  return <button onClick={onClick}>{children}</button>;
-};
-const Button = ({ variant = "default", size = "default", onClick, children, disabled = false, className = "" }) => {
-  let baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
-  if (variant === 'outline') {
-    baseClasses += ' border border-gray-300 bg-white text-gray-700 hover:bg-gray-100';
-  } else {
-    baseClasses += ' bg-blue-600 text-white hover:bg-blue-700';
-  }
-  if (size === 'sm') {
-    baseClasses += ' h-8 px-3 text-sm';
-  } else {
-    baseClasses += ' h-10 px-4 py-2';
-  }
-  return <button className={`${baseClasses} ${className || ''}`} onClick={onClick} disabled={disabled}>{children}</button>;
-};
-const Input = (props) => <input className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" {...props} />;
-const Label = (props) => <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" {...props} />;
-const Select = ({ value, onValueChange, children }) => {
-  const handleChange = (e) => {
-    onValueChange(e.target.value);
-  };
-  return <select value={value} onChange={handleChange} className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{children}</select>;
-};
-const SelectContent = ({ children }) => children;
-const SelectItem = ({ value, children }) => <option value={value}>{children}</option>;
-const SelectTrigger = ({ children }) => children;
-const SelectValue = ({ placeholder }) => <>{placeholder}</>;
+// Local helpers for kg conversion
+const poundsToKg = (lb: number) => Number((lb * 0.45359237).toFixed(2));
+const kgToPounds = (kg: number) => Number((kg / 0.45359237).toFixed(2));
+const kgToOunces = (kg: number) => Number((kg * 35.27396195).toFixed(2));
+const ouncesToKg = (oz: number) => Number((oz / 35.27396195).toFixed(2));
 
-// Simple toast notification system
-const useToast = () => {
-  const [toasts, setToasts] = useState([]);
+// Minimal props typing for reliability
+interface FreshEditModalProps {
+  shipment: any;
+  pickupAddress: any;
+  onUpdateShipment: (id: string, updated: any) => void;
+}
 
-  const addToast = (message, type) => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  };
-
-  return {
-    toasts,
-    toast: {
-      success: (message) => addToast(message, 'success'),
-      error: (message) => addToast(message, 'error'),
-      warning: (message) => addToast(message, 'warning'),
-    },
-  };
-};
+// ... keep existing code (component implementation continues)
 
 const FreshEditModal = ({
   shipment,
   pickupAddress,
   onUpdateShipment
-}) => {
+}: FreshEditModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [rates, setRates] = useState([]);
-  const [selectedRate, setSelectedRate] = useState(null);
-  const { toasts, toast } = useToast();
-  
+  const [rates, setRates] = useState<any[]>([]);
+  const [selectedRate, setSelectedRate] = useState<any>(null);
+
+  // Determine initial weight from shipment details (stored in ounces)
+  const initialWeightOz = (shipment?.details?.weight ?? shipment?.details?.parcel_weight ?? shipment?.weight ?? 0) as number;
+  const [weightUnit, setWeightUnit] = useState<'lb' | 'kg'>('lb');
+
   // Local state for shipment data - now including address fields
   const [localData, setLocalData] = useState({
-    recipient: shipment.recipient || shipment.customer_name || '',
-    phone: shipment.phone || '',
-    country: shipment.country || 'US',
-    street1: shipment.customer_address?.street1 || '',
-    street2: shipment.customer_address?.street2 || '',
-    city: shipment.customer_address?.city || '',
-    state: shipment.customer_address?.state || '',
-    zip: shipment.customer_address?.zip || '',
-    weight: convertOuncesToPounds(shipment.weight || 0),
-    length: shipment.length || 0,
-    width: shipment.width || 0,
-    height: shipment.height || 0,
+    recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || '',
+    phone: shipment.details?.to_phone || shipment.customer_phone || shipment.phone || '',
+    country: shipment.details?.to_country || shipment.country || 'US',
+    street1: shipment.details?.to_street1 || shipment.customer_address?.street1 || '',
+    street2: shipment.details?.to_street2 || shipment.customer_address?.street2 || '',
+    city: shipment.details?.to_city || shipment.customer_address?.city || '',
+    state: shipment.details?.to_state || shipment.customer_address?.state || '',
+    zip: shipment.details?.to_zip || shipment.customer_address?.zip || '',
+    weight: convertOuncesToPounds(initialWeightOz), // display in pounds by default
+    length: (shipment.details?.length ?? shipment.details?.parcel_length ?? shipment.length ?? 0) as number,
+    width: (shipment.details?.width ?? shipment.details?.parcel_width ?? shipment.width ?? 0) as number,
+    height: (shipment.details?.height ?? shipment.details?.parcel_height ?? shipment.height ?? 0) as number,
     declared_value: shipment.declared_value || 0,
     insurance_enabled: shipment.insurance_enabled || false
   });
@@ -162,9 +117,13 @@ const FreshEditModal = ({
         email: shipment.email || ''
       };
 
-      // Format parcel data - convert pounds to ounces for backend
+      // Format parcel data - convert to ounces for backend based on selected unit
+      const weightOz = weightUnit === 'lb' 
+        ? convertPoundsToOunces(localData.weight)
+        : kgToOunces(localData.weight);
+
       const parcel = {
-        weight: convertPoundsToOunces(localData.weight), // Convert to ounces for EasyPost
+        weight: weightOz,
         length: localData.length,
         width: localData.width,
         height: localData.height
@@ -176,26 +135,18 @@ const FreshEditModal = ({
         parcel,
         declaredValue: localData.declared_value
       };
-      console.log('Sending payload to backend:', JSON.stringify(payload, null, 2));
+      console.log('Sending payload to backend (via Supabase):', JSON.stringify(payload, null, 2));
 
-
-      const response = await fetch('/functions/v1/get-shipping-rates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: payload
       });
 
-      if (!response.ok) {
-        // Log the full error from the server
-        const errorDetails = await response.json();
-        console.error('Server responded with an error:', errorDetails);
-        throw new Error('Failed to fetch rates: ' + (errorDetails.error || 'Unknown server error'));
+      if (error) {
+        console.error('Server responded with an error:', error);
+        throw new Error('Failed to fetch rates: ' + (error.message || 'Unknown server error'));
       }
 
-      const data = await response.json();
-      if (data.rates && data.rates.length > 0) {
+      if (data && data.rates && data.rates.length > 0) {
         setRates(data.rates);
         toast.success(`Found ${data.rates.length} shipping rates`);
       } else {
@@ -264,13 +215,6 @@ const FreshEditModal = ({
 
   return (
     <>
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map((t) => (
-          <div key={t.id} className={`p-4 rounded-lg shadow-lg text-white ${t.type === 'success' ? 'bg-green-500' : t.type === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`}>
-            {t.message}
-          </div>
-        ))}
-      </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" onClick={handleOpenModal}>
@@ -282,6 +226,9 @@ const FreshEditModal = ({
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
+            <DialogDescription>
+              Update recipient address, package dimensions and weight. Rates will use your saved pickup address.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
