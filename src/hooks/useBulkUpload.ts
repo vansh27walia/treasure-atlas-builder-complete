@@ -241,12 +241,23 @@ export const useBulkUpload = () => {
 
       const updatedShipments: BulkShipment[] = results.processedShipments.map(s =>
         s.id === shipmentId
-          ? ({ ...s, availableRates: (data?.rates || []), status: 'rates_fetched' as BulkShipment['status'] })
+          ? ({
+              ...s,
+              availableRates: (data?.rates || []),
+              // Reset selection so user picks from fresh rates
+              selectedRateId: null,
+              carrier: '',
+              service: '',
+              rate: 0,
+              // Update EasyPost shipment id from the new rates if present
+              easypost_id: (data?.rates && data.rates[0]?.shipment_id) ? data.rates[0].shipment_id : s.easypost_id,
+              status: 'rates_fetched' as BulkShipment['status']
+            })
           : s
       );
 
       setResults({ ...results, processedShipments: updatedShipments });
-      toast.success('Rates refreshed');
+      toast.success('Rates refreshed with your latest edits');
     } catch (e) {
       console.error('Refresh rates error:', e);
       toast.error('Failed to refresh rates');

@@ -185,8 +185,9 @@ const FreshEditModal = ({
       // selected rate
       carrier: selectedRate.carrier,
       service: selectedRate.service,
-      rate: selectedRate.rate,
-      rate_id: selectedRate.id,
+      rate: Number(selectedRate.rate),
+      selectedRateId: selectedRate.id,
+      easypost_id: selectedRate.shipment_id || shipment.easypost_id,
       // normalized details for backend compatibility
       details: {
         to_name: localData.recipient,

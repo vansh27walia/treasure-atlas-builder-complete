@@ -120,16 +120,20 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       return;
     }
     
-    // Update the shipment immutably in the results
+    // Replace the shipment immutably in the results
     const updatedShipments = results.processedShipments.map(s => 
-      s.id === shipmentId ? updatedShipment : s
+      s.id === shipmentId ? {
+        ...updatedShipment,
+        // Clear any stale rate selection when details changed (will be set if modal selected a rate)
+        selectedRateId: updatedShipment.selectedRateId || null,
+      } : s
     );
     
     // Recalculate totals
-    const totalCost = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
-    const totalInsurance = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
+    const totalCost = updatedShipments.reduce((sum, s) => sum + (Number(s.rate) || 0), 0);
+    const totalInsurance = updatedShipments.reduce((sum, s) => sum + (Number(s.insurance_cost) || 0), 0);
     
-    // THE FIX: Use the setResults function from the hook to properly update the state
+    // Update state
     setResults({
       ...results,
       processedShipments: updatedShipments,
@@ -137,7 +141,12 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       totalInsurance
     });
 
-    console.log('Shipment updated locally:', updatedShipment);
+    // Immediately send updated request to backend if no rate was selected in the modal
+    if (!updatedShipment.selectedRateId) {
+      setTimeout(() => handleRefreshRates(shipmentId), 300);
+    }
+
+    console.log('Shipment updated locally and backend refresh scheduled (if needed):', updatedShipment);
   };
 
   return (
