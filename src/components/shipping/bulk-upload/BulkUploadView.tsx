@@ -9,7 +9,6 @@ import { Download, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableFooter,
   TableHead,
@@ -75,7 +74,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setSelectedCarrierFilter,
     handlePaymentSuccess,
     handleAddPaymentMethod,
-    // THE KEY CHANGE IS HERE: WE NEED TO ACCESS THE STATE SETTER
+    // THE CRITICAL FIX: You need to destructure the `setResults` function.
     setResults,
   } = useBulkUpload();
 
