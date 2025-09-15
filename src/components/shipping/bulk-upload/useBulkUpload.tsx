@@ -39,53 +39,43 @@ export const useBulkUpload = () => {
   } = useShipmentUpload();
 
   const updateResults = (newResults: BulkUploadResult) => {
-    console.log('Updating results in useBulkUpload:', newResults);
+    console.log('Updating results in useBulkUpload (merge mode):', newResults);
     
-    // ENHANCED: Ensure proper calculation of row totals when updating results
+    // When processedShipments are provided, recalc totals to avoid stale totals from callers
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
-      // Calculate total shipping cost (sum of all row rates)
-      const calculatedShippingTotal = newResults.processedShipments.reduce((sum, shipment) => {
-        return sum + (shipment.rate || 0);
-      }, 0);
-      
-      // Calculate total insurance cost (sum of all row insurance)
-      const calculatedInsuranceTotal = newResults.processedShipments.reduce((sum, shipment) => {
-        return sum + (shipment.insurance_cost || 0);
-      }, 0);
-      
-      // FIXED: Final total is now the sum of all row totals (rate + insurance for each row)
-      const calculatedFinalTotal = newResults.processedShipments.reduce((sum, shipment) => {
-        const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
-        return sum + rowTotal;
-      }, 0);
-      
-      console.log('Row totals calculation in updateResults:', {
-        shipmentCount: newResults.processedShipments.length,
-        calculatedShippingTotal,
-        calculatedInsuranceTotal,
-        calculatedFinalTotal,
-        finalRowTotal: calculatedShippingTotal + calculatedInsuranceTotal,
-        rowBreakdown: newResults.processedShipments.map((s, i) => ({
-          row: i + 1,
-          rate: s.rate || 0,
-          insurance: s.insurance_cost || 0,
-          rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
-        })),
-        verification: `Shipping: ${calculatedShippingTotal} + Insurance: ${calculatedInsuranceTotal} = ${calculatedShippingTotal + calculatedInsuranceTotal} (should equal ${calculatedFinalTotal})`
-      });
-      
-      // Update the results with properly calculated totals
+      const calculatedShippingTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
+      const calculatedInsuranceTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.insurance_cost || 0), 0);
       newResults.totalCost = calculatedShippingTotal;
       newResults.totalInsurance = calculatedInsuranceTotal;
     }
     
-    setResults(newResults);
+    // Merge with latest state to prevent overwriting newer fields with stale data
+    setResults((prev) => {
+      const merged: BulkUploadResult = {
+        ...(prev || ({} as BulkUploadResult)),
+        ...newResults,
+      } as BulkUploadResult;
+
+      // If processedShipments were not part of the newResults, keep previous list
+      if (!('processedShipments' in newResults) && prev) {
+        merged.processedShipments = prev.processedShipments;
+      }
+
+      // Ensure totals are consistent with the current processedShipments
+      if (merged.processedShipments && Array.isArray(merged.processedShipments)) {
+        const shippingTotal = merged.processedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
+        const insuranceTotal = merged.processedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
+        merged.totalCost = shippingTotal;
+        merged.totalInsurance = insuranceTotal;
+      }
+
+      return merged;
+    });
     
-    if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
-      // Only update status if it's one of the types compatible with useShipmentUpload's state
+    if ((newResults as any).uploadStatus && (newResults as any).uploadStatus !== uploadStatus) {
       const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
-      if (compatibleStatuses.includes(newResults.uploadStatus)) {
-        setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
+      if (compatibleStatuses.includes((newResults as any).uploadStatus)) {
+        setUploadStatus((newResults as any).uploadStatus);
       }
     }
   };

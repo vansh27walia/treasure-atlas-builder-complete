@@ -147,8 +147,7 @@ const FreshEditModal = ({
 
   const handleSaveChanges = () => {
     if (!selectedRate) {
-      toast.error('Please select a shipping rate');
-      return;
+      console.log('No rate selected in edit modal; saving changes and refreshing rates afterward.');
     }
 
     // Calculate insurance cost
@@ -182,12 +181,12 @@ const FreshEditModal = ({
       declared_value: localData.declared_value,
       insurance_enabled: localData.insurance_enabled,
       insurance_cost: insuranceCost,
-      // selected rate
-      carrier: selectedRate.carrier,
-      service: selectedRate.service,
-      rate: Number(selectedRate.rate),
-      selectedRateId: selectedRate.id,
-      easypost_id: selectedRate.shipment_id || shipment.easypost_id,
+      // selected rate (optional - clear if none selected)
+      carrier: selectedRate?.carrier || '',
+      service: selectedRate?.service || '',
+      rate: selectedRate ? Number(selectedRate.rate) : 0,
+      selectedRateId: selectedRate?.id,
+      easypost_id: selectedRate?.shipment_id,
       // normalized details for backend compatibility
       details: {
         to_name: localData.recipient,

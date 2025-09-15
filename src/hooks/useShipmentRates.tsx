@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { carrierService } from '@/services/CarrierService';
@@ -9,6 +9,11 @@ export const useShipmentRates = (
 ) => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   
+  // Always use the freshest results to avoid stale overwrites after edits
+  const latestResultsRef = useRef(initialResults);
+  useEffect(() => {
+    latestResultsRef.current = initialResults;
+  }, [initialResults]);
   const fetchAllShipmentRates = async (shipments: BulkShipment[]) => {
     setIsFetchingRates(true);
     
@@ -23,7 +28,7 @@ export const useShipmentRates = (
           // Update status to show we're processing this shipment
           updatedShipments[i] = { ...shipment, status: 'processing' as const };
           updateResults({
-            ...initialResults!,
+            ...(latestResultsRef.current as BulkUploadResult),
             processedShipments: updatedShipments
           });
           
@@ -51,7 +56,7 @@ export const useShipmentRates = (
         
         // Update UI with progress
         updateResults({
-          ...initialResults!,
+          ...(latestResultsRef.current as BulkUploadResult),
           processedShipments: updatedShipments
         });
       }
@@ -148,7 +153,7 @@ export const useShipmentRates = (
     }, 0);
     
     updateResults({
-      ...initialResults,
+      ...(latestResultsRef.current as BulkUploadResult),
       processedShipments: updatedShipments,
       totalCost
     });
@@ -166,10 +171,10 @@ export const useShipmentRates = (
       s.id === shipmentId ? { ...s, status: 'processing' as const } : s
     );
     
-    updateResults({
-      ...initialResults,
-      processedShipments: updatedShipments
-    });
+  updateResults({
+    ...(latestResultsRef.current as BulkUploadResult),
+    processedShipments: updatedShipments
+  });
     
     try {
       // Fetch new rates using real API
@@ -185,10 +190,10 @@ export const useShipmentRates = (
         } : s
       );
       
-      updateResults({
-        ...initialResults,
-        processedShipments: finalShipments
-      });
+    updateResults({
+      ...(latestResultsRef.current as BulkUploadResult),
+      processedShipments: finalShipments
+    });
       
       toast.success('Rates updated successfully');
     } catch (error) {
@@ -201,10 +206,10 @@ export const useShipmentRates = (
         } : s
       );
       
-      updateResults({
-        ...initialResults,
-        processedShipments: errorShipments
-      });
+  updateResults({
+    ...(latestResultsRef.current as BulkUploadResult),
+    processedShipments: errorShipments
+  });
       
       toast.error('Failed to update rates');
     }
@@ -239,11 +244,11 @@ export const useShipmentRates = (
       return sum + (parseFloat(selectedRate?.rate || '0') || 0);
     }, 0);
     
-    updateResults({
-      ...initialResults,
-      processedShipments: updatedShipments,
-      totalCost
-    });
+  updateResults({
+    ...(latestResultsRef.current as BulkUploadResult),
+    processedShipments: updatedShipments,
+    totalCost
+  });
     
     toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
   };
