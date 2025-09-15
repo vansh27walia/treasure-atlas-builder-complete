@@ -38,7 +38,7 @@ const FreshEditModal = ({
 
   // Determine initial weight from shipment details (stored in ounces)
   const initialWeightOz = (shipment?.details?.weight ?? shipment?.details?.parcel_weight ?? shipment?.weight ?? 0) as number;
-  const [weightUnit, setWeightUnit] = useState<'lb' | 'kg'>('lb');
+  const [weightUnit, setWeightUnit] = useState<'lb' | 'kg'>('lb'); // Always default to pounds
 
   // Local state for shipment data - now including address fields
   const [localData, setLocalData] = useState({
@@ -146,8 +146,9 @@ const FreshEditModal = ({
   };
 
   const handleSaveChanges = () => {
+    console.log('Saving shipment changes - ensuring proper state update before rate refresh...');
     if (!selectedRate) {
-      console.log('No rate selected in edit modal; saving changes and refreshing rates afterward.');
+      console.log('No rate selected in edit modal; will refresh rates after save.');
     }
 
     // Calculate insurance cost
@@ -378,7 +379,7 @@ const FreshEditModal = ({
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Default is pounds (lb). Switch to kg if needed.</p>
+                <p className="text-xs text-muted-foreground mt-1">Weight is in pounds (lb).</p>
               </div>
 
               <div>

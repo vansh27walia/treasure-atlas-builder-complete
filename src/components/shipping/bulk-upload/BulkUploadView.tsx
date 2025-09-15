@@ -27,6 +27,7 @@ import { useBulkUpload } from './useBulkUpload';
 import OrderSummary from './OrderSummary';
 import BulkPaymentModal from './BulkPaymentModal';
 import FreshEditModal from './FreshEditModal';
+import IndependentPrintPreview from '../IndependentPrintPreview';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -113,27 +114,33 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     return 'Address not available';
   };
 
-  // Fresh independent edit handler - now correctly updates local state
-  const handleFreshEdit = (shipmentId: string, updatedShipment: BulkShipment) => {
+  // ENHANCED edit handler - ensures proper save-then-fetch sequence
+  const handleFreshEdit = async (shipmentId: string, updatedShipment: BulkShipment) => {
     if (!results) {
       console.error('No results available for editing');
       return;
     }
     
-    // Replace the shipment immutably in the results
+    console.log('🔄 Starting edit save sequence for shipment:', shipmentId);
+    
+    // Step 1: IMMEDIATELY update local state with the changes
     const updatedShipments = results.processedShipments.map(s => 
       s.id === shipmentId ? {
         ...updatedShipment,
-        // Clear any stale rate selection when details changed (will be set if modal selected a rate)
+        // Clear stale rates unless modal selected a specific rate
         selectedRateId: updatedShipment.selectedRateId || null,
+        availableRates: updatedShipment.selectedRateId ? updatedShipment.availableRates : [], // Clear if no rate selected
+        carrier: updatedShipment.selectedRateId ? updatedShipment.carrier : '',
+        service: updatedShipment.selectedRateId ? updatedShipment.service : '',
+        rate: updatedShipment.selectedRateId ? updatedShipment.rate : 0
       } : s
     );
     
-    // Recalculate totals
+    // Step 2: Recalculate totals properly including insurance
     const totalCost = updatedShipments.reduce((sum, s) => sum + (Number(s.rate) || 0), 0);
     const totalInsurance = updatedShipments.reduce((sum, s) => sum + (Number(s.insurance_cost) || 0), 0);
     
-    // Update state
+    // Step 3: COMMIT the state update first
     setResults({
       ...results,
       processedShipments: updatedShipments,
@@ -141,12 +148,19 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       totalInsurance
     });
 
-    // Immediately send updated request to backend if no rate was selected in the modal
-    if (!updatedShipment.selectedRateId) {
-      setTimeout(() => handleRefreshRates(shipmentId), 300);
-    }
+    console.log('✅ Local state updated. New totals:', { totalCost, totalInsurance });
 
-    console.log('Shipment updated locally and backend refresh scheduled (if needed):', updatedShipment);
+    // Step 4: ONLY refresh rates if no rate was selected in modal
+    if (!updatedShipment.selectedRateId) {
+      console.log('⏳ Waiting before rate refresh to ensure state is committed...');
+      // Proper delay to ensure state update is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('🌐 Refreshing rates for updated shipment...');
+      await handleRefreshRates(shipmentId);
+    } else {
+      console.log('✅ Rate already selected in modal - skipping rate refresh');
+    }
   };
 
   return (
@@ -274,10 +288,16 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
               <TableFooter className="bg-gray-100">
                 <TableRow>
                   <TableCell colSpan={6} className="text-right font-semibold">
-                    Grand Total (Sum of all Row Totals):
+                    Grand Total (Shipping + Insurance):
                   </TableCell>
                   <TableCell className="font-bold text-lg text-green-700">
-                    ${((results.totalCost || 0) + (results.totalInsurance || 0)).toFixed(2)}
+                    ${(() => {
+                      // Recalculate from current rows to ensure accuracy
+                      const actualTotal = filteredShipments.reduce((sum, shipment) => 
+                        sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0
+                      );
+                      return actualTotal.toFixed(2);
+                    })()}
                   </TableCell>
                   <TableCell></TableCell>
                 </TableRow>
@@ -295,6 +315,17 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             isPaying={isPaying}
             isCreatingLabels={isCreatingLabels}
           />
+
+          {/* Independent Print Preview - Simple and Isolated */}
+          {results.batchResult && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Batch Operations</h3>
+              <IndependentPrintPreview 
+                batchResult={results.batchResult}
+                onDownloadComplete={() => console.log('Batch download completed')}
+              />
+            </div>
+          )}
         </div>
       )}
 

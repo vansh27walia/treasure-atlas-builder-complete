@@ -1,0 +1,207 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Printer, Download, Eye, Mail } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { ConsolidatedLabelUrls } from '@/types/shipping';
+
+const labelFormats = [
+  { value: '4x6', label: '4x6" Thermal Printer' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels' },
+  { value: '8.5x11-top', label: '8.5x11" - Single (Top)' },
+  { value: '8.5x11-bottom', label: '8.5x11" - Single (Bottom)' }
+];
+
+interface IndependentPrintPreviewProps {
+  batchResult?: {
+    batchId: string;
+    consolidatedLabelUrls: ConsolidatedLabelUrls;
+    scanFormUrl: string | null;
+  };
+  triggerButton?: React.ReactNode;
+  onDownloadComplete?: () => void;
+}
+
+const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
+  batchResult,
+  triggerButton,
+  onDownloadComplete
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('8.5x11-2up');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleDownload = async (format: 'pdf' | 'zpl' | 'epl' = 'pdf') => {
+    if (!batchResult?.consolidatedLabelUrls) {
+      toast.error('No batch labels available for download');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const url = batchResult.consolidatedLabelUrls[format];
+      if (!url) {
+        toast.error(`${format.toUpperCase()} format not available`);
+        return;
+      }
+
+      // Create download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `batch_labels_${batchResult.batchId}.${format}`;
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`${format.toUpperCase()} batch labels downloaded successfully`);
+      onDownloadComplete?.();
+    } catch (error) {
+      console.error('Error downloading batch labels:', error);
+      toast.error('Failed to download batch labels');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (iframeRef.current?.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.print();
+        toast.success('Print dialog opened');
+      } catch (error) {
+        console.error('Print error:', error);
+        toast.error('Failed to open print dialog');
+      }
+    }
+  };
+
+  const handleEmail = async () => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const { data, error } = await supabase.functions.invoke('email-labels', {
+        body: {
+          batchResult,
+          selectedFormats: ['pdf']
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success('Email sent successfully');
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Email error:', error);
+      toast.error('Failed to send email');
+    }
+  };
+
+  const defaultTrigger = (
+    <Button variant="outline" className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700">
+      <Eye className="h-4 w-4 mr-2" />
+      Print Preview All Labels
+    </Button>
+  );
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        {triggerButton || defaultTrigger}
+      </DialogTrigger>
+      
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Batch Label Preview - ID: {batchResult?.batchId || 'N/A'}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Format Selection */}
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Format:</label>
+            <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {labelFormats.map((format) => (
+                  <SelectItem key={format.value} value={format.value}>
+                    {format.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* PDF Preview */}
+          {batchResult?.consolidatedLabelUrls?.pdf && (
+            <div className="border rounded-lg overflow-hidden bg-gray-50">
+              <iframe
+                ref={iframeRef}
+                src={batchResult.consolidatedLabelUrls.pdf}
+                className="w-full h-96"
+                title="Batch Label Preview"
+                onLoad={() => console.log('PDF preview loaded')}
+              />
+            </div>
+          )}
+
+          {/* Action Buttons - Independent and Simple */}
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleDownload('pdf')}
+                disabled={isDownloading || !batchResult?.consolidatedLabelUrls?.pdf}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+              
+              <Button
+                onClick={() => handleDownload('zpl')}
+                disabled={isDownloading || !batchResult?.consolidatedLabelUrls?.zpl}
+                variant="outline"
+              >
+                Download ZPL
+              </Button>
+              
+              <Button
+                onClick={() => handleDownload('epl')}
+                disabled={isDownloading || !batchResult?.consolidatedLabelUrls?.epl}
+                variant="outline"
+              >
+                Download EPL
+              </Button>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                disabled={!batchResult?.consolidatedLabelUrls?.pdf}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              
+              <Button
+                onClick={handleEmail}
+                variant="outline"
+                disabled={!batchResult?.consolidatedLabelUrls?.pdf}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default IndependentPrintPreview;
