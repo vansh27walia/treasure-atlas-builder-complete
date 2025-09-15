@@ -48,7 +48,7 @@ interface BulkShipmentsListProps {
   isFetchingRates: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
-  onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
+  onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
   onRefreshRates: (shipmentId: string) => void;
   onAIAnalysis: (shipment?: any) => void;
 }
@@ -328,7 +328,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     
     try {
       // Update the shipment details first
-      onEditShipment(shipmentId, { details: editedData });
+      onEditShipment(shipmentId, editedData);
       
       // Close the dialog
       handleCloseEditDialog(shipmentId);

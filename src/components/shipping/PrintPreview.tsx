@@ -526,22 +526,20 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         <div className="flex-1 flex flex-col pt-4 overflow-hidden">
           {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            {!isBatchPreview && (
-              <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
-                <TabsTrigger value="preview" className="text-sm py-2">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </TabsTrigger>
-                <TabsTrigger value="download" className="text-sm py-2">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </TabsTrigger>
-                <TabsTrigger value="email" className="text-sm py-2">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email
-                </TabsTrigger>
-              </TabsList>
-            )}
+            <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
+              <TabsTrigger value="preview" className="text-sm py-2">
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </TabsTrigger>
+              <TabsTrigger value="download" className="text-sm py-2">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </TabsTrigger>
+              <TabsTrigger value="email" className="text-sm py-2">
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </TabsTrigger>
+            </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
               {/* Format Selection - Only in Preview Tab */}

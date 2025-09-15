@@ -281,7 +281,7 @@ const BulkUpload: React.FC = () => {
                             </span>
                             <span className="flex items-center">
                               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                              ${(((results.totalCost || 0) + (results.totalInsurance || 0))).toFixed(2)} total
+                              ${results.totalCost?.toFixed(2) || '0.00'} total
                             </span>
                           </div>
                           {pickupAddress && <p className="text-sm text-blue-600 font-medium">
@@ -295,7 +295,7 @@ const BulkUpload: React.FC = () => {
                             {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
                           </Button>
                           
-                          <PaymentDropdown amount={((results.totalCost || 0) + (results.totalInsurance || 0))} description={`Bulk Shipping (${processedShipmentsCount} shipments)`} shippingDetails={{
+                          <PaymentDropdown amount={results.totalCost || 0} description={`Bulk Shipping (${processedShipmentsCount} shipments)`} shippingDetails={{
                       shipmentCount: processedShipmentsCount,
                       pickupAddress: pickupAddress,
                       shipments: results.processedShipments
