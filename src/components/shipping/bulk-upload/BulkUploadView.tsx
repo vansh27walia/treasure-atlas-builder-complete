@@ -75,12 +75,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setSelectedCarrierFilter,
     handlePaymentSuccess,
     handleAddPaymentMethod,
+    // THE CRITICAL FIX: You need to destructure the `setResults` function.
     setResults,
   } = useBulkUpload();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
+      // Create a synthetic event to match the expected ChangeEvent type
       const syntheticEvent = {
         target: {
           files: [file]
@@ -101,6 +103,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     } 
   });
 
+  // Helper function to format address for display
   const formatAddressForDisplay = (address: string | any): string => {
     if (typeof address === 'string') {
       return address;
@@ -111,7 +114,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     return 'Address not available';
   };
 
-  // 📝 THE CORRECTED LOGIC 📝
+  // ENHANCED edit handler - ensures proper save-then-fetch sequence
   const handleFreshEdit = async (shipmentId: string, updatedShipment: BulkShipment) => {
     if (!results) {
       console.error('No results available for editing');
@@ -121,11 +124,12 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     console.log('🔄 Starting edit save sequence for shipment:', shipmentId);
     
     // Step 1: IMMEDIATELY update local state with the changes
-    const updatedShipments = results.processedShipments.map(s =>  
+    const updatedShipments = results.processedShipments.map(s => 
       s.id === shipmentId ? {
         ...updatedShipment,
+        // Clear stale rates unless modal selected a specific rate
         selectedRateId: updatedShipment.selectedRateId || null,
-        availableRates: updatedShipment.selectedRateId ? updatedShipment.availableRates : [],
+        availableRates: updatedShipment.selectedRateId ? updatedShipment.availableRates : [], // Clear if no rate selected
         carrier: updatedShipment.selectedRateId ? updatedShipment.carrier : '',
         service: updatedShipment.selectedRateId ? updatedShipment.service : '',
         rate: updatedShipment.selectedRateId ? updatedShipment.rate : 0
@@ -146,11 +150,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
     console.log('✅ Local state updated. New totals:', { totalCost, totalInsurance });
 
-    // Step 4: Call handleRefreshRates directly with the updated object.
-    // The previous setTimeout is removed to prevent the race condition.
+    // Step 4: ONLY refresh rates if no rate was selected in modal
     if (!updatedShipment.selectedRateId) {
+      console.log('⏳ Waiting before rate refresh to ensure state is committed...');
+      // Proper delay to ensure state update is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       console.log('🌐 Refreshing rates for updated shipment...');
-      await handleRefreshRates(updatedShipment);
+      await handleRefreshRates(shipmentId);
     } else {
       console.log('✅ Rate already selected in modal - skipping rate refresh');
     }
@@ -284,11 +291,12 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     Grand Total (Shipping + Insurance):
                   </TableCell>
                   <TableCell className="font-bold text-lg text-green-700">
-                    {(() => {
+                    ${(() => {
+                      // Recalculate from current rows to ensure accuracy
                       const actualTotal = filteredShipments.reduce((sum, shipment) => 
                         sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0
                       );
-                      return `$${actualTotal.toFixed(2)}`;
+                      return actualTotal.toFixed(2);
                     })()}
                   </TableCell>
                   <TableCell></TableCell>
@@ -308,6 +316,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             isCreatingLabels={isCreatingLabels}
           />
 
+          {/* Independent Print Preview - Simple and Isolated */}
           {results.batchResult && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-blue-900 mb-2">Batch Operations</h3>
@@ -320,6 +329,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
         </div>
       )}
 
+      {/* Enhanced Add Payment Method Modal */}
       <BulkPaymentModal
         open={showAddPaymentModal}
         onOpenChange={setShowAddPaymentModal}
@@ -327,4 +337,5 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     </div>
   );
 };
+
 export default BulkUploadView;
