@@ -146,11 +146,11 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
     console.log('✅ Local state updated. New totals:', { totalCost, totalInsurance });
 
-    // Step 4: Call handleRefreshRates directly with the updated object.
+    // Step 4: Call handleRefreshRates with the shipment ID.
     // The previous setTimeout is removed to prevent the race condition.
     if (!updatedShipment.selectedRateId) {
       console.log('🌐 Refreshing rates for updated shipment...');
-      await handleRefreshRates(updatedShipment);
+      await handleRefreshRates(updatedShipment.id);
     } else {
       console.log('✅ Rate already selected in modal - skipping rate refresh');
     }
