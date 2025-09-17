@@ -263,6 +263,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                             shipment={shipment}
                             pickupAddress={pickupAddress}
                             onUpdateShipment={handleFreshEdit}
+                            onRefreshRates={handleRefreshRates}
                           />
                           <Button 
                             variant="outline" 
