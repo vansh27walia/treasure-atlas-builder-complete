@@ -22,14 +22,15 @@ interface FreshEditModalProps {
   shipment: any;
   pickupAddress: any;
   onUpdateShipment: (id: string, updated: any) => void;
+  // Add a new prop to trigger rate refresh in the parent component
+  onRefreshRates: (id: string) => void;
 }
-
-// ... keep existing code (component implementation continues)
 
 const FreshEditModal = ({
   shipment,
   pickupAddress,
-  onUpdateShipment
+  onUpdateShipment,
+  onRefreshRates // Destructure the new prop
 }: FreshEditModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -225,6 +226,7 @@ const FreshEditModal = ({
     console.log('Data prepared for parent component:', updatedShipment);
 
     onUpdateShipment(shipment.id, updatedShipment);
+    onRefreshRates(shipment.id); // Call the new prop to refresh rates in the parent
     
     setOpen(false);
     toast.success('Shipment updated successfully');
