@@ -1,4 +1,3 @@
-// File: useBulkUpload.js or useBulkUpload.tsx
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -25,7 +24,7 @@ export const useBulkUpload = () => {
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
-
+  
   const {
     file,
     isUploading,
@@ -41,7 +40,7 @@ export const useBulkUpload = () => {
 
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload (merge mode):', newResults);
-
+    
     // When processedShipments are provided, recalc totals to avoid stale totals from callers
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
       const calculatedShippingTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
@@ -49,7 +48,7 @@ export const useBulkUpload = () => {
       newResults.totalCost = calculatedShippingTotal;
       newResults.totalInsurance = calculatedInsuranceTotal;
     }
-
+    
     // Merge with latest state to prevent overwriting newer fields with stale data
     setResults((prev) => {
       const merged: BulkUploadResult = {
@@ -72,7 +71,7 @@ export const useBulkUpload = () => {
 
       return merged;
     });
-
+    
     if ((newResults as any).uploadStatus && (newResults as any).uploadStatus !== uploadStatus) {
       const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
       if (compatibleStatuses.includes((newResults as any).uploadStatus)) {
@@ -97,7 +96,7 @@ export const useBulkUpload = () => {
     handleProceedToPayment,
     handleCreateLabels: originalHandleCreateLabels,
     handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
+    handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels
   } = useShipmentManagement(results, updateResults);
@@ -135,16 +134,16 @@ export const useBulkUpload = () => {
         toast.error('Error loading pickup addresses. Please check your settings.');
       }
     };
-
+    
     loadDefaultPickupAddress();
   }, []);
 
   const handleEditShipment = async (shipmentId: string, updates: Partial<BulkShipment>) => {
     if (!results) return;
-
+    
     try {
       console.log('Editing shipment with updates:', { shipmentId, updates });
-
+      
       // Find the shipment to edit
       const shipment = results.processedShipments.find(s => s.id === shipmentId);
       if (!shipment) {
@@ -152,10 +151,10 @@ export const useBulkUpload = () => {
         toast.error('Shipment not found');
         return;
       }
-
+      
       // Create the updated shipment and clear any stale rate selection
-      const updatedShipment = {
-        ...shipment,
+      const updatedShipment = { 
+        ...shipment, 
         ...updates,
         selectedRateId: undefined,
         carrier: '',
@@ -163,32 +162,42 @@ export const useBulkUpload = () => {
         rate: 0,
         availableRates: []
       };
-
-      // **FIX:** Directly call the original handler to update the shipment and trigger rate fetch
+      
+      // First update the shipment details using the original function
       await originalHandleEditShipment(updatedShipment);
-
-      // **REMOVED:** The second, manual call to handleRefreshRates is no longer needed
-      // because originalHandleEditShipment should already be handling the rate refresh.
-      // If it's not, that's the function you need to fix, not this one.
-      // await handleRefreshRates(shipment.id);
-
+      
+      // Then refresh rates for the updated shipment
+      console.log('Refreshing rates after shipment edit...');
+      await handleRefreshRates(shipment.id);
+      
       // ENHANCED: Recalculate row totals after edit
       if (results) {
-        const updatedShipments = results.processedShipments.map(s =>
+        const updatedShipments = results.processedShipments.map(s => 
           s.id === shipment.id ? updatedShipment : s
         );
-
+        
+        // Calculate new totals properly - sum of all row totals
         const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
         const newInsuranceTotal = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
-
+        const newFinalTotal = updatedShipments.reduce((sum, s) => {
+          const rowTotal = (s.rate || 0) + (s.insurance_cost || 0);
+          return sum + rowTotal;
+        }, 0);
+        
         console.log('Row totals after edit:', {
           editedShipmentId: shipment.id,
           newShippingTotal,
           newInsuranceTotal,
+          newFinalTotal,
+          verification: `${newShippingTotal} + ${newInsuranceTotal} = ${newShippingTotal + newInsuranceTotal} (should equal ${newFinalTotal})`,
+          rowBreakdown: updatedShipments.map(s => ({
+            id: s.id,
+            rate: s.rate || 0,
+            insurance: s.insurance_cost || 0,
+            rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
+          }))
         });
-
-        // The update is already handled by originalHandleEditShipment,
-        // so this is likely redundant. Remove it if the logic is duplicated.
+        
         updateResults({
           ...results,
           processedShipments: updatedShipments,
@@ -196,10 +205,10 @@ export const useBulkUpload = () => {
           totalInsurance: newInsuranceTotal
         });
       }
-
-      toast.success('Shipment updated and rates refreshed.');
+      
+      toast.success('Shipment updated and row totals recalculated');
     } catch (error) {
-      console.error('Error updating shipment or refreshing rates:', error);
+      console.error('Error updating shipment and refreshing rates:', error);
       toast.error('Failed to update shipment or refresh rates');
     }
   };
@@ -223,18 +232,18 @@ export const useBulkUpload = () => {
       toast.error('Missing shipments or pickup address');
       return;
     }
-
+    
     setBatchError(null);
-
+    
     let shipmentsArray = [];
     if (Array.isArray(results.processedShipments)) {
       shipmentsArray = results.processedShipments;
     } else if (results.processedShipments && typeof results.processedShipments === 'object') {
       shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
     }
-
+    
     const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
-
+    
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
       return;
@@ -242,16 +251,16 @@ export const useBulkUpload = () => {
 
     const totalShipments = shipmentsArray.length;
     const shipmentsWithRates = shipmentsToProcess.length;
-
+    
     if (shipmentsWithRates !== totalShipments) {
       const missingRates = totalShipments - shipmentsWithRates;
       toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
       console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
       return;
     }
-
+    
     console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
-
+    
     setLabelGenerationProgress({
       isGenerating: true,
       totalShipments: shipmentsToProcess.length,
@@ -259,12 +268,12 @@ export const useBulkUpload = () => {
       successfulShipments: 0,
       failedShipments: 0,
       currentStep: 'Starting label generation...',
-      estimatedTimeRemaining: shipmentsToProcess.length * 8
+      estimatedTimeRemaining: shipmentsToProcess.length * 8 
     });
-
+    
     try {
       setUploadStatus('creating-labels');
-
+      
       const progressInterval = setInterval(() => {
         setLabelGenerationProgress(prev => ({
           ...prev,
@@ -288,18 +297,18 @@ export const useBulkUpload = () => {
 
       if (error) {
         console.error('Label creation error from Supabase function:', error);
-
+        
         if (error.message && error.message.includes('Batch halted')) {
           const errorMatch = error.message.match(/Package #(\d+)/);
           const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
           const failedShipment = shipmentsToProcess[packageNumber - 1];
-
+          
           setBatchError({
             packageNumber,
             error: error.message,
             shipmentId: failedShipment?.id || 'unknown'
           });
-
+          
           setLabelGenerationProgress({
             isGenerating: false,
             totalShipments: shipmentsToProcess.length,
@@ -309,14 +318,14 @@ export const useBulkUpload = () => {
             currentStep: 'Batch halted due to error',
             estimatedTimeRemaining: 0
           });
-
+          
           toast.error(`Batch halted. Package #${packageNumber} couldn't be processed. Please fix the issue to continue.`, {
             duration: 10000
           });
-
+          
           return;
         }
-
+        
         throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
@@ -325,7 +334,7 @@ export const useBulkUpload = () => {
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
         const actualLabels = data.processedLabels.length;
-
+        
         setLabelGenerationProgress({
           isGenerating: false,
           totalShipments: expectedLabels,
@@ -337,7 +346,7 @@ export const useBulkUpload = () => {
         });
 
         const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
-          const originalShipment = shipmentsToProcess.find(s =>
+          const originalShipment = shipmentsToProcess.find(s => 
             s.easypost_id === labelData.id || s.id === labelData.original_shipment_id || s.id === labelData.id
           );
           return {
@@ -362,31 +371,31 @@ export const useBulkUpload = () => {
             selectedRateId: originalShipment?.selectedRateId,
           };
         });
-
+        
         const transformedFailedShipments = (data.failedLabels || []).map((failed: any) => {
-          const originalFailedShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId || s.easypost_id === failed.shipmentId);
-          return {
-            ...(originalFailedShipment || { id: failed.shipmentId, details: {}, recipient: 'Unknown' }),
-            status: 'failed' as const,
-            error: failed.error || 'Label creation failed',
-          };
+            const originalFailedShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId || s.easypost_id === failed.shipmentId);
+            return {
+                ...(originalFailedShipment || { id: failed.shipmentId, details: {}, recipient: 'Unknown' }),
+                status: 'failed' as const,
+                error: failed.error || 'Label creation failed',
+            };
         });
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
-
+        
         let frontendBatchResult: BatchResult | null = null;
         if (data.batchResult && data.batchResult.batchId) {
-          console.log('Processing batch result:', data.batchResult);
-          frontendBatchResult = {
-            batchId: data.batchResult.batchId,
-            consolidatedLabelUrls: {
-              pdf: data.batchResult.batchLabelUrls?.pdfUrl || data.batchResult.consolidatedLabelUrls?.pdf,
-              zpl: data.batchResult.batchLabelUrls?.zplUrl || data.batchResult.consolidatedLabelUrls?.zpl,
-              epl: data.batchResult.batchLabelUrls?.eplUrl || data.batchResult.consolidatedLabelUrls?.epl,
-            },
-            scanFormUrl: data.batchResult.scanFormUrl || null,
-          };
-          console.log('Created frontend batch result:', frontendBatchResult);
+            console.log('Processing batch result:', data.batchResult);
+            frontendBatchResult = {
+                batchId: data.batchResult.batchId,
+                consolidatedLabelUrls: {
+                    pdf: data.batchResult.batchLabelUrls?.pdfUrl || data.batchResult.consolidatedLabelUrls?.pdf,
+                    zpl: data.batchResult.batchLabelUrls?.zplUrl || data.batchResult.consolidatedLabelUrls?.zpl,
+                    epl: data.batchResult.batchLabelUrls?.eplUrl || data.batchResult.consolidatedLabelUrls?.epl,
+                },
+                scanFormUrl: data.batchResult.scanFormUrl || null,
+            };
+            console.log('Created frontend batch result:', frontendBatchResult);
         }
 
         const updatedResults: BulkUploadResult = {
@@ -395,7 +404,7 @@ export const useBulkUpload = () => {
           failed: data.failed || transformedFailedShipments.length,
           totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
           processedShipments: allTransformedShipments,
-          failedShipments: (data.failedLabels || []).map((f: any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
+          failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
           batchResult: frontendBatchResult,
           bulk_label_pdf_url: frontendBatchResult?.consolidatedLabelUrls?.pdf || null,
           uploadStatus: 'success' as const,
@@ -405,13 +414,13 @@ export const useBulkUpload = () => {
         console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         console.log('Final batch result being set:', updatedResults.batchResult);
         updateResults(updatedResults);
-
+        
         if (updatedResults.successful === expectedLabels && expectedLabels > 0) {
           toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels generated!`);
         } else if (transformedSuccessfulShipments.length > 0) {
           toast.warning(`⚠️ ${transformedSuccessfulShipments.length} out of ${expectedLabels} labels created. ${transformedFailedShipments.length} failed.`);
         } else if (expectedLabels > 0) {
-          toast.error(`❌ All ${expectedLabels} label creations failed. Check details.`);
+           toast.error(`❌ All ${expectedLabels} label creations failed. Check details.`);
         }
 
         if (frontendBatchResult) {
@@ -440,7 +449,7 @@ export const useBulkUpload = () => {
 
   const handleUpload = async (file: File) => {
     console.log('handleUpload called with:', { file: file.name, pickupAddress });
-
+    
     if (!pickupAddress) {
       const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
       toast.error(errorMsg, {
@@ -452,7 +461,7 @@ export const useBulkUpload = () => {
       });
       throw new Error(errorMsg);
     }
-
+    
     return originalHandleUpload(file, pickupAddress);
   };
 
@@ -505,7 +514,7 @@ export const useBulkUpload = () => {
     handleOpenBatchPrintPreview,
     handleClearBatchError,
     handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
+    handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
@@ -517,5 +526,4 @@ export const useBulkUpload = () => {
     handlePaymentSuccess,
     handleAddPaymentMethod,
   };
-
 };
