@@ -103,7 +103,7 @@ const FreshEditModal = ({
       };
 
       // Format parcel data - convert to ounces for backend based on selected unit
-      const weightOz = weightUnit === 'lb' 
+      const weightOz = weightUnit === 'lb'  
         ? convertPoundsToOunces(localData.weight)
         : kgToOunces(localData.weight);
 
@@ -152,13 +152,13 @@ const FreshEditModal = ({
     }
 
     // Calculate insurance cost
-    const insuranceCost = localData.insurance_enabled 
-      ? Math.max(1, localData.declared_value * 0.01) 
+    const insuranceCost = localData.insurance_enabled  
+      ? Math.max(1, localData.declared_value * 0.01)  
       : 0;
 
     // Normalize weight to ounces based on selected unit
-    const weightOzToSave = weightUnit === 'lb' 
-      ? convertPoundsToOunces(localData.weight) 
+    const weightOzToSave = weightUnit === 'lb'  
+      ? convertPoundsToOunces(localData.weight)  
       : kgToOunces(localData.weight);
 
     // Create updated shipment with local changes (replace details with normalized structure)
@@ -232,10 +232,8 @@ const FreshEditModal = ({
 
   const handleOpenModal = () => {
     setOpen(true);
-    // Auto-fetch rates when modal opens, ensuring pickupAddress is present
-    setTimeout(() => {
-      fetchRatesFromNormalShipping();
-    }, 100);
+    // REMOVED: Auto-fetch rates when modal opens
+    // This removes the race condition and ensures the "save first, then fetch" flow is enforced by the parent component (BulkUploadView.tsx).
   };
 
   return (
@@ -502,4 +500,5 @@ const FreshEditModal = ({
     </>
   );
 };
+
 export default FreshEditModal;
