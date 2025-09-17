@@ -132,7 +132,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
         availableRates: updatedShipment.selectedRateId ? updatedShipment.availableRates : [], // Clear if no rate selected
         carrier: updatedShipment.selectedRateId ? updatedShipment.carrier : '',
         service: updatedShipment.selectedRateId ? updatedShipment.service : '',
-        rate: updatedShipment.selectedRateId ? updatedShipment.rate : 0
+        rate: updatedShipment.selectedRateId ? updatedShipment.rate : 0,
+        easypost_id: updatedShipment.selectedRateId ? updatedShipment.easypost_id : undefined,
       } : s
     );
     

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
-import { carrierService } from '@/services/CarrierService';
+import { BulkShipment, BulkUploadResult, Rate } from '@/types/shipping';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useShipmentRates = (
   initialResults: BulkUploadResult | null,
@@ -72,55 +72,76 @@ export const useShipmentRates = (
     }
   };
   
-  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingOption[]> => {
+  const fetchShipmentRates = async (shipment: BulkShipment): Promise<Rate[]> => {
     try {
-      console.log('Fetching real rates for shipment:', shipment.id);
-      
-      // Use the actual CarrierService to get real rates
-      const requestData = {
-        fromAddress: {
-          name: initialResults?.pickupAddress?.name || '',
-          company: initialResults?.pickupAddress?.company || '',
-          street1: initialResults?.pickupAddress?.street1 || '',
-          street2: initialResults?.pickupAddress?.street2 || '',
-          city: initialResults?.pickupAddress?.city || '',
-          state: initialResults?.pickupAddress?.state || '',
-          zip: initialResults?.pickupAddress?.zip || '',
-          country: initialResults?.pickupAddress?.country || 'US',
-          phone: initialResults?.pickupAddress?.phone || '',
-        },
-        toAddress: {
-          name: shipment.details.name,
-          company: shipment.details.company || '',
-          street1: shipment.details.street1,
-          street2: shipment.details.street2 || '',
-          city: shipment.details.city,
-          state: shipment.details.state,
-          zip: shipment.details.zip,
-          country: shipment.details.country || 'US',
-          phone: shipment.details.phone || '',
-        },
-        parcel: {
-          length: shipment.details.parcel_length || 12,
-          width: shipment.details.parcel_width || 8,
-          height: shipment.details.parcel_height || 4,
-          weight: shipment.details.parcel_weight || 16,
-        }
+      console.log('Fetching rates via Supabase for shipment:', shipment.id);
+      const results = latestResultsRef.current;
+      if (!results?.pickupAddress) {
+        throw new Error('Missing pickup address for rate fetch');
+      }
+
+      const from = results.pickupAddress;
+      const d: any = shipment.details || {};
+
+      const toAddress = d.to_address ?? {
+        name: d.to_name || shipment.recipient || shipment.customer_name || '',
+        company: d.to_company || shipment.customer_company || '',
+        street1: d.to_street1 || (typeof shipment.customer_address === 'object' ? (shipment.customer_address as any).street1 : ''),
+        street2: d.to_street2 || (typeof shipment.customer_address === 'object' ? (shipment.customer_address as any).street2 : ''),
+        city: d.to_city || (typeof shipment.customer_address === 'object' ? (shipment.customer_address as any).city : ''),
+        state: d.to_state || (typeof shipment.customer_address === 'object' ? (shipment.customer_address as any).state : ''),
+        zip: d.to_zip || (typeof shipment.customer_address === 'object' ? (shipment.customer_address as any).zip : ''),
+        country: d.to_country || (typeof shipment.customer_address === 'object' ? (shipment.customer_address as any).country : 'US'),
+        phone: d.to_phone || shipment.customer_phone || '',
+        email: d.to_email || shipment.customer_email || ''
       };
 
-      const rates = await carrierService.getShippingRates(requestData);
-      
-      // Convert to our ShippingOption format
-      return rates.map(rate => ({
-        id: rate.id,
-        carrier: rate.carrier,
-        service: rate.service,
-        rate: rate.rate,
-        currency: rate.currency,
-        delivery_days: rate.delivery_days,
-        delivery_date: rate.delivery_date,
+      const parcel = {
+        length: d.parcel_length ?? d.length ?? 12,
+        width: d.parcel_width ?? d.width ?? 8,
+        height: d.parcel_height ?? d.height ?? 4,
+        weight: d.parcel_weight ?? d.weight ?? 16,
+      };
+
+      const payload = {
+        fromAddress: {
+          name: from.name || from.company || '',
+          company: from.company || '',
+          street1: from.street1,
+          street2: from.street2 || '',
+          city: from.city,
+          state: from.state,
+          zip: from.zip,
+          country: from.country || 'US',
+          phone: from.phone || '',
+          email: from.email || ''
+        },
+        toAddress,
+        parcel,
+        declaredValue: d.declared_value ?? (shipment as any).declared_value ?? 0,
+      };
+
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', { body: payload });
+      if (error) {
+        console.error('Supabase get-shipping-rates error:', error);
+        throw new Error(error.message || 'Failed to fetch rates');
+      }
+
+      const apiRates = (data?.rates || []) as any[];
+      const normalized: Rate[] = apiRates.map((r: any) => ({
+        id: r.id,
+        easypost_rate_id: r.id,
+        carrier: r.carrier,
+        service: r.service,
+        rate: typeof r.rate === 'string' ? parseFloat(r.rate) : r.rate,
+        currency: r.currency || 'USD',
+        delivery_days: r.delivery_days ?? r.est_delivery_days ?? null,
+        shipment_id: r.shipment_id,
+        retail_rate: r.retail_rate,
+        list_rate: r.list_rate,
       }));
-      
+
+      return normalized;
     } catch (error) {
       console.error('Error fetching real shipment rates:', error);
       throw new Error('Failed to fetch shipping rates from API');
@@ -128,88 +149,87 @@ export const useShipmentRates = (
   };
   
   const handleSelectRate = (shipmentId: string, rateId: string) => {
-    if (!initialResults) return;
+    const latest = latestResultsRef.current;
+    if (!latest) return;
     
-    const updatedShipments = initialResults.processedShipments.map(shipment => {
+    const updatedShipments = latest.processedShipments.map(shipment => {
       if (shipment.id === shipmentId) {
-        // Find the selected rate
-        const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
-        
+        const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === rateId);
         return { 
           ...shipment, 
           selectedRateId: rateId,
           carrier: selectedRate?.carrier || shipment.carrier,
           service: selectedRate?.service || shipment.service,
-          rate: parseFloat(selectedRate?.rate || '0') || shipment.rate
+          rate: parseFloat(String(selectedRate?.rate ?? shipment.rate ?? 0)),
+          easypost_id: (selectedRate as any)?.shipment_id || shipment.easypost_id,
         };
       }
       return shipment;
     });
     
-    // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (parseFloat(selectedRate?.rate || '0') || 0);
+      return sum + (parseFloat(String(selectedRate?.rate ?? 0)) || 0);
     }, 0);
     
     updateResults({
-      ...(latestResultsRef.current as BulkUploadResult),
+      ...(latest as BulkUploadResult),
       processedShipments: updatedShipments,
       totalCost
     });
   };
   
   const handleRefreshRates = async (shipmentId: string) => {
-    if (!initialResults) return;
+    const latest = latestResultsRef.current;
+    if (!latest) return;
     
-    // Find the shipment
-    const shipment = initialResults.processedShipments.find(s => s.id === shipmentId);
-    if (!shipment) return;
+    const existing = latest.processedShipments.find(s => s.id === shipmentId);
+    if (!existing) return;
     
-    // Update shipment status to processing
-    const updatedShipments = initialResults.processedShipments.map(s => 
+    const updatedShipments = latest.processedShipments.map(s => 
       s.id === shipmentId ? { ...s, status: 'processing' as const } : s
     );
     
-  updateResults({
-    ...(latestResultsRef.current as BulkUploadResult),
-    processedShipments: updatedShipments
-  });
+    updateResults({
+      ...(latest as BulkUploadResult),
+      processedShipments: updatedShipments
+    });
     
     try {
-      // Fetch new rates using real API
-      const rates = await fetchShipmentRates(shipment);
-      
-      // Update shipment with new rates
-      const finalShipments = updatedShipments.map(s => 
-        s.id === shipmentId ? { 
-          ...s, 
-          availableRates: rates,
-          status: 'completed' as const,
-          selectedRateId: rates.length > 0 ? rates[0].id : s.selectedRateId
-        } : s
+      const rates = await fetchShipmentRates(existing);
+      const cheapest = rates.length > 0 ? [...rates].sort((a, b) => a.rate - b.rate)[0] : undefined;
+      const finalShipments = updatedShipments.map(s =>
+        s.id === shipmentId
+          ? {
+              ...s,
+              availableRates: rates,
+              status: 'completed' as const,
+              selectedRateId: s.selectedRateId || cheapest?.id,
+              easypost_id: s.easypost_id || cheapest?.shipment_id,
+              carrier: s.selectedRateId ? s.carrier : (cheapest?.carrier || s.carrier),
+              service: s.selectedRateId ? s.service : (cheapest?.service || s.service),
+              rate: s.selectedRateId ? s.rate : (cheapest?.rate ?? s.rate ?? 0),
+            }
+          : s
       );
       
-    updateResults({
-      ...(latestResultsRef.current as BulkUploadResult),
-      processedShipments: finalShipments
-    });
+      updateResults({
+        ...(latest as BulkUploadResult),
+        processedShipments: finalShipments
+      });
       
       toast.success('Rates updated successfully');
     } catch (error) {
-      // Update shipment with error
-      const errorShipments = updatedShipments.map(s => 
-        s.id === shipmentId ? { 
-          ...s, 
-          status: 'error' as const,
-          error: 'Failed to refresh rates'
-        } : s
+      const errorShipments = updatedShipments.map(s =>
+        s.id === shipmentId
+          ? { ...s, status: 'error' as const, error: 'Failed to refresh rates' }
+          : s
       );
       
-  updateResults({
-    ...(latestResultsRef.current as BulkUploadResult),
-    processedShipments: errorShipments
-  });
+      updateResults({
+        ...(latest as BulkUploadResult),
+        processedShipments: errorShipments
+      });
       
       toast.error('Failed to update rates');
     }
