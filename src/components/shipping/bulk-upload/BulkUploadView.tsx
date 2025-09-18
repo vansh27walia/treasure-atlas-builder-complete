@@ -116,51 +116,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
   // ENHANCED edit handler - ensures proper save-then-fetch sequence
   const handleFreshEdit = async (shipmentId: string, updatedShipment: BulkShipment) => {
-    if (!results) {
-      console.error('No results available for editing');
-      return;
-    }
+    console.log('🔄 BulkUploadView: Processing fresh edit for shipment:', shipmentId);
+    console.log('📦 Updated data received:', updatedShipment);
     
-    console.log('🔄 Starting edit save sequence for shipment:', shipmentId);
-    
-    // Step 1: IMMEDIATELY update local state with the changes
-    const updatedShipments = results.processedShipments.map(s => 
-      s.id === shipmentId ? {
-        ...updatedShipment,
-        // Clear stale rates unless modal selected a specific rate
-        selectedRateId: updatedShipment.selectedRateId || null,
-        availableRates: updatedShipment.selectedRateId ? updatedShipment.availableRates : [], // Clear if no rate selected
-        carrier: updatedShipment.selectedRateId ? updatedShipment.carrier : '',
-        service: updatedShipment.selectedRateId ? updatedShipment.service : '',
-        rate: updatedShipment.selectedRateId ? updatedShipment.rate : 0,
-        easypost_id: updatedShipment.selectedRateId ? updatedShipment.easypost_id : undefined,
-      } : s
-    );
-    
-    // Step 2: Recalculate totals properly including insurance
-    const totalCost = updatedShipments.reduce((sum, s) => sum + (Number(s.rate) || 0), 0);
-    const totalInsurance = updatedShipments.reduce((sum, s) => sum + (Number(s.insurance_cost) || 0), 0);
-    
-    // Step 3: COMMIT the state update first
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      totalCost,
-      totalInsurance
-    });
-
-    console.log('✅ Local state updated. New totals:', { totalCost, totalInsurance });
-
-    // Step 4: ONLY refresh rates if no rate was selected in modal
-    if (!updatedShipment.selectedRateId) {
-      console.log('⏳ Waiting before rate refresh to ensure state is committed...');
-      // Proper delay to ensure state update is complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log('🌐 Refreshing rates for updated shipment...');
-      await handleRefreshRates(shipmentId);
-    } else {
-      console.log('✅ Rate already selected in modal - skipping rate refresh');
+    try {
+      // Use the hook's edit handler which will save and refresh rates properly
+      await handleEditShipment(shipmentId, updatedShipment);
+      console.log('✅ BulkUploadView: Edit completed successfully');
+    } catch (error) {
+      console.error('❌ BulkUploadView: Edit failed:', error);
     }
   };
 
