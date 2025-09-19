@@ -181,136 +181,63 @@ export const useBulkUpload = () => {
     toast.success('Shipment removed from list');
   };
 
-  const handleEditShipment = async (shipmentId: string, updates: Partial<BulkShipment>) => {
-    if (!results) {
-      toast.error('No shipments available to edit');
-      return;
-    }
-    
-    console.log('🔄 Processing shipment edit for ID:', shipmentId);
-    console.log('📝 Updates received:', updates);
-    
-    // Update shipment in local state immediately
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        const updatedShipment = { ...shipment, ...updates };
-        
-        // Recalculate insurance cost using updated values
-        const insuranceEnabled = updatedShipment.insurance_enabled !== false;
-        const declaredValue = updatedShipment.declared_value || 0;
-        updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
-          ? Math.max(declaredValue * 0.02, 1) 
-          : 0;
-        
-        console.log('💰 Insurance calculation - Enabled:', insuranceEnabled, 'Value:', declaredValue, 'Cost:', updatedShipment.insurance_cost);
-        
-        return updatedShipment;
-      }
-      return shipment;
-    });
-    
-    // Recalculate totals
-    const totalShippingCost = updatedShipments.reduce((sum, shipment) => {
-      return sum + (shipment.rate || 0);
-    }, 0);
-    
-    const totalInsuranceCost = updatedShipments.reduce((sum, shipment) => {
-      return sum + (shipment.insurance_cost || 0);
-    }, 0);
-    
-    // Update state immediately
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      totalCost: totalShippingCost,
-      totalInsurance: totalInsuranceCost
-    });
-    
-    console.log('✅ Shipment updated in state, now refreshing rates...');
-    
-    // Refresh rates immediately with updated data
-    try {
-      await handleRefreshRates(shipmentId);
-    } catch (error) {
-      console.error('❌ Failed to refresh rates after edit:', error);
-      toast.error('Shipment saved but failed to refresh rates. Try the Refresh button.');
-    }
-  };
+  const handleEditShipment = (shipmentId: string, updates: Partial<BulkShipment>) => {
+    if (!results) {
+      toast.error('No shipments available to edit');
+      return;
+    }
+    
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        const updatedShipment = { ...shipment, ...updates };
+        
+        // Recalculate insurance cost
+        const insuranceEnabled = updatedShipment.details?.insurance_enabled !== false;
+        const declaredValue = updatedShipment.details?.declared_value || 0;
+        updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
+          ? Math.max(declaredValue * 0.02, 1) 
+          : 0;
+        
+        return updatedShipment;
+      }
+      return shipment;
+    });
+    
+    const totalShippingCost = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.rate || 0);
+    }, 0);
+    
+    const totalInsuranceCost = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.insurance_cost || 0);
+    }, 0);
+    
+    // ✅ Correctly using the setResults setter from the child hook.
+    setResults({
+      ...results,
+      processedShipments: updatedShipments,
+      totalCost: totalShippingCost,
+      totalInsurance: totalInsuranceCost
+    });
+    
+    toast.success('✅ Changes saved locally! Fetching new rates...');
+    
+    // Auto-refresh rates after a brief delay
+    setTimeout(() => {
+      handleRefreshRates(shipmentId);
+    }, 1500); 
+  };
 
   const handleRefreshRates = async (shipmentId: string) => {
-    if (!results || !pickupAddress) {
-      toast.error('Missing shipment data or pickup address');
-      return;
-    }
-
     try {
       setIsFetchingRates(true);
-      console.log('🔄 Refreshing rates for shipment:', shipmentId);
-      
+      if (!results) return;
       const target = results.processedShipments.find(s => s.id === shipmentId);
-      if (!target) {
-        toast.error('Shipment not found');
-        return;
-      }
-
-      // Build proper payload using updated shipment data and pickup address
-      const fromAddress = {
-        name: pickupAddress.name || pickupAddress.company || 'Sender',
-        company: pickupAddress.company || '',
-        street1: pickupAddress.street1,
-        street2: pickupAddress.street2 || '',
-        city: pickupAddress.city,
-        state: pickupAddress.state,
-        zip: pickupAddress.zip,
-        country: pickupAddress.country || 'US',
-        phone: pickupAddress.phone || ''
-      };
-
-      const toAddress = {
-        name: target.recipient || target.customer_name || 'Recipient',
-        company: target.company || '',
-        street1: typeof target.customer_address === 'object' && target.customer_address?.street1 
-          ? target.customer_address.street1 
-          : target.details?.to_street1 || '',
-        street2: typeof target.customer_address === 'object' && target.customer_address?.street2 
-          ? target.customer_address.street2 
-          : target.details?.to_street2 || '',
-        city: typeof target.customer_address === 'object' && target.customer_address?.city 
-          ? target.customer_address.city 
-          : target.details?.to_city || '',
-        state: typeof target.customer_address === 'object' && target.customer_address?.state 
-          ? target.customer_address.state 
-          : target.details?.to_state || '',
-        zip: typeof target.customer_address === 'object' && target.customer_address?.zip 
-          ? target.customer_address.zip 
-          : target.details?.to_zip || '',
-        country: target.country || target.details?.to_country || 'US',
-        phone: target.phone || target.customer_phone || target.details?.to_phone || ''
-      };
-
-      const parcel = {
-        weight: target.weight || target.details?.weight || 1,
-        length: target.length || target.details?.length || 1,
-        width: target.width || target.details?.width || 1,
-        height: target.height || target.details?.height || 1
-      };
-
-      const payload = {
-        fromAddress,
-        toAddress,
-        parcel,
-        declaredValue: target.declared_value || target.details?.declared_value || 0
-      };
-
-      console.log('📤 Sending rate request with payload:', payload);
+      if (!target) return;
 
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: payload
+        body: { shipment: target.details }
       });
-
       if (error) throw error;
-
-      console.log('📥 Received rates:', data?.rates?.length || 0, 'rates');
 
       const updatedShipments: BulkShipment[] = results.processedShipments.map(s =>
         s.id === shipmentId
@@ -322,18 +249,18 @@ export const useBulkUpload = () => {
               carrier: '',
               service: '',
               rate: 0,
-              easypost_id: null,
+              // Update EasyPost shipment id from the new rates if present
+              easypost_id: (data?.rates && data.rates[0]?.shipment_id) ? data.rates[0].shipment_id : s.easypost_id,
               status: 'rates_fetched' as BulkShipment['status']
             })
           : s
       );
 
       setResults({ ...results, processedShipments: updatedShipments });
-      toast.success(`✅ Found ${data?.rates?.length || 0} rates for updated shipment`);
-      
+      toast.success('Rates refreshed with your latest edits');
     } catch (e) {
-      console.error('❌ Refresh rates error:', e);
-      toast.error('Failed to refresh rates: ' + (e as Error).message);
+      console.error('Refresh rates error:', e);
+      toast.error('Failed to refresh rates');
     } finally {
       setIsFetchingRates(false);
     }

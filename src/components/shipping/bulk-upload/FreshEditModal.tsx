@@ -145,110 +145,89 @@ const FreshEditModal = ({
     }
   };
 
-  const handleSaveChanges = async () => {
-    console.log('💾 Saving shipment changes...');
-    
-    try {
-      // Validate required fields
-      if (!localData.recipient || !localData.street1 || !localData.city || !localData.state || !localData.zip) {
-        toast.error('Please fill in all required fields (name, address, city, state, zip)');
-        return;
-      }
+  const handleSaveChanges = () => {
+    console.log('Saving shipment changes - ensuring proper state update before rate refresh...');
+    if (!selectedRate) {
+      console.log('No rate selected in edit modal; will refresh rates after save.');
+    }
 
-      if (!localData.weight || localData.weight <= 0) {
-        toast.error('Weight must be greater than 0');
-        return;
-      }
+    // Calculate insurance cost
+    const insuranceCost = localData.insurance_enabled  
+      ? Math.max(1, localData.declared_value * 0.01)  
+      : 0;
 
-      // Calculate insurance cost
-      const insuranceCost = localData.insurance_enabled  
-        ? Math.max(1, localData.declared_value * 0.01)  
-        : 0;
+    // Normalize weight to ounces based on selected unit
+    const weightOzToSave = weightUnit === 'lb'  
+      ? convertPoundsToOunces(localData.weight)  
+      : kgToOunces(localData.weight);
 
-      // Normalize weight to ounces based on selected unit - FIXED CONVERSION
-      let weightOzToSave;
-      if (weightUnit === 'lb') {
-        weightOzToSave = convertPoundsToOunces(localData.weight);
-      } else {
-        weightOzToSave = kgToOunces(localData.weight);
-      }
-
-      console.log(`🔢 Weight conversion: ${localData.weight} ${weightUnit} = ${weightOzToSave} oz`);
-
-      // Create comprehensive updated shipment with ALL fields properly mapped
-      const updatedShipment = {
-        ...shipment,
-        // Primary fields
-        recipient: localData.recipient.trim(),
-        customer_name: localData.recipient.trim(),
-        phone: localData.phone.trim(),
-        customer_phone: localData.phone.trim(),
-        country: localData.country,
-        
-        // Address structure - multiple formats for compatibility
-        customer_address: {
-          street1: localData.street1.trim(),
-          street2: localData.street2.trim(),
-          city: localData.city.trim(),
-          state: localData.state.trim(),
-          zip: localData.zip.trim()
-        },
-        
-        // Package dimensions and weight
-        weight: weightOzToSave,
+    // Create updated shipment with local changes (replace details with normalized structure)
+    const updatedShipment = {
+      ...shipment,
+      recipient: localData.recipient,
+      phone: localData.phone,
+      country: localData.country,
+      customer_address: {
+        street1: localData.street1,
+        street2: localData.street2,
+        city: localData.city,
+        state: localData.state,
+        zip: localData.zip
+      },
+      // package
+      weight: weightOzToSave, // store ounces
+      length: localData.length,
+      width: localData.width,
+      height: localData.height,
+      declared_value: localData.declared_value,
+      insurance_enabled: localData.insurance_enabled,
+      insurance_cost: insuranceCost,
+      // selected rate (optional - clear if none selected)
+      carrier: selectedRate?.carrier || '',
+      service: selectedRate?.service || '',
+      rate: selectedRate ? Number(selectedRate.rate) : 0,
+      selectedRateId: selectedRate?.id,
+      easypost_id: selectedRate?.shipment_id,
+      // normalized details for backend compatibility
+      details: {
+        to_name: localData.recipient,
+        to_phone: localData.phone,
+        to_country: localData.country,
+        to_street1: localData.street1,
+        to_street2: localData.street2,
+        to_city: localData.city,
+        to_state: localData.state,
+        to_zip: localData.zip,
         length: localData.length,
         width: localData.width,
         height: localData.height,
-        declared_value: localData.declared_value,
-        insurance_enabled: localData.insurance_enabled,
-        insurance_cost: insuranceCost,
-        
-        // Clear old rate data - will be refreshed
-        carrier: '',
-        service: '',
-        rate: 0,
-        selectedRateId: null,
-        easypost_id: null,
-        availableRates: [],
-        status: 'processed' as const,
-        
-        // Comprehensive details object for API calls
-        details: {
-          to_name: localData.recipient.trim(),
-          to_phone: localData.phone.trim(),
-          to_country: localData.country,
-          to_street1: localData.street1.trim(),
-          to_street2: localData.street2.trim(),
-          to_city: localData.city.trim(),
-          to_state: localData.state.trim(),
-          to_zip: localData.zip.trim(),
-          length: localData.length,
-          width: localData.width,
-          height: localData.height,
-          weight: weightOzToSave,
-          parcel_length: localData.length,
-          parcel_width: localData.width,
-          parcel_height: localData.height,
-          parcel_weight: weightOzToSave,
-          declared_value: localData.declared_value,
-          insurance_enabled: localData.insurance_enabled,
-          insurance_cost: insuranceCost
-        }
-      };
+        weight: weightOzToSave,
+        parcel_length: localData.length,
+        parcel_width: localData.width,
+        parcel_height: localData.height,
+        parcel_weight: weightOzToSave
+      },
+      // persist pickup address on the shipment for later steps
+      pickup_address: pickupAddress ? {
+        name: pickupAddress.name || pickupAddress.company || '',
+        company: pickupAddress.company || '',
+        street1: pickupAddress.street1 || '',
+        street2: pickupAddress.street2 || '',
+        city: pickupAddress.city || '',
+        state: pickupAddress.state || '',
+        zip: pickupAddress.zip || '',
+        country: pickupAddress.country || 'US',
+        phone: pickupAddress.phone || '',
+        email: pickupAddress.email || ''
+      } : undefined
+    };
 
-      console.log('📦 Complete updated shipment data:', updatedShipment);
+    console.log('Data prepared for parent component:', updatedShipment);
 
-      // Call parent update function
-      await onUpdateShipment(shipment.id, updatedShipment);
-      
-      // Close modal and show success
-      setOpen(false);
-      toast.success('✅ Shipment saved! Rates will be refreshed automatically.');
-      
-    } catch (error) {
-      console.error('❌ Error saving shipment:', error);
-      toast.error('Failed to save shipment changes');
-    }
+    onUpdateShipment(shipment.id, updatedShipment);
+    
+    setOpen(false);
+    toast.success('Shipment updated successfully');
   };
 
   const handleOpenModal = () => {
