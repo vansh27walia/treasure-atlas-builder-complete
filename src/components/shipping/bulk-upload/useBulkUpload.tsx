@@ -152,51 +152,39 @@ export const useBulkUpload = () => {
         return;
       }
       
-      // Create the updated shipment and clear any stale rate selection
-      const updatedShipment = { 
-        ...shipment, 
+      const hasSelectedRate = !!(updates as any).selectedRateId;
+
+      // Build the updated shipment; only clear rate linkage when no new rate selected
+      const updatedShipment: BulkShipment = {
+        ...shipment,
         ...updates,
-        selectedRateId: undefined,
-        carrier: '',
-        service: '',
-        rate: 0,
-        availableRates: []
-      };
+        selectedRateId: hasSelectedRate ? (updates as any).selectedRateId : undefined,
+        carrier: hasSelectedRate ? (updates as any).carrier! : '',
+        service: hasSelectedRate ? (updates as any).service! : '',
+        rate: hasSelectedRate ? Number((updates as any).rate ?? 0) : 0,
+        easypost_id: hasSelectedRate ? (updates as any).easypost_id : undefined, // clear when not provided
+        availableRates: hasSelectedRate ? ((updates as any).availableRates || []) : [],
+      } as BulkShipment;
       
-      // First update the shipment details using the original function
+      // Persist into results first
       await originalHandleEditShipment(updatedShipment);
       
-      // Then refresh rates for the updated shipment
-      console.log('Refreshing rates after shipment edit...');
-      await handleRefreshRates(shipment.id);
+      // Refresh rates only when user didn't pick a rate inside the modal
+      if (!hasSelectedRate) {
+        console.log('No selected rate provided in updates; refreshing rates...');
+        await handleRefreshRates(shipment.id);
+      } else {
+        console.log('Selected rate provided in updates; skipping extra rate refresh');
+      }
       
-      // ENHANCED: Recalculate row totals after edit
+      // Recalculate row totals
       if (results) {
         const updatedShipments = results.processedShipments.map(s => 
           s.id === shipment.id ? updatedShipment : s
         );
         
-        // Calculate new totals properly - sum of all row totals
         const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
         const newInsuranceTotal = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
-        const newFinalTotal = updatedShipments.reduce((sum, s) => {
-          const rowTotal = (s.rate || 0) + (s.insurance_cost || 0);
-          return sum + rowTotal;
-        }, 0);
-        
-        console.log('Row totals after edit:', {
-          editedShipmentId: shipment.id,
-          newShippingTotal,
-          newInsuranceTotal,
-          newFinalTotal,
-          verification: `${newShippingTotal} + ${newInsuranceTotal} = ${newShippingTotal + newInsuranceTotal} (should equal ${newFinalTotal})`,
-          rowBreakdown: updatedShipments.map(s => ({
-            id: s.id,
-            rate: s.rate || 0,
-            insurance: s.insurance_cost || 0,
-            rowTotal: (s.rate || 0) + (s.insurance_cost || 0)
-          }))
-        });
         
         updateResults({
           ...results,
@@ -206,7 +194,7 @@ export const useBulkUpload = () => {
         });
       }
       
-      toast.success('Shipment updated and row totals recalculated');
+      toast.success('Shipment updated successfully');
     } catch (error) {
       console.error('Error updating shipment and refreshing rates:', error);
       toast.error('Failed to update shipment or refresh rates');
