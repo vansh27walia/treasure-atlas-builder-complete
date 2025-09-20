@@ -44,13 +44,12 @@ const FreshEditModal = ({
   const [localData, setLocalData] = useState({
     recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || '',
     phone: shipment.details?.to_phone || shipment.customer_phone || shipment.phone || '',
-    email: shipment.details?.to_email || shipment.customer_email || shipment.email || '',
     country: shipment.details?.to_country || shipment.country || 'US',
-    street1: shipment.details?.to_street1 || (shipment.customer_address?.street1 ?? ''),
-    street2: shipment.details?.to_street2 || (shipment.customer_address?.street2 ?? ''),
-    city: shipment.details?.to_city || (shipment.customer_address?.city ?? ''),
-    state: shipment.details?.to_state || (shipment.customer_address?.state ?? ''),
-    zip: shipment.details?.to_zip || (shipment.customer_address?.zip ?? ''),
+    street1: shipment.details?.to_street1 || shipment.customer_address?.street1 || '',
+    street2: shipment.details?.to_street2 || shipment.customer_address?.street2 || '',
+    city: shipment.details?.to_city || shipment.customer_address?.city || '',
+    state: shipment.details?.to_state || shipment.customer_address?.state || '',
+    zip: shipment.details?.to_zip || shipment.customer_address?.zip || '',
     weight: convertOuncesToPounds(initialWeightOz), // display in pounds by default
     length: (shipment.details?.length ?? shipment.details?.parcel_length ?? shipment.length ?? 0) as number,
     width: (shipment.details?.width ?? shipment.details?.parcel_width ?? shipment.width ?? 0) as number,
@@ -177,14 +176,13 @@ const FreshEditModal = ({
       console.log(`🔢 Weight conversion: ${localData.weight} ${weightUnit} = ${weightOzToSave} oz`);
 
       // Create comprehensive updated shipment with ALL fields properly mapped
-      const baseUpdatedShipment: any = {
+      const updatedShipment = {
         ...shipment,
         // Primary fields
         recipient: localData.recipient.trim(),
         customer_name: localData.recipient.trim(),
         phone: localData.phone.trim(),
         customer_phone: localData.phone.trim(),
-        customer_email: localData.email.trim(),
         country: localData.country,
         
         // Address structure - multiple formats for compatibility
@@ -196,7 +194,7 @@ const FreshEditModal = ({
           zip: localData.zip.trim()
         },
         
-        // Package dimensions and weight (stored as entered; backend will handle units)
+        // Package dimensions and weight
         weight: weightOzToSave,
         length: localData.length,
         width: localData.width,
@@ -205,11 +203,19 @@ const FreshEditModal = ({
         insurance_enabled: localData.insurance_enabled,
         insurance_cost: insuranceCost,
         
+        // Clear old rate data - will be refreshed
+        carrier: '',
+        service: '',
+        rate: 0,
+        selectedRateId: null,
+        easypost_id: null,
+        availableRates: [],
+        status: 'processed' as const,
+        
         // Comprehensive details object for API calls
         details: {
           to_name: localData.recipient.trim(),
           to_phone: localData.phone.trim(),
-          to_email: localData.email.trim(),
           to_country: localData.country,
           to_street1: localData.street1.trim(),
           to_street2: localData.street2.trim(),
@@ -229,31 +235,6 @@ const FreshEditModal = ({
           insurance_cost: insuranceCost
         }
       };
-
-      // Apply rate selection mapping if a rate was chosen in the modal
-      let updatedShipment: any = { ...baseUpdatedShipment };
-      if (selectedRate) {
-        updatedShipment = {
-          ...baseUpdatedShipment,
-          selectedRateId: selectedRate.id,
-          carrier: selectedRate.carrier,
-          service: selectedRate.service,
-          rate: typeof selectedRate.rate === 'string' ? parseFloat(selectedRate.rate) : selectedRate.rate,
-          easypost_id: selectedRate.shipment_id || baseUpdatedShipment.easypost_id || null,
-          availableRates: rates || []
-        };
-      } else {
-        // Clear old rate data - will be refreshed by parent if needed
-        updatedShipment = {
-          ...baseUpdatedShipment,
-          carrier: '',
-          service: '',
-          rate: 0,
-          selectedRateId: null,
-          easypost_id: null,
-          availableRates: []
-        };
-      }
 
       console.log('📦 Complete updated shipment data:', updatedShipment);
 
@@ -314,17 +295,6 @@ const FreshEditModal = ({
                   value={localData.phone}
                   onChange={(e) => setLocalData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="Enter phone number"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={localData.email}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="Enter email address"
                 />
               </div>
 
