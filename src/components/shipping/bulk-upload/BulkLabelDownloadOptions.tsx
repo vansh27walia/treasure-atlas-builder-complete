@@ -72,7 +72,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print Preview All Labels
+                Print Preview
               </Button>
               
               <Button
@@ -83,18 +83,23 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 <Mail className="h-4 w-4 mr-2" />
                 Email Labels
               </Button>
-
-              {batchResult.scanFormUrl && (
-                <Button
-                  onClick={() => onDownloadManifest(batchResult.scanFormUrl!)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Scan Form
-                </Button>
-              )}
             </div>
 
+            {/* Pickup Manifest */}
+            {batchResult.scanFormUrl && (
+              <div className="mt-4 p-3 bg-white rounded-lg border border-green-200">
+                <h4 className="font-medium text-green-800 mb-2">Pickup Manifest</h4>
+                <Button
+                  onClick={() => onDownloadManifest(batchResult.scanFormUrl!)}
+                  variant="outline"
+                  size="sm"
+                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Pickup Manifest
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       )}
