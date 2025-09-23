@@ -157,17 +157,17 @@ export const useBulkUpload = () => {
         return;
       }
       
-      // Create the updated shipment and clear any stale rate selection
+      // Create the updated shipment and keep current rates visible until new ones arrive
       const updatedShipment = { 
         ...shipment, 
         ...updates,
-        selectedRateId: undefined,
-        carrier: '',
-        service: '',
-        rate: 0,
-        availableRates: []
+        // Preserve current rate selection and rates to avoid UI flicker while saving
+        selectedRateId: shipment.selectedRateId,
+        carrier: shipment.carrier,
+        service: shipment.service,
+        rate: shipment.rate,
+        availableRates: shipment.availableRates || []
       };
-      
       // First update the shipment details using the original function
       await originalHandleEditShipment(updatedShipment);
       
