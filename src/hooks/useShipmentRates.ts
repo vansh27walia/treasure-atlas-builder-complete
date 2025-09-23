@@ -152,6 +152,7 @@ export const useShipmentRates = (
             carrier: selectedRate.carrier,
             service: selectedRate.service,
             rate: parseFloat(selectedRate.rate.toString()),
+            easypost_id: (selectedRate as any).shipment_id || shipment.easypost_id,
           };
         }
       }
@@ -232,13 +233,15 @@ export const useShipmentRates = (
         
         const updatedShipments = results.processedShipments.map(s => {
           if (s.id === shipmentId) {
+            const selected = s.selectedRateId ? processedRates.find((r: any) => r.id === s.selectedRateId) : processedRates[0];
             return {
               ...s,
               availableRates: processedRates,
-              selectedRateId: processedRates[0]?.id,
-              carrier: processedRates[0]?.carrier || s.carrier,
-              service: processedRates[0]?.service || s.service,
-              rate: parseFloat(processedRates[0]?.rate.toString()) || s.rate,
+              selectedRateId: s.selectedRateId || selected?.id,
+              carrier: selected?.carrier || s.carrier,
+              service: selected?.service || s.service,
+              rate: parseFloat(String(selected?.rate ?? s.rate ?? 0)),
+              easypost_id: (selected as any)?.shipment_id || s.easypost_id,
             };
           }
           return s;
@@ -355,10 +358,11 @@ export const useShipmentRates = (
             ? {
                 ...updatedShipment,
                 availableRates: processedRates,
-                selectedRateId: processedRates[0]?.id,
-                carrier: processedRates[0]?.carrier || updatedShipment.carrier,
-                service: processedRates[0]?.service || updatedShipment.service,
-                rate: parseFloat(String(processedRates[0]?.rate ?? updatedShipment.rate ?? 0)),
+                selectedRateId: updatedShipment.selectedRateId || processedRates[0]?.id,
+                carrier: (updatedShipment.selectedRateId ? processedRates.find((r:any)=>r.id===updatedShipment.selectedRateId) : processedRates[0])?.carrier || updatedShipment.carrier,
+                service: (updatedShipment.selectedRateId ? processedRates.find((r:any)=>r.id===updatedShipment.selectedRateId) : processedRates[0])?.service || updatedShipment.service,
+                rate: parseFloat(String((updatedShipment.selectedRateId ? processedRates.find((r:any)=>r.id===updatedShipment.selectedRateId)?.rate : processedRates[0]?.rate) ?? updatedShipment.rate ?? 0)),
+                easypost_id: (updatedShipment.selectedRateId ? processedRates.find((r:any)=>r.id===updatedShipment.selectedRateId)?.shipment_id : processedRates[0]?.shipment_id) || updatedShipment.easypost_id,
                 status: 'completed' as const,
               }
             : s

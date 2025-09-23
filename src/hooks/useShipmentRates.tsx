@@ -205,10 +205,10 @@ export const useShipmentRates = (
               availableRates: rates,
               status: 'completed' as const,
               selectedRateId: s.selectedRateId || cheapest?.id,
-              easypost_id: s.easypost_id || cheapest?.shipment_id,
-              carrier: s.selectedRateId ? s.carrier : (cheapest?.carrier || s.carrier),
-              service: s.selectedRateId ? s.service : (cheapest?.service || s.service),
-              rate: s.selectedRateId ? s.rate : (cheapest?.rate ?? s.rate ?? 0),
+              easypost_id: (s.selectedRateId ? rates.find(r => r.id === s.selectedRateId)?.shipment_id : cheapest?.shipment_id) || s.easypost_id,
+              carrier: (s.selectedRateId ? rates.find(r => r.id === s.selectedRateId)?.carrier : cheapest?.carrier) || s.carrier,
+              service: (s.selectedRateId ? rates.find(r => r.id === s.selectedRateId)?.service : cheapest?.service) || s.service,
+              rate: s.selectedRateId ? (rates.find(r => r.id === s.selectedRateId)?.rate ?? s.rate ?? 0) : (cheapest?.rate ?? s.rate ?? 0),
             }
           : s
       );
@@ -244,6 +244,7 @@ export const useShipmentRates = (
     try {
       const rates = await fetchShipmentRates(updatedShipment);
       const cheapest = rates.length > 0 ? [...rates].sort((a, b) => a.rate - b.rate)[0] : undefined;
+      const selected = updatedShipment.selectedRateId ? rates.find(r => r.id === updatedShipment.selectedRateId) : cheapest;
 
       const updatedShipments = latest.processedShipments.map(s =>
         s.id === updatedShipment.id
@@ -251,11 +252,11 @@ export const useShipmentRates = (
               ...updatedShipment,
               availableRates: rates,
               status: 'completed' as const,
-              selectedRateId: updatedShipment.selectedRateId || cheapest?.id,
-              easypost_id: updatedShipment.easypost_id || cheapest?.shipment_id,
-              carrier: updatedShipment.selectedRateId ? updatedShipment.carrier : (cheapest?.carrier || updatedShipment.carrier),
-              service: updatedShipment.selectedRateId ? updatedShipment.service : (cheapest?.service || updatedShipment.service),
-              rate: updatedShipment.selectedRateId ? updatedShipment.rate : (cheapest?.rate ?? updatedShipment.rate ?? 0),
+              selectedRateId: updatedShipment.selectedRateId || selected?.id,
+              easypost_id: selected?.shipment_id || updatedShipment.easypost_id,
+              carrier: selected?.carrier || updatedShipment.carrier,
+              service: selected?.service || updatedShipment.service,
+              rate: selected ? selected.rate : (updatedShipment.rate ?? 0),
             }
           : s
       );

@@ -171,10 +171,14 @@ export const useBulkUpload = () => {
       // First update the shipment details using the original function
       await originalHandleEditShipment(updatedShipment);
       
+      // Wait to ensure save completes before fetching (per request)
+      console.log('Edit saved. Waiting 30s before fetching new rates to avoid race...');
+      await new Promise((res) => setTimeout(res, 30000));
+      toast.info('Fetching new rates now...', { duration: 3000 });
+      
       // Then refresh rates for the updated shipment using fresh data (avoids race)
       console.log('Refreshing rates after shipment edit with fresh payload...');
       await handleRefreshRatesAfterEdit(updatedShipment);
-      
       // ENHANCED: Recalculate row totals after edit
       if (results) {
         const updatedShipments = results.processedShipments.map(s => 
@@ -285,6 +289,24 @@ export const useBulkUpload = () => {
           estimatedTimeRemaining: Math.max(0, prev.estimatedTimeRemaining - 1)
         }));
       }, 1000);
+
+      console.log('Invoking create-bulk-labels with payload:', {
+        shipments: shipmentsToProcess.map(s => ({
+          id: s.id,
+          easypost_id: s.easypost_id,
+          selectedRateId: s.selectedRateId,
+          carrier: s.carrier,
+          service: s.service,
+          rate: s.rate,
+          hasDetails: !!s.details,
+          to: {
+            name: s.details?.to_name || s.customer_name || s.recipient,
+            zip: s.details?.to_zip,
+            country: s.details?.to_country
+          }
+        })),
+        pickupAddress
+      });
 
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
