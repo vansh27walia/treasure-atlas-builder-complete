@@ -299,10 +299,81 @@ export const useShipmentRates = (
     toast.success(`Applied ${carrierName} to all eligible shipments with ${RATE_MARKUP_PERCENTAGE}% markup`);
   };
 
-  // New function to refresh rates after edit
-  const handleRefreshRatesAfterEdit = async (shipmentId: string) => {
-    console.log('Refreshing rates after edit for shipment:', shipmentId);
-    await handleRefreshRates(shipmentId);
+  // Updated: Refresh rates using the freshly edited shipment to avoid race conditions
+  const handleRefreshRatesAfterEdit = async (updatedShipment: BulkShipment) => {
+    if (!results) return;
+    setIsFetchingRates(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: {
+          fromAddress: results.pickupAddress,
+          toAddress: {
+            name: updatedShipment.details?.to_name || updatedShipment.customer_name || updatedShipment.recipient,
+            company: updatedShipment.details?.to_company || (updatedShipment as any).customer_company || '',
+            street1: updatedShipment.details?.to_street1,
+            street2: updatedShipment.details?.to_street2 || '',
+            city: updatedShipment.details?.to_city,
+            state: updatedShipment.details?.to_state,
+            zip: updatedShipment.details?.to_zip,
+            country: updatedShipment.details?.to_country || 'US',
+            phone: updatedShipment.details?.to_phone || (updatedShipment as any).customer_phone || '',
+            email: updatedShipment.details?.to_email || (updatedShipment as any).customer_email || ''
+          },
+          parcel: {
+            length: (updatedShipment.details?.length ?? updatedShipment.details?.parcel_length ?? 8),
+            width: (updatedShipment.details?.width ?? updatedShipment.details?.parcel_width ?? 6),
+            height: (updatedShipment.details?.height ?? updatedShipment.details?.parcel_height ?? 4),
+            weight: (updatedShipment.details?.weight ?? updatedShipment.details?.parcel_weight ?? 16),
+          },
+          declaredValue: updatedShipment.details?.declared_value ?? (updatedShipment as any).declared_value ?? 0
+        }
+      });
+
+      if (error) throw error;
+
+      if (data && data.rates) {
+        const processedRates = data.rates.map((rate: any) => {
+          const originalRate = parseFloat(rate.rate);
+          const markedUpRate = applyRateMarkup(originalRate);
+          const standardizedCarrier = standardizeCarrierName(rate.carrier);
+          const standardizedService = standardizeServiceName(rate.service, standardizedCarrier);
+          return {
+            ...rate,
+            carrier: standardizedCarrier,
+            service: standardizedService,
+            original_carrier: rate.carrier,
+            original_service: rate.service,
+            rate: markedUpRate.toFixed(2),
+            original_rate: originalRate.toFixed(2),
+            markup_percentage: RATE_MARKUP_PERCENTAGE
+          };
+        });
+
+        const updatedShipments = results.processedShipments.map(s =>
+          s.id === updatedShipment.id
+            ? {
+                ...updatedShipment,
+                availableRates: processedRates,
+                selectedRateId: processedRates[0]?.id,
+                carrier: processedRates[0]?.carrier || updatedShipment.carrier,
+                service: processedRates[0]?.service || updatedShipment.service,
+                rate: parseFloat(String(processedRates[0]?.rate ?? updatedShipment.rate ?? 0)),
+                status: 'completed' as const,
+              }
+            : s
+        );
+
+        const newTotalCost = updatedShipments.reduce((total, s) => total + (s.rate || 0), 0);
+        updateResults({ ...results, processedShipments: updatedShipments, totalCost: newTotalCost });
+        toast.success(`Rates refreshed successfully with ${RATE_MARKUP_PERCENTAGE}% markup`);
+      }
+    } catch (err) {
+      console.error('Error refreshing rates after edit:', err);
+      toast.error('Failed to refresh rates after edit');
+    } finally {
+      setIsFetchingRates(false);
+    }
   };
 
   return {

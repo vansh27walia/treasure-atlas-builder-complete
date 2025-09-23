@@ -85,6 +85,7 @@ export const useBulkUpload = () => {
     fetchAllShipmentRates,
     handleSelectRate,
     handleRefreshRates,
+    handleRefreshRatesAfterEdit,
     handleBulkApplyCarrier
   } = useShipmentRates(results, updateResults);
 
@@ -166,9 +167,9 @@ export const useBulkUpload = () => {
       // First update the shipment details using the original function
       await originalHandleEditShipment(updatedShipment);
       
-      // Then refresh rates for the updated shipment
-      console.log('Refreshing rates after shipment edit...');
-      await handleRefreshRates(shipment.id);
+      // Then refresh rates for the updated shipment using fresh data (avoids race)
+      console.log('Refreshing rates after shipment edit with fresh payload...');
+      await handleRefreshRatesAfterEdit(updatedShipment);
       
       // ENHANCED: Recalculate row totals after edit
       if (results) {
