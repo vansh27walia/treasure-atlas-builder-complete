@@ -235,6 +235,45 @@ export const useShipmentRates = (
     }
   };
   
+  // Refresh rates right after a shipment edit using the freshly updated data
+  const handleRefreshRatesAfterEdit = async (updatedShipment: BulkShipment) => {
+    const latest = latestResultsRef.current;
+    if (!latest) return;
+    setIsFetchingRates(true);
+
+    try {
+      const rates = await fetchShipmentRates(updatedShipment);
+      const cheapest = rates.length > 0 ? [...rates].sort((a, b) => a.rate - b.rate)[0] : undefined;
+
+      const updatedShipments = latest.processedShipments.map(s =>
+        s.id === updatedShipment.id
+          ? {
+              ...updatedShipment,
+              availableRates: rates,
+              status: 'completed' as const,
+              selectedRateId: updatedShipment.selectedRateId || cheapest?.id,
+              easypost_id: updatedShipment.easypost_id || cheapest?.shipment_id,
+              carrier: updatedShipment.selectedRateId ? updatedShipment.carrier : (cheapest?.carrier || updatedShipment.carrier),
+              service: updatedShipment.selectedRateId ? updatedShipment.service : (cheapest?.service || updatedShipment.service),
+              rate: updatedShipment.selectedRateId ? updatedShipment.rate : (cheapest?.rate ?? updatedShipment.rate ?? 0),
+            }
+          : s
+      );
+
+      updateResults({
+        ...(latest as BulkUploadResult),
+        processedShipments: updatedShipments
+      });
+
+      toast.success('Rates refreshed after edit');
+    } catch (err) {
+      console.error('Error refreshing rates after edit:', err);
+      toast.error('Failed to refresh rates after edit');
+    } finally {
+      setIsFetchingRates(false);
+    }
+  };
+  
   const handleBulkApplyCarrier = (carrierId: string, serviceId: string) => {
     if (!initialResults) return;
     
@@ -278,6 +317,7 @@ export const useShipmentRates = (
     fetchAllShipmentRates,
     handleSelectRate,
     handleRefreshRates,
+    handleRefreshRatesAfterEdit,
     handleBulkApplyCarrier
   };
 };

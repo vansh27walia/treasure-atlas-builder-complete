@@ -122,12 +122,16 @@ export const useBulkUpload = () => {
         console.log("Loaded default pickup address:", defaultAddress);
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
+          // Also persist into results context so rate fetching has it immediately
+          setResults((prev) => ({ ...(prev as any), pickupAddress: defaultAddress } as any));
         } else {
           const addresses = await addressService.getSavedAddresses();
           if (addresses.length > 0) {
             const firstAddress = addresses[0];
             setPickupAddress(firstAddress);
             console.log("Using first available address:", firstAddress);
+            // Persist into results context as well
+            setResults((prev) => ({ ...(prev as any), pickupAddress: firstAddress } as any));
           }
         }
       } catch (error) {
