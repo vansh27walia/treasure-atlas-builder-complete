@@ -45,7 +45,8 @@ export const useBulkUpload = () => {
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
       const calculatedShippingTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
       const calculatedInsuranceTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.insurance_cost || 0), 0);
-      newResults.totalCost = calculatedShippingTotal;
+      const calculatedRowTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0);
+      newResults.totalCost = calculatedRowTotal; // Use sum of all row totals
       newResults.totalInsurance = calculatedInsuranceTotal;
     }
     
@@ -65,7 +66,8 @@ export const useBulkUpload = () => {
       if (merged.processedShipments && Array.isArray(merged.processedShipments)) {
         const shippingTotal = merged.processedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
         const insuranceTotal = merged.processedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
-        merged.totalCost = shippingTotal;
+        const rowTotal = merged.processedShipments.reduce((sum, s) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0);
+        merged.totalCost = rowTotal; // Use sum of all row totals
         merged.totalInsurance = insuranceTotal;
       }
 
@@ -185,7 +187,7 @@ export const useBulkUpload = () => {
           s.id === shipment.id ? updatedShipment : s
         );
         
-        // Calculate new totals properly - sum of all row totals
+        // Calculate total by summing all individual row totals (rate + insurance per shipment)
         const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
         const newInsuranceTotal = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
         const newFinalTotal = updatedShipments.reduce((sum, s) => {
@@ -210,7 +212,7 @@ export const useBulkUpload = () => {
         updateResults({
           ...results,
           processedShipments: updatedShipments,
-          totalCost: newShippingTotal,
+          totalCost: newFinalTotal, // Use sum of all row totals
           totalInsurance: newInsuranceTotal
         });
       }
@@ -234,6 +236,12 @@ export const useBulkUpload = () => {
     console.log('Payment successful, triggering label creation...');
     setPaymentCompleted(true);
     toast.success('Payment successful! Creating labels automatically...');
+    
+    // Auto-trigger label creation after payment success
+    setTimeout(() => {
+      console.log('Auto-triggering label creation after payment success...');
+      handleCreateLabels();
+    }, 1000); // Small delay to ensure payment processing is complete
   };
 
   const handleCreateLabels = async () => {
@@ -429,7 +437,7 @@ export const useBulkUpload = () => {
           total: data.total || shipmentsToProcess.length,
           successful: data.successful || transformedSuccessfulShipments.length,
           failed: data.failed || transformedFailedShipments.length,
-          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
+          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0), // Sum of all row totals
           processedShipments: allTransformedShipments,
           failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
           batchResult: frontendBatchResult,

@@ -36,12 +36,20 @@ export const useShipmentRates = (
           const rates = await fetchShipmentRates(shipment);
           
           // Update shipment with rates
+          // Find the cheapest rate and set it as default
+          const cheapestRate = rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0] : null;
+          
           updatedShipments[i] = { 
             ...shipment, 
             availableRates: rates,
-            status: 'completed' as const,
+            status: 'rates_fetched' as const,
             // Set default selected rate to the cheapest option
-            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : undefined
+            selectedRateId: cheapestRate?.id,
+            // Automatically populate carrier, service and rate from cheapest option
+            carrier: cheapestRate?.carrier || '',
+            service: cheapestRate?.service || '',
+            rate: cheapestRate?.rate || 0,
+            easypost_id: cheapestRate?.easypost_rate_id || rates[0]?.shipment_id || null
           };
           
           successCount++;

@@ -50,7 +50,7 @@ const FreshEditModal = ({
     city: shipment.details?.to_city || shipment.customer_address?.city || '',
     state: shipment.details?.to_state || shipment.customer_address?.state || '',
     zip: shipment.details?.to_zip || shipment.customer_address?.zip || '',
-    weight: convertOuncesToPounds(initialWeightOz), // display in pounds by default
+    weight: Math.max(0.1, convertOuncesToPounds(initialWeightOz)), // display in pounds by default, minimum 0.1 lb
     length: (shipment.details?.length ?? shipment.details?.parcel_length ?? shipment.length ?? 0) as number,
     width: (shipment.details?.width ?? shipment.details?.parcel_width ?? shipment.width ?? 0) as number,
     height: (shipment.details?.height ?? shipment.details?.parcel_height ?? shipment.height ?? 0) as number,
@@ -398,7 +398,7 @@ const FreshEditModal = ({
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Weight is in pounds (lb).</p>
+                <p className="text-xs text-muted-foreground mt-1">Weight display defaults to pounds (lb). You can switch to kg if needed.</p>
               </div>
 
               <div>
