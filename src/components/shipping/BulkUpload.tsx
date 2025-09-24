@@ -114,8 +114,32 @@ const BulkUpload: React.FC = () => {
         }
       }
     } else {
-      // Apply to all shipments
-      handleBulkApplyCarrier(filter);
+      // Apply optimization to all shipments
+      results?.processedShipments?.forEach(shipment => {
+        if (shipment.availableRates && shipment.availableRates.length > 0) {
+          let selectedRate = null;
+          switch (filter) {
+            case 'cheapest':
+              selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
+              break;
+            case 'fastest':
+              selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
+              break;
+            case 'balanced':
+              selectedRate = shipment.availableRates.reduce((best, rate) => {
+                const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (best.delivery_days || 5);
+                const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
+                return rateScore > bestScore ? rate : best;
+              });
+              break;
+            default:
+              selectedRate = shipment.availableRates[0];
+          }
+          if (selectedRate) {
+            handleSelectRate(shipment.id, selectedRate.id);
+          }
+        }
+      });
     }
   };
 

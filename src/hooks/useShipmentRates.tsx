@@ -26,7 +26,7 @@ export const useShipmentRates = (
         
         try {
           // Update status to show we're processing this shipment
-          updatedShipments[i] = { ...shipment, status: 'processing' as const };
+          updatedShipments[i] = { ...shipment, status: 'pending_rates' as const };
           updateResults({
             ...(latestResultsRef.current as BulkUploadResult),
             processedShipments: updatedShipments
@@ -41,7 +41,7 @@ export const useShipmentRates = (
             availableRates: rates,
             status: 'completed' as const,
             // Set default selected rate to the cheapest option
-            selectedRateId: rates.length > 0 ? rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0].id : undefined
+            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : undefined
           };
           
           successCount++;
@@ -187,7 +187,7 @@ export const useShipmentRates = (
     if (!existing) return;
     
     const updatedShipments = latest.processedShipments.map(s => 
-      s.id === shipmentId ? { ...s, status: 'processing' as const } : s
+      s.id === shipmentId ? { ...s, status: 'pending_rates' as const } : s
     );
     
     updateResults({
@@ -290,7 +290,7 @@ export const useShipmentRates = (
           selectedRateId: matchingRate.id,
           carrier: matchingRate.carrier,
           service: matchingRate.service,
-          rate: parseFloat(matchingRate.rate)
+          rate: matchingRate.rate
         };
       }
       
@@ -301,7 +301,7 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (parseFloat(selectedRate?.rate || '0') || 0);
+      return sum + (selectedRate?.rate || 0);
     }, 0);
     
   updateResults({
