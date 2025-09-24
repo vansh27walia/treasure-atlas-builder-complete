@@ -35,21 +35,24 @@ export const useShipmentRates = (
           // Fetch real rates for this shipment using CarrierService
           const rates = await fetchShipmentRates(shipment);
           
-          // Update shipment with rates
-          // Find the cheapest rate and set it as default
-          const cheapestRate = rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0] : null;
+          // Update shipment with rates (sorted by lowest price)
+          const sortedRates = [...rates].sort((a, b) => {
+            const ar = typeof a.rate === 'string' ? parseFloat(a.rate as any) : a.rate;
+            const br = typeof b.rate === 'string' ? parseFloat(b.rate as any) : b.rate;
+            return ar - br;
+          });
+          const cheapestRate = sortedRates.length > 0 ? sortedRates[0] : null;
           
           updatedShipments[i] = { 
             ...shipment, 
-            availableRates: rates,
+            availableRates: sortedRates,
             status: 'rates_fetched' as const,
-            // Set default selected rate to the cheapest option
+            // Always default to the cheapest option after fetching
             selectedRateId: cheapestRate?.id,
-            // Automatically populate carrier, service and rate from cheapest option
             carrier: cheapestRate?.carrier || '',
             service: cheapestRate?.service || '',
             rate: cheapestRate?.rate || 0,
-            easypost_id: cheapestRate?.easypost_rate_id || rates[0]?.shipment_id || null
+            easypost_id: cheapestRate?.shipment_id || null
           };
           
           successCount++;
@@ -205,18 +208,23 @@ export const useShipmentRates = (
     
     try {
       const rates = await fetchShipmentRates(existing);
-      const cheapest = rates.length > 0 ? [...rates].sort((a, b) => a.rate - b.rate)[0] : undefined;
+      const sortedRates = [...rates].sort((a, b) => {
+        const ar = typeof a.rate === 'string' ? parseFloat(a.rate as any) : a.rate;
+        const br = typeof b.rate === 'string' ? parseFloat(b.rate as any) : b.rate;
+        return ar - br;
+      });
+      const cheapest = sortedRates.length > 0 ? sortedRates[0] : undefined;
       const finalShipments = updatedShipments.map(s =>
         s.id === shipmentId
           ? {
               ...s,
-              availableRates: rates,
-              status: 'completed' as const,
-              selectedRateId: s.selectedRateId || cheapest?.id,
-              easypost_id: (s.selectedRateId ? rates.find(r => r.id === s.selectedRateId)?.shipment_id : cheapest?.shipment_id) || s.easypost_id,
-              carrier: (s.selectedRateId ? rates.find(r => r.id === s.selectedRateId)?.carrier : cheapest?.carrier) || s.carrier,
-              service: (s.selectedRateId ? rates.find(r => r.id === s.selectedRateId)?.service : cheapest?.service) || s.service,
-              rate: s.selectedRateId ? (rates.find(r => r.id === s.selectedRateId)?.rate ?? s.rate ?? 0) : (cheapest?.rate ?? s.rate ?? 0),
+              availableRates: sortedRates,
+              status: 'rates_fetched' as const,
+              selectedRateId: cheapest?.id,
+              easypost_id: cheapest?.shipment_id || s.easypost_id,
+              carrier: cheapest?.carrier || s.carrier,
+              service: cheapest?.service || s.service,
+              rate: cheapest?.rate ?? s.rate ?? 0,
             }
           : s
       );
@@ -251,20 +259,25 @@ export const useShipmentRates = (
 
     try {
       const rates = await fetchShipmentRates(updatedShipment);
-      const cheapest = rates.length > 0 ? [...rates].sort((a, b) => a.rate - b.rate)[0] : undefined;
-      const selected = updatedShipment.selectedRateId ? rates.find(r => r.id === updatedShipment.selectedRateId) : cheapest;
+      const sortedRates = [...rates].sort((a, b) => {
+        const ar = typeof a.rate === 'string' ? parseFloat(a.rate as any) : a.rate;
+        const br = typeof b.rate === 'string' ? parseFloat(b.rate as any) : b.rate;
+        return ar - br;
+      });
+      const cheapest = sortedRates.length > 0 ? sortedRates[0] : undefined;
 
       const updatedShipments = latest.processedShipments.map(s =>
         s.id === updatedShipment.id
           ? {
               ...updatedShipment,
-              availableRates: rates,
-              status: 'completed' as const,
-              selectedRateId: updatedShipment.selectedRateId || selected?.id,
-              easypost_id: selected?.shipment_id || updatedShipment.easypost_id,
-              carrier: selected?.carrier || updatedShipment.carrier,
-              service: selected?.service || updatedShipment.service,
-              rate: selected ? selected.rate : (updatedShipment.rate ?? 0),
+              availableRates: sortedRates,
+              status: 'rates_fetched' as const,
+              // Always default to cheapest after edit per request
+              selectedRateId: cheapest?.id,
+              easypost_id: cheapest?.shipment_id || updatedShipment.easypost_id,
+              carrier: cheapest?.carrier || updatedShipment.carrier,
+              service: cheapest?.service || updatedShipment.service,
+              rate: cheapest ? cheapest.rate : (updatedShipment.rate ?? 0),
             }
           : s
       );
