@@ -14,7 +14,7 @@ import BulkAIOverviewPanel from './bulk-upload/BulkAIOverviewPanel';
 import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle } from 'lucide-react';
+import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle, Mail } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
@@ -332,13 +332,35 @@ const BulkUpload: React.FC = () => {
                 </div>}
               
               {uploadStatus === 'success' && results && <div className="space-y-6">
-                  {results.bulk_label_pdf_url && <div className="flex justify-center mb-6">
-                      <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                        <PrinterIcon className="mr-2 h-4 w-4" />
-                        Preview All Labels
-                      </Button>
-                    </div>}
-                  
+                  {(results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url) && (
+                    <div className="flex justify-center gap-3 mb-6">
+                      <PrintPreview
+                        labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url}
+                        trackingCode={null}
+                        isBatchPreview={!!results.batchResult}
+                        batchResult={results.batchResult}
+                        triggerButton={
+                          <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
+                            <PrinterIcon className="mr-2 h-4 w-4" />
+                            Print Preview All Labels
+                          </Button>
+                        }
+                      />
+                      <PrintPreview
+                        labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url}
+                        trackingCode={null}
+                        isBatchPreview={!!results.batchResult}
+                        batchResult={results.batchResult}
+                        openToEmailTab={true}
+                        triggerButton={
+                          <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
+                            <Mail className="mr-2 h-4 w-4" />
+                            Email All Labels
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
                   <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
                 </div>}
               
@@ -385,7 +407,6 @@ const BulkUpload: React.FC = () => {
       isCreating: false
     }))} />
 
-      {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
     </>;
 };
 export default BulkUpload;
