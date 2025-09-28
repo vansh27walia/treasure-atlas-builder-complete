@@ -30,6 +30,22 @@ interface CsvHeaderMapperProps {
   onCancel: () => void;
 }
 
+// Template headers for manual fallback
+const REQUIRED_HEADERS = [
+  'to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country',
+  'parcel_length', 'parcel_width', 'parcel_height', 'parcel_weight'
+];
+
+const OPTIONAL_HEADERS = [
+  'to_company', 'to_street2', 'to_phone', 'to_email',
+  'from_name', 'from_company', 'from_street1', 'from_street2', 
+  'from_city', 'from_state', 'from_zip', 'from_country', 'from_phone', 'from_email',
+  'parcel_predefined_package', 'customs_eel_pfc', 'customs_contents_type',
+  'customs_contents_explanation', 'customs_restriction_type', 'customs_restriction_comments',
+  'customs_customs_certify', 'customs_customs_signer', 'insurance_amount',
+  'reference', 'service', 'carrier_accounts'
+];
+
 const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
   csvContent,
   onMappingComplete,
@@ -39,10 +55,25 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
   const [userMappings, setUserMappings] = useState<HeaderMapping>({});
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
 
   useEffect(() => {
     analyzeHeaders();
   }, [csvContent]);
+
+  // Manual CSV header parsing function
+  const parseCSVHeaders = (csvContent: string): string[] => {
+    const lines = csvContent.trim().split('\n');
+    if (lines.length === 0) return [];
+    
+    const headerLine = lines[0];
+    // Handle both comma and semicolon separators
+    const headers = headerLine.split(/[,;]/).map(header => 
+      header.trim().replace(/^["']|["']$/g, '') // Remove quotes
+    );
+    
+    return headers.filter(header => header.length > 0);
+  };
 
   const analyzeHeaders = async () => {
     try {
@@ -66,7 +97,26 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
 
     } catch (error) {
       console.error('Error analyzing headers:', error);
-      toast.error('Failed to analyze CSV headers: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.log('AI analysis failed, switching to manual mode');
+      
+      // Create manual analysis result
+      const detectedHeaders = parseCSVHeaders(csvContent);
+      const manualAnalysis: AnalysisResult = {
+        detectedHeaders,
+        suggestions: {
+          mappings: {},
+          unmapped: detectedHeaders,
+          missing_required: REQUIRED_HEADERS,
+          confidence: 'manual'
+        },
+        requiredHeaders: REQUIRED_HEADERS,
+        optionalHeaders: OPTIONAL_HEADERS
+      };
+      
+      setAnalysis(manualAnalysis);
+      setUserMappings({});
+      setIsManualMode(true);
+      toast.error('AI analysis failed. Please map headers manually.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -153,8 +203,8 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
         <CardContent className="p-8">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Analysis Failed</h3>
-            <p className="text-gray-600 mb-4">Could not analyze the CSV file. Please try again.</p>
+            <h3 className="text-lg font-semibold mb-2">No CSV Data</h3>
+            <p className="text-gray-600 mb-4">Please upload a valid CSV file.</p>
             <Button onClick={onCancel} variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
@@ -175,12 +225,18 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ArrowRight className="h-5 w-5 text-blue-600" />
-            🎯 Map Your CSV Headers to EasyPost Template
+            {isManualMode ? '🔧 Manual Header Mapping' : '🎯 Map Your CSV Headers to EasyPost Template'}
           </CardTitle>
           <div className="flex gap-2 flex-wrap">
-            <Badge variant={analysis.suggestions.confidence === 'high' ? 'default' : 'secondary'}>
-              🧠 AI Confidence: {analysis.suggestions.confidence}
-            </Badge>
+            {isManualMode ? (
+              <Badge variant="secondary">
+                🔧 Manual Mode - AI Failed
+              </Badge>
+            ) : (
+              <Badge variant={analysis.suggestions.confidence === 'high' ? 'default' : 'secondary'}>
+                🧠 AI Confidence: {analysis.suggestions.confidence}
+              </Badge>
+            )}
             <Badge variant="outline">
               📊 {analysis.detectedHeaders.length} headers detected
             </Badge>
@@ -193,10 +249,21 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-medium text-blue-800 mb-2">📋 How this works:</h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Review the AI-suggested mappings below</li>
-              <li>• Adjust any mappings that don't look correct</li>
-              <li>• All <span className="font-semibold text-red-600">REQUIRED</span> fields must be mapped</li>
-              <li>• Click "Convert & Proceed" when ready</li>
+              {isManualMode ? (
+                <>
+                  <li>• AI analysis failed, so you need to map headers manually</li>
+                  <li>• Match each CSV header to the correct template field</li>
+                  <li>• All <span className="font-semibold text-red-600">REQUIRED</span> fields must be mapped</li>
+                  <li>• Optional fields can be left unmapped if not needed</li>
+                </>
+              ) : (
+                <>
+                  <li>• Review the AI-suggested mappings below</li>
+                  <li>• Adjust any mappings that don't look correct</li>
+                  <li>• All <span className="font-semibold text-red-600">REQUIRED</span> fields must be mapped</li>
+                  <li>• Click "Convert & Proceed" when ready</li>
+                </>
+              )}
             </ul>
           </div>
 
