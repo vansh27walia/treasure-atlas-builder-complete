@@ -582,17 +582,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 } />
                               </SelectTrigger>
                               <SelectContent className="min-w-[320px] bg-white border-2 border-gray-200 shadow-xl z-50">
-                                {[...(shipment.availableRates || [])]
-                                  .sort((a, b) => {
-                                    const ar = typeof a.rate === 'string' ? parseFloat(a.rate) : (a.rate || 0);
-                                    const br = typeof b.rate === 'string' ? parseFloat(b.rate) : (b.rate || 0);
-                                    return ar - br;
-                                  })
-                                  .map(rate => {
-                                    const standardizedCarrier = standardizeCarrierName(rate.carrier);
-                                    const discountPercent = getDiscountPercentage(rate);
-                                    const currentRatePrice = parseFloat(formatRate(rate.rate));
-                                    const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
+                                {(shipment.availableRates || []).map(rate => {
+                                  const standardizedCarrier = standardizeCarrierName(rate.carrier);
+                                  const discountPercent = getDiscountPercentage(rate);
+                                  const currentRatePrice = parseFloat(formatRate(rate.rate));
+                                  const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
                                   
                                   return (
                                     <SelectItem key={rate.id} value={rate.id} className="p-0">
@@ -672,18 +666,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={insurance.enabled}
-                                onChange={(e) => {
-                                  const enabled = e.target.checked;
-                                  // Local state update
-                                  handleInsuranceToggle(shipment.id, enabled);
-                                  // Persist to results so totals include insurance
-                                  const declared = insurance.value || 0;
-                                  const cost = enabled ? calculateInsuranceCost(declared) : 0;
-                                  onEditShipment(shipment.id, {
-                                    details: { ...shipment.details, insurance_enabled: enabled, declared_value: declared },
-                                    insurance_cost: cost
-                                  } as any);
-                                }}
+                                onChange={(e) => handleInsuranceToggle(shipment.id, e.target.checked)}
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
@@ -699,15 +682,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 <input
                                   type="number"
                                   value={insurance.value}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0;
-                                    handleDeclaredValueChange(shipment.id, val);
-                                    const cost = insurance.enabled ? calculateInsuranceCost(val) : 0;
-                                    onEditShipment(shipment.id, {
-                                      details: { ...shipment.details, insurance_enabled: insurance.enabled, declared_value: val },
-                                      insurance_cost: cost
-                                    } as any);
-                                  }}
+                                  onChange={(e) => handleDeclaredValueChange(shipment.id, parseFloat(e.target.value) || 100)}
                                   className="w-full px-3 py-2 text-sm border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   placeholder="100"
                                   min="1"

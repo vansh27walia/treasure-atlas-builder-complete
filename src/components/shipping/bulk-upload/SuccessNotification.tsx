@@ -232,18 +232,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                   <div className="text-xs opacity-90">Thermal</div>
                 </div>
               </Button>
-
-              <Button
-                onClick={handleDownloadManifest}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white h-20 flex-col shadow-lg hover:shadow-xl transition-all duration-200"
-                disabled={!results.batchResult?.scanFormUrl}
-              >
-                <FileText className="h-6 w-6 mb-2" />
-                <div className="text-center">
-                  <div className="font-bold">Manifest</div>
-                  <div className="text-xs opacity-90">Pickup Scan Form</div>
-                </div>
-              </Button>
             </div>
           </div>
 
