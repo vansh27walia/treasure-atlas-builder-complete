@@ -362,7 +362,7 @@ export class UPSService {
 
       return data;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('UPS: Error in getRates:', error);
       
       // For service availability errors, return empty rates instead of throwing
@@ -401,14 +401,14 @@ export class UPSService {
       }
       
       // Check if the service code is in the available services
-      const isValidService = availableServices.some(service => service.Service.Code === serviceCode);
+      const isValidService = (availableServices || []).some(service => service.Service.Code === serviceCode);
       
       console.log(`UPS: Service code ${serviceCode} validation result: ${isValidService}`);
-      console.log(`UPS: Available service codes: ${availableServices.map(s => s.Service.Code).join(', ')}`);
+      console.log(`UPS: Available service codes: ${(availableServices || []).map(s => s.Service.Code).join(', ')}`);
       
       return isValidService;
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('UPS: Error validating service code:', error);
       return false;
     }
