@@ -114,7 +114,7 @@ serve(async (req) => {
     console.error('Error in analyze-bulk-shipping-rates:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to analyze rates',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

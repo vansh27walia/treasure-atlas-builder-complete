@@ -21,7 +21,7 @@ serve(async (req) => {
     }
 
     // Prepare context for the AI
-    const shipmentsContext = shipments.map((s, index) => ({
+    const shipmentsContext = shipments.map((s: any, index: number) => ({
       index: index + 1,
       recipient: s.recipient,
       carrier: s.carrier,
