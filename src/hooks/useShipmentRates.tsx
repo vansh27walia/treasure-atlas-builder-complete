@@ -129,6 +129,10 @@ export const useShipmentRates = (
         },
         toAddress,
         parcel,
+        // Pass insured value (declared value) so insurance can be applied server-side
+        insurance: typeof d.declared_value === 'number' && d.declared_value > 0 ? d.declared_value : undefined,
+        // Include customs info for international shipments when available
+        customs_info: d.customs_info,
         declaredValue: d.declared_value ?? (shipment as any).declared_value ?? 0,
       };
 

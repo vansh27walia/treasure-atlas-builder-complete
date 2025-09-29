@@ -201,9 +201,14 @@ serve(async (req) => {
       }
     };
 
-    // Add insurance if requested
+    // Add insurance if requested (EasyPost expects insured value amount)
     if (requestData.insurance && requestData.insurance > 0) {
       (shipmentRequest.shipment as any).insurance = requestData.insurance;
+    }
+
+    // Include customs info for international shipments when provided
+    if (isInternational && requestData.customs_info) {
+      (shipmentRequest.shipment as any).customs_info = requestData.customs_info;
     }
 
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));

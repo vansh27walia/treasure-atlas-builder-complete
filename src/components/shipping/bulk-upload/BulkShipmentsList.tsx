@@ -97,6 +97,18 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       ...customsInfo,
       [shipmentId]: info
     });
+
+    // Persist customs info into the shipment details so backend receives it
+    const target = shipments.find(s => s.id === shipmentId);
+    if (target) {
+      onEditShipment(shipmentId, {
+        details: {
+          ...(target.details || {}),
+          customs_info: info
+        }
+      });
+    }
+
     toast.success('Customs information saved successfully');
   };
 
