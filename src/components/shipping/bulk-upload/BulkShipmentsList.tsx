@@ -100,12 +100,12 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
     // Persist customs info into the shipment details so backend receives it
     const target = shipments.find(s => s.id === shipmentId);
-    if (target) {
+    if (target && target.details) {
       onEditShipment(shipmentId, {
         details: {
-          ...(target.details || {}),
-          customs_info: info
-        }
+          ...target.details,
+          customs_info: info as any
+        } as any
       });
     }
 
