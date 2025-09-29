@@ -272,8 +272,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
           <OrderSummary
             successfulCount={results.successful}
-            totalCost={results.totalCost}
-            totalInsurance={results.totalInsurance || 0}
+            totalCost={filteredShipments.reduce((sum, s) => sum + (s.rate || 0), 0)}
+            totalInsurance={filteredShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}
             onAddPaymentMethod={handleAddPaymentMethod}
