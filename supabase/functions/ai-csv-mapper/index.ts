@@ -109,7 +109,7 @@ Respond with a JSON object in this exact format:
 Only map headers you're confident about. Leave uncertain ones unmapped.
 `;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -178,18 +178,39 @@ serve(async (req) => {
         );
       }
 
-      const aiSuggestions = await suggestHeaderMappings(detectedHeaders);
-      console.log('AI mapping suggestions:', aiSuggestions);
+      try {
+        const aiSuggestions = await suggestHeaderMappings(detectedHeaders);
+        console.log('AI mapping suggestions:', aiSuggestions);
 
-      return new Response(
-        JSON.stringify({
-          detectedHeaders,
-          suggestions: aiSuggestions,
-          requiredHeaders: REQUIRED_HEADERS,
-          optionalHeaders: OPTIONAL_HEADERS
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        return new Response(
+          JSON.stringify({
+            detectedHeaders,
+            suggestions: aiSuggestions,
+            requiredHeaders: REQUIRED_HEADERS,
+            optionalHeaders: OPTIONAL_HEADERS
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (aiError) {
+        console.log('AI analysis failed, falling back to manual mode:', aiError);
+        
+        // Fallback to manual mode when AI fails
+        return new Response(
+          JSON.stringify({
+            detectedHeaders,
+            suggestions: {
+              mappings: {},
+              unmapped: detectedHeaders,
+              missing_required: REQUIRED_HEADERS,
+              confidence: "manual"
+            },
+            requiredHeaders: REQUIRED_HEADERS,
+            optionalHeaders: OPTIONAL_HEADERS,
+            manualMode: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Action: convert - apply mappings and convert CSV
