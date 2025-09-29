@@ -48,7 +48,7 @@ const validateCustomsData = (customsData: any) => {
   };
 
   // Validate required fields
-  validatedCustomsData.customs_items.forEach((item, index) => {
+  validatedCustomsData.customs_items.forEach((item: any, index: number) => {
     if (!item.description || item.description.trim() === '') {
       throw new Error(`Item ${index + 1}: Description is required`);
     }

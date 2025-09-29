@@ -195,7 +195,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: 'Internal server error',
         message: 'An unexpected error occurred while processing your booking.',
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
