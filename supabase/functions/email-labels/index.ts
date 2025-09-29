@@ -229,7 +229,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       message: 'Email sent successfully',
-      emailId: emailResult.id,
+      emailId: emailResult?.id ?? null,
       recipientCount: emailArray.length,
       attachmentsCount: attachments.length
     }), {

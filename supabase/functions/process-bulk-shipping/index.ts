@@ -120,14 +120,15 @@ const fetchShipmentRates = async (shipmentData: ShipmentData, fromAddress: any) 
 // Function to calculate insurance cost
 const calculateInsuranceCost = (declaredValue: number, carrier: string): number => {
   // Standard insurance rates by carrier
-  const insuranceRates = {
+  const insuranceRates: Record<string, number> = {
     'USPS': 0.0075, // 0.75% of declared value
     'UPS': 0.0085,  // 0.85% of declared value
     'FedEx': 0.009, // 0.9% of declared value
     'DHL': 0.01,    // 1% of declared value
   };
 
-  const rate = insuranceRates[carrier.toUpperCase()] || 0.01;
+  const carrierKey = (carrier || '').toUpperCase();
+  const rate = insuranceRates[carrierKey as keyof typeof insuranceRates] ?? 0.01;
   const minInsurance = 2.00; // Minimum insurance cost
   
   return Math.max(declaredValue * rate, minInsurance);
@@ -203,8 +204,8 @@ serve(async (req) => {
     console.log(`Processing bulk shipments for user: ${userData.user.id}`);
 
     // Parse CSV content
-    const lines = csvContent.split('\n').filter(line => line.trim() !== '');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const lines = csvContent.split('\n').filter((line: string) => line.trim() !== '');
+    const headers = lines[0].split(',').map((h: string) => h.trim().replace(/"/g, ''));
     
     const processedShipments: ProcessedShipment[] = [];
     
