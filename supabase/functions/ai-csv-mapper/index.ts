@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -56,94 +55,147 @@ const parseCSVHeaders = (csvContent: string): string[] => {
   return headers.filter(h => h.length > 0);
 };
 
-// Use Gemini to suggest header mappings
+// Rule-based fallback mapping function
+const generateRuleBasedMappings = (detectedHeaders: string[]) => {
+  const mappings: { [key: string]: string } = {};
+  const unmapped: string[] = [];
+  
+  // Mapping rules - case insensitive matching
+  const rules = [
+    // Name mappings
+    { patterns: ['name', 'recipient', 'customer_name', 'full_name', 'contact_name'], target: 'to_name' },
+    { patterns: ['company', 'business', 'organization', 'company_name'], target: 'to_company' },
+    
+    // Address mappings
+    { patterns: ['address', 'street', 'address1', 'street1', 'street_address', 'line1'], target: 'to_street1' },
+    { patterns: ['address2', 'street2', 'apt', 'suite', 'unit', 'line2'], target: 'to_street2' },
+    { patterns: ['city', 'town'], target: 'to_city' },
+    { patterns: ['state', 'province', 'region'], target: 'to_state' },
+    { patterns: ['zip', 'postal', 'postcode', 'postal_code', 'zipcode'], target: 'to_zip' },
+    { patterns: ['country', 'country_code'], target: 'to_country' },
+    
+    // Contact mappings
+    { patterns: ['phone', 'telephone', 'mobile', 'contact_number'], target: 'to_phone' },
+    { patterns: ['email', 'email_address', 'contact_email'], target: 'to_email' },
+    
+    // Package mappings
+    { patterns: ['weight', 'wt', 'weight_lbs', 'weight_pounds'], target: 'weight' },
+    { patterns: ['length', 'len', 'l'], target: 'length' },
+    { patterns: ['width', 'w', 'wide'], target: 'width' },
+    { patterns: ['height', 'h', 'tall'], target: 'height' },
+    
+    // Reference
+    { patterns: ['reference', 'ref', 'order_id', 'order_number', 'tracking'], target: 'reference' }
+  ];
+
+  detectedHeaders.forEach(header => {
+    const normalizedHeader = header.toLowerCase().trim();
+    let mapped = false;
+
+    for (const rule of rules) {
+      if (rule.patterns.some(pattern => normalizedHeader.includes(pattern))) {
+        // Avoid duplicate mappings
+        if (!Object.values(mappings).includes(rule.target)) {
+          mappings[header] = rule.target;
+          mapped = true;
+          break;
+        }
+      }
+    }
+
+    if (!mapped) {
+      unmapped.push(header);
+    }
+  });
+
+  // Determine missing required fields
+  const mappedTemplateHeaders = Object.values(mappings);
+  const missingRequired = REQUIRED_HEADERS.filter(req => !mappedTemplateHeaders.includes(req));
+
+  return {
+    mappings,
+    unmapped,
+    missing_required: missingRequired,
+    confidence: Object.keys(mappings).length > 5 ? 'high' : 'medium'
+  };
+};
+
+// Use Gemini to suggest header mappings with fallback
 const suggestHeaderMappings = async (detectedHeaders: string[]) => {
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!geminiApiKey) {
-    throw new Error('Gemini API key not configured');
-  }
-
-  const prompt = `
-You are a CSV header mapping assistant. I need to map the following detected CSV headers to a standard EasyPost shipping template.
+  
+  // Try AI suggestions first, fall back to rule-based mapping if it fails
+  if (geminiApiKey) {
+    try {
+      console.log('Attempting AI header mapping...');
+      
+      const prompt = `You are a CSV header mapping assistant. Map these CSV headers to EasyPost shipping template headers.
 
 Detected headers: ${detectedHeaders.join(', ')}
 
-Required template headers (MUST be mapped):
+Required template headers:
 - to_name (recipient name)
-- to_street1 (street address)
+- to_street1 (street address) 
 - to_city (city)
 - to_state (state/province)
 - to_zip (postal code)
 - to_country (country code, default US)
 - weight (package weight in pounds)
-- length (package length in inches)
-- width (package width in inches)
-- height (package height in inches)
+- length, width, height (package dimensions in inches)
 
-Optional template headers:
-- to_company (company name)
-- to_street2 (apt/suite)
-- to_phone (phone number)
-- to_email (email address)
-- reference (order reference)
+Optional: to_company, to_street2, to_phone, to_email, reference
 
-Please analyze each detected header and suggest the best mapping to template headers. Consider variations like:
-- "Name" or "Customer Name" → to_name
-- "Address" or "Street" → to_street1
-- "State" or "Province" → to_state
-- "ZIP" or "Postal Code" → to_zip
-- etc.
-
-Respond with a JSON object in this exact format:
+Respond with valid JSON only:
 {
-  "mappings": {
-    "detected_header": "template_header",
-    "another_detected_header": "template_header"
-  },
-  "unmapped": ["header1", "header2"],
+  "mappings": {"detected_header": "template_header"},
+  "unmapped": ["header1"],
   "missing_required": ["required_header1"],
   "confidence": "high|medium|low"
-}
+}`;
 
-Only map headers you're confident about. Leave uncertain ones unmapped.
-`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 800,
+          }
+        }),
+      });
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 1000,
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (content) {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const result = JSON.parse(jsonMatch[0]);
+            console.log('AI mapping successful:', result);
+            return result;
+          }
+        }
+      } else {
+        console.log('Gemini API failed with status:', response.status);
+        const errorBody = await response.text();
+        console.log('Gemini error details:', errorBody);
       }
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates[0].content.parts[0].text;
-  
-  try {
-    // Extract JSON from the response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in Gemini response');
+    } catch (error) {
+      console.log('AI mapping failed, using fallback:', error);
     }
-    return JSON.parse(jsonMatch[0]);
-  } catch (error) {
-    console.error('Failed to parse Gemini response:', content);
-    throw new Error('Invalid AI response format');
   }
+
+  // Fallback: Rule-based header mapping
+  console.log('Using rule-based header mapping...');
+  return generateRuleBasedMappings(detectedHeaders);
 };
 
 serve(async (req) => {
@@ -175,13 +227,13 @@ serve(async (req) => {
         );
       }
 
-      const aiSuggestions = await suggestHeaderMappings(detectedHeaders);
-      console.log('AI mapping suggestions:', aiSuggestions);
+      const suggestions = await suggestHeaderMappings(detectedHeaders);
+      console.log('Header mapping suggestions:', suggestions);
 
       return new Response(
         JSON.stringify({
           detectedHeaders,
-          suggestions: aiSuggestions,
+          suggestions,
           requiredHeaders: REQUIRED_HEADERS,
           optionalHeaders: OPTIONAL_HEADERS
         }),
