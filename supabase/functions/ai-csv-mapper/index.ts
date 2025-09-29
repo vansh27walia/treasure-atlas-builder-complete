@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,7 +32,7 @@ const ALL_TEMPLATE_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
 
 // Parse CSV and extract headers
 const parseCSVHeaders = (csvContent: string): string[] => {
-  const lines = csvContent.split('\n').filter((line: string) => line.trim() !== '');
+  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
   if (lines.length === 0) return [];
   
   const headerLine = lines[0];
@@ -109,7 +108,7 @@ Respond with a JSON object in this exact format:
 Only map headers you're confident about. Leave uncertain ones unmapped.
 `;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -128,8 +127,6 @@ Only map headers you're confident about. Leave uncertain ones unmapped.
   });
 
   if (!response.ok) {
-    const errText = await response.text();
-    console.error('Gemini API error body:', errText);
     throw new Error(`Gemini API error: ${response.status}`);
   }
 
@@ -178,39 +175,18 @@ serve(async (req) => {
         );
       }
 
-      try {
-        const aiSuggestions = await suggestHeaderMappings(detectedHeaders);
-        console.log('AI mapping suggestions:', aiSuggestions);
+      const aiSuggestions = await suggestHeaderMappings(detectedHeaders);
+      console.log('AI mapping suggestions:', aiSuggestions);
 
-        return new Response(
-          JSON.stringify({
-            detectedHeaders,
-            suggestions: aiSuggestions,
-            requiredHeaders: REQUIRED_HEADERS,
-            optionalHeaders: OPTIONAL_HEADERS
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (aiError) {
-        console.log('AI analysis failed, falling back to manual mode:', aiError);
-        
-        // Fallback to manual mode when AI fails
-        return new Response(
-          JSON.stringify({
-            detectedHeaders,
-            suggestions: {
-              mappings: {},
-              unmapped: detectedHeaders,
-              missing_required: REQUIRED_HEADERS,
-              confidence: "manual"
-            },
-            requiredHeaders: REQUIRED_HEADERS,
-            optionalHeaders: OPTIONAL_HEADERS,
-            manualMode: true
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      return new Response(
+        JSON.stringify({
+          detectedHeaders,
+          suggestions: aiSuggestions,
+          requiredHeaders: REQUIRED_HEADERS,
+          optionalHeaders: OPTIONAL_HEADERS
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Action: convert - apply mappings and convert CSV
@@ -225,7 +201,7 @@ serve(async (req) => {
       console.log('Converting CSV with mappings:', mappings);
       
       // Parse original CSV
-      const lines = csvContent.split('\n').filter((line: string) => line.trim() !== '');
+      const lines = csvContent.split('\n').filter(line => line.trim() !== '');
       if (lines.length < 2) {
         throw new Error('CSV must have at least one data row');
       }

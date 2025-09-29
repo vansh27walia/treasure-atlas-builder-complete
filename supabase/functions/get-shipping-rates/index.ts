@@ -59,8 +59,8 @@ const getCarrierDiscountConfig = (carrier: string, service: string) => {
 };
 
 // Apply carrier-specific markup and discount logic
-const applyCarrierDiscounts = (rates: any[]) => {
-  return rates.map((rate: any) => {
+const applyCarrierDiscounts = (rates) => {
+  return rates.map((rate) => {
     const config = getCarrierDiscountConfig(rate.carrier, rate.service);
     
     // Apply our markup first to the actual rate
@@ -97,10 +97,10 @@ const calculateEstimatedDelivery = (deliveryDays: number) => {
 };
 
 // Group rates by carrier for better organization
-const organizeRatesByCarrier = (rates: any[]) => {
+const organizeRatesByCarrier = (rates) => {
   const carrierOrder = ['USPS', 'UPS', 'FedEx', 'DHL'];
   
-  return rates.sort((a: any, b: any) => {
+  return rates.sort((a, b) => {
     const carrierA = a.carrier.toUpperCase();
     const carrierB = b.carrier.toUpperCase();
     
@@ -157,7 +157,7 @@ serve(async (req) => {
 
     console.log(`Shipment type: ${isInternational ? 'International' : 'Domestic'} (From: ${fromCountry}, To: ${toCountry})`);
 
-    const parcelData: any = { weight: requestData.parcel.weight };
+    const parcelData = { weight: requestData.parcel.weight };
     
     if (requestData.parcel.predefined_package) {
       parcelData.predefined_package = requestData.parcel.predefined_package;
@@ -172,7 +172,7 @@ serve(async (req) => {
       }
     }
 
-    const shipmentRequest: any = {
+    const shipmentRequest = {
       shipment: {
         from_address: {
           name: requestData.fromAddress.name,

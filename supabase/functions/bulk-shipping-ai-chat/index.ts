@@ -21,7 +21,7 @@ serve(async (req) => {
     }
 
     // Prepare context for the AI
-    const shipmentsContext = shipments.map((s: any, index: number) => ({
+    const shipmentsContext = shipments.map((s, index) => ({
       index: index + 1,
       recipient: s.recipient,
       carrier: s.carrier,
@@ -32,8 +32,8 @@ serve(async (req) => {
       availableRates: s.availableRates?.length || 0
     }));
 
-    const totalCost = shipments.reduce((sum: number, s: any) => sum + parseFloat(s.rate || 0), 0);
-    const carrierCounts = shipments.reduce((acc: Record<string, number>, s: any) => {
+    const totalCost = shipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0);
+    const carrierCounts = shipments.reduce((acc, s) => {
       acc[s.carrier] = (acc[s.carrier] || 0) + 1;
       return acc;
     }, {});
@@ -56,7 +56,7 @@ CAPABILITIES:
 6. Assist with troubleshooting shipping issues
 
 AVAILABLE SHIPMENTS DATA:
-${shipmentsContext.map((s: any) => 
+${shipmentsContext.map(s => 
   `Shipment ${s.index}: ${s.recipient} via ${s.carrier} ${s.service || ''} - $${parseFloat(s.rate || 0).toFixed(2)} (${s.delivery_days || 'N/A'} days, ${s.availableRates} rate options)`
 ).join('\n')}
 
@@ -109,7 +109,7 @@ Be helpful, concise, and focus on actionable insights. When referencing shipment
     console.error('Error in bulk-shipping-ai-chat:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to process chat message',
-      details: error instanceof Error ? error.message : 'Unknown error',
+      details: error.message,
       response: "I'm experiencing technical difficulties. Please try again later."
     }), {
       status: 500,

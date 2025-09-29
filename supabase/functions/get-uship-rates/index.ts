@@ -237,7 +237,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+        details: error.message 
       }),
       { 
         status: 500, 

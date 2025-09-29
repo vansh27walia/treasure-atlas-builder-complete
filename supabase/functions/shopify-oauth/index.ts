@@ -14,7 +14,7 @@ const corsHeaders = {
  * @param {string} secret - Your Shopify API Secret Key.
  * @returns {Promise<boolean>} True if HMAC is valid, false otherwise.
  */
-async function validateHmac(query: any, secret: string) {
+async function validateHmac(query, secret) {
   const hmac = query.get('hmac');
   if (!hmac) return false;
   
@@ -59,7 +59,7 @@ async function validateHmac(query: any, secret: string) {
  * Dynamically constructs the frontend redirect URL based on Shopify's host parameter.
  * This is crucial for embedded apps to redirect back into the Shopify admin.
  */
-function getFrontendRedirectUrl(shopDomain: string, hostParam: string, path = '/import') {
+function getFrontendRedirectUrl(shopDomain, hostParam, path = '/import') {
   let decodedHost = '';
   try {
     // Shopify's 'host' parameter is base64 encoded
@@ -97,7 +97,7 @@ serve(async (req) => {
     let action = null;
     let shop = null;
     let host = null;
-    let requestBody: any = {};
+    let requestBody = {};
 
     // Attempt to parse request body if it's a POST request
     if (req.method === 'POST') {

@@ -128,7 +128,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in get-stored-label function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

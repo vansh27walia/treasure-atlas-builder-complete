@@ -25,15 +25,15 @@ serve(async (req) => {
 
     if (mode === 'individual' && shipment) {
       // Individual shipment analysis
-      const rates: any[] = shipment.availableRates || [];
-      const selectedRate = rates.find((r: any) => r.id === shipment.selectedRateId) || rates[0];
+      const rates = shipment.availableRates || [];
+      const selectedRate = rates.find(r => r.id === shipment.selectedRateId) || rates[0];
       
       if (!selectedRate) {
         throw new Error('No rate information available for analysis');
       }
 
-      const prices = rates.map((r: any) => parseFloat(r.rate));
-      const deliveryTimes = rates.map((r: any) => r.delivery_days || 5);
+      const prices = rates.map(r => parseFloat(r.rate));
+      const deliveryTimes = rates.map(r => r.delivery_days || 5);
       
       const cheapestPrice = Math.min(...prices);
       const fastestDelivery = Math.min(...deliveryTimes);
@@ -70,9 +70,9 @@ serve(async (req) => {
       };
     } else {
       // Combined analysis for all shipments
-      const totalCost = allShipments.reduce((sum: number, s: any) => sum + parseFloat(s.rate || 0), 0);
-      const averageDelivery = allShipments.reduce((sum: number, s: any) => {
-        const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
+      const totalCost = allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0);
+      const averageDelivery = allShipments.reduce((sum, s) => {
+        const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
         return sum + (selectedRate?.delivery_days || 5);
       }, 0) / allShipments.length;
 
@@ -114,7 +114,7 @@ serve(async (req) => {
     console.error('Error in analyze-bulk-shipping-rates:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to analyze rates',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -123,13 +123,13 @@ serve(async (req) => {
 });
 
 function getCarrierReliabilityScore(carrier: string): number {
-  const scores: Record<string, number> = {
+  const scores = {
     'USPS': 85,
     'UPS': 90,
     'FedEx': 88,
     'DHL': 82
   };
-  return scores[(carrier || '').toUpperCase()] || 75;
+  return scores[carrier?.toUpperCase()] || 75;
 }
 
 function getServiceQualityScore(service: string): number {
@@ -140,20 +140,20 @@ function getServiceQualityScore(service: string): number {
 }
 
 function getTrackingScore(carrier: string): number {
-  const scores: Record<string, number> = {
+  const scores = {
     'USPS': 80,
     'UPS': 95,
     'FedEx': 92,
     'DHL': 88
   };
-  return scores[(carrier || '').toUpperCase()] || 75;
+  return scores[carrier?.toUpperCase()] || 75;
 }
 
 function calculateCombinedCostScore(shipments: any[]): number {
-  const totalActual = shipments.reduce((sum: number, s: any) => sum + parseFloat(s.rate || 0), 0);
-  const totalOptimal = shipments.reduce((sum: number, s: any) => {
-    const rates: any[] = s.availableRates || [];
-    const cheapest = Math.min(...rates.map((r: any) => parseFloat(r.rate)));
+  const totalActual = shipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0);
+  const totalOptimal = shipments.reduce((sum, s) => {
+    const rates = s.availableRates || [];
+    const cheapest = Math.min(...rates.map(r => parseFloat(r.rate)));
     return sum + cheapest;
   }, 0);
   
@@ -161,14 +161,14 @@ function calculateCombinedCostScore(shipments: any[]): number {
 }
 
 function calculateCombinedSpeedScore(shipments: any[]): number {
-  const averageActual = shipments.reduce((sum: number, s: any) => {
-    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
+  const averageActual = shipments.reduce((sum, s) => {
+    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
     return sum + (selectedRate?.delivery_days || 5);
   }, 0) / shipments.length;
   
-  const averageOptimal = shipments.reduce((sum: number, s: any) => {
-    const rates: any[] = s.availableRates || [];
-    const fastest = Math.min(...rates.map((r: any) => r.delivery_days || 5));
+  const averageOptimal = shipments.reduce((sum, s) => {
+    const rates = s.availableRates || [];
+    const fastest = Math.min(...rates.map(r => r.delivery_days || 5));
     return sum + fastest;
   }, 0) / shipments.length;
   
@@ -176,8 +176,8 @@ function calculateCombinedSpeedScore(shipments: any[]): number {
 }
 
 function calculateCombinedReliabilityScore(shipments: any[]): number {
-  const totalScore = shipments.reduce((sum: number, s: any) => {
-    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
+  const totalScore = shipments.reduce((sum, s) => {
+    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
     return sum + getCarrierReliabilityScore(selectedRate?.carrier || s.carrier);
   }, 0);
   
@@ -185,8 +185,8 @@ function calculateCombinedReliabilityScore(shipments: any[]): number {
 }
 
 function calculateCombinedServiceScore(shipments: any[]): number {
-  const totalScore = shipments.reduce((sum: number, s: any) => {
-    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
+  const totalScore = shipments.reduce((sum, s) => {
+    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
     return sum + getServiceQualityScore(selectedRate?.service || s.service);
   }, 0);
   
@@ -194,8 +194,8 @@ function calculateCombinedServiceScore(shipments: any[]): number {
 }
 
 function calculateCombinedTrackingScore(shipments: any[]): number {
-  const totalScore = shipments.reduce((sum: number, s: any) => {
-    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
+  const totalScore = shipments.reduce((sum, s) => {
+    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
     return sum + getTrackingScore(selectedRate?.carrier || s.carrier);
   }, 0);
   

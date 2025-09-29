@@ -61,7 +61,7 @@ serve(async (req) => {
 
     // Enrich local data with Stripe data
     const enrichedMethods = methods?.map(method => {
-      const stripeMethod = stripeMethods.find((sm: any) => sm.id === method.stripe_payment_method_id);
+      const stripeMethod = stripeMethods.find(sm => sm.id === method.stripe_payment_method_id);
       return {
         ...method,
         stripe_data: stripeMethod,
@@ -82,7 +82,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error fetching payment methods:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: error.message }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
