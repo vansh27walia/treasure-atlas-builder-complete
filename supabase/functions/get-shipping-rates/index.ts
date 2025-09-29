@@ -201,8 +201,9 @@ serve(async (req) => {
       }
     };
 
+    // Add insurance if requested
     if (requestData.insurance && requestData.insurance > 0) {
-      shipmentRequest.shipment.insurance = requestData.insurance;
+      (shipmentRequest.shipment as any).insurance = requestData.insurance;
     }
 
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));

@@ -60,7 +60,7 @@ serve(async (req) => {
     let response;
 
     // Create a helper function to ensure phone field is never null or undefined
-    const ensurePhoneField = (data) => {
+    const ensurePhoneField = (data: any) => {
       return { 
         ...data,
         phone: data.phone !== undefined && data.phone !== null ? data.phone : ''
@@ -125,7 +125,7 @@ serve(async (req) => {
       } catch (insertError) {
         console.error('Exception during address insert:', insertError);
         return new Response(
-          JSON.stringify({ error: 'Exception creating address', details: insertError.message }),
+          JSON.stringify({ error: 'Exception creating address', details: insertError instanceof Error ? insertError.message : 'Unknown error' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         );
       }
@@ -167,7 +167,7 @@ serve(async (req) => {
       } catch (updateError) {
         console.error('Exception during address update:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Exception updating address', details: updateError.message }),
+          JSON.stringify({ error: 'Exception updating address', details: updateError instanceof Error ? updateError.message : 'Unknown error' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         );
       }
@@ -202,7 +202,7 @@ serve(async (req) => {
       } catch (selectError) {
         console.error('Exception during address retrieval:', selectError);
         return new Response(
-          JSON.stringify({ error: 'Exception retrieving address', details: selectError.message }),
+          JSON.stringify({ error: 'Exception retrieving address', details: selectError instanceof Error ? selectError.message : 'Unknown error' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         );
       }
@@ -221,7 +221,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in update-address-encryption function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

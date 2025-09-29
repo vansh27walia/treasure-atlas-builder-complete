@@ -120,7 +120,7 @@ const fetchShipmentRates = async (shipmentData: ShipmentData, fromAddress: any) 
 // Function to calculate insurance cost
 const calculateInsuranceCost = (declaredValue: number, carrier: string): number => {
   // Standard insurance rates by carrier
-  const insuranceRates = {
+  const insuranceRates: { [key: string]: number } = {
     'USPS': 0.0075, // 0.75% of declared value
     'UPS': 0.0085,  // 0.85% of declared value
     'FedEx': 0.009, // 0.9% of declared value
@@ -203,14 +203,14 @@ serve(async (req) => {
     console.log(`Processing bulk shipments for user: ${userData.user.id}`);
 
     // Parse CSV content
-    const lines = csvContent.split('\n').filter(line => line.trim() !== '');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const lines = csvContent.split('\n').filter((line: string) => line.trim() !== '');
+    const headers = lines[0].split(',').map((h: string) => h.trim().replace(/"/g, ''));
     
     const processedShipments: ProcessedShipment[] = [];
     
     // Process each shipment
     for (let i = 1; i < lines.length; i++) {
-      const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
+      const row = lines[i].split(',').map((cell: string) => cell.trim().replace(/"/g, ''));
       
       try {
         // Create shipment data object
@@ -256,7 +256,7 @@ serve(async (req) => {
         });
 
         // Select cheapest rate by default
-        const selectedRate = rates.sort((a, b) => a.total_cost - b.total_cost)[0];
+        const selectedRate = rates.sort((a, b) => (a.total_cost || 0) - (b.total_cost || 0))[0];
         
         const processedShipment: ProcessedShipment = {
           id: `bulk_${crypto.randomUUID()}`,

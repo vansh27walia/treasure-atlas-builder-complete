@@ -14,7 +14,7 @@ const corsHeaders = {
  * @param {string} secret - Your Shopify API Secret Key.
  * @returns {Promise<boolean>} True if HMAC is valid, false otherwise.
  */
-async function validateHmac(query, secret) {
+async function validateHmac(query: URLSearchParams, secret: string): Promise<boolean> {
   const hmac = query.get('hmac');
   if (!hmac) return false;
   
@@ -59,7 +59,7 @@ async function validateHmac(query, secret) {
  * Dynamically constructs the frontend redirect URL based on Shopify's host parameter.
  * This is crucial for embedded apps to redirect back into the Shopify admin.
  */
-function getFrontendRedirectUrl(shopDomain, hostParam, path = '/import') {
+function getFrontendRedirectUrl(shopDomain: string, hostParam: string, path = '/import') {
   let decodedHost = '';
   try {
     // Shopify's 'host' parameter is base64 encoded
@@ -113,19 +113,19 @@ serve(async (req) => {
       action = 'callback';
     } else {
       action = url.searchParams.get('action');
-      if (!action && requestBody.action) {
-        action = requestBody.action;
+      if (!action && (requestBody as any).action) {
+        action = (requestBody as any).action;
       }
     }
 
     // Determine the shop domain and host
     shop = url.searchParams.get('shop');
     host = url.searchParams.get('host');
-    if (!shop && requestBody.shop) {
-      shop = requestBody.shop;
+    if (!shop && (requestBody as any).shop) {
+      shop = (requestBody as any).shop;
     }
-    if (!host && requestBody.host) {
-      host = requestBody.host;
+    if (!host && (requestBody as any).host) {
+      host = (requestBody as any).host;
     }
 
     console.log(`[SHOPIFY-OAUTH] Processing Action: ${action}, Shop: ${shop}, Host: ${host}`);
