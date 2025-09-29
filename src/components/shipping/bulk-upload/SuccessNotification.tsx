@@ -293,24 +293,37 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <p className="text-gray-700 mb-6 max-w-2xl mx-auto">
               Your shipments have been processed successfully. Click below to create and download all shipping labels at once.
             </p>
-            <Button
-              onClick={onCreateLabels}
-              disabled={isCreatingLabels}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
-              size="lg"
-            >
-              {isCreatingLabels ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  Creating Labels...
-                </>
-              ) : (
-                <>
-                  <Package className="mr-2 h-6 w-6" />
-                  Create All Labels Now
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                onClick={onCreateLabels}
+                disabled={isCreatingLabels}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
+                size="lg"
+              >
+                {isCreatingLabels ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    Creating Labels...
+                  </>
+                ) : (
+                  <>
+                    <Package className="mr-2 h-6 w-6" />
+                    Create All Labels Now
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="border-green-300 text-green-700 hover:bg-green-50"
+                size="lg"
+              >
+                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.2a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email All Labels
+              </Button>
+            </div>
           </div>
         </Card>
       )}

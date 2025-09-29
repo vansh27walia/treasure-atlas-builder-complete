@@ -12,6 +12,7 @@ interface OrderSummaryProps {
   onAddPaymentMethod?: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
+  onEmailAllLabels?: () => void;
 }
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -22,19 +23,19 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   onProceedToPayment,
   onAddPaymentMethod,
   isPaying,
-  isCreatingLabels
+  isCreatingLabels,
+  onEmailAllLabels
 }) => {
-  // FIXED: Calculate the final total correctly - sum of all row totals (shipping + insurance for each row)
-  const shippingTotal = totalCost;
-  const insuranceTotal = totalInsurance;
-  const finalTotal = shippingTotal + insuranceTotal; // This now represents the sum of all row totals
+  // FIXED: totalCost now already includes shipping + insurance from BulkUploadView calculation
+  const finalTotal = totalCost; // This is the sum of all row totals (shipping + insurance)
+  const insuranceTotal = totalInsurance; // Keep for breakdown display
   
   const averageCostPerLabel = successfulCount > 0 ? finalTotal / successfulCount : 0;
 
   console.log('OrderSummary - Row totals calculation:', {
     successfulCount,
-    shippingTotal: shippingTotal,
-    insuranceTotal: insuranceTotal,
+    totalCost: totalCost, // Already includes shipping + insurance
+    totalInsurance: totalInsurance, // Individual insurance totals for breakdown
     finalTotal: finalTotal,
     averageCostPerLabel,
     calculationBreakdown: `${successfulCount} rows: Each row total (rate + insurance) summed = $${finalTotal.toFixed(2)}`
@@ -70,13 +71,13 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           </h6>
           <div className="space-y-3">
             <div className="flex justify-between items-center text-base">
-              <span className="text-gray-700 font-medium">Sum of all row shipping rates:</span>
-              <span className="font-bold text-blue-800 text-lg">${shippingTotal.toFixed(2)}</span>
+              <span className="text-gray-700 font-medium">Sum of all row totals (shipping + insurance):</span>
+              <span className="font-bold text-blue-800 text-lg">${finalTotal.toFixed(2)}</span>
             </div>
             {successfulCount > 0 && (
               <div className="flex justify-between text-sm bg-blue-100/50 p-3 rounded-lg">
-                <span className="text-blue-600">Average shipping per row:</span>
-                <span className="text-blue-700 font-semibold">${(shippingTotal / successfulCount).toFixed(2)}</span>
+                <span className="text-blue-600">Average total per row:</span>
+                <span className="text-blue-700 font-semibold">${(finalTotal / successfulCount).toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -213,25 +214,41 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           )}
         </div>
         
-        {/* Enhanced Download Button */}
-        <Button 
-          variant="outline" 
-          onClick={onDownloadAllLabels}
-          disabled={isCreatingLabels}
-          className="w-full py-6 border-3 border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all duration-300 rounded-2xl shadow-lg hover:shadow-xl bg-white/80 text-lg font-semibold"
-        >
-          {isCreatingLabels ? (
-            <>
-              <Loader className="mr-3 h-6 w-6 animate-spin" />
-              Generating Labels...
-            </>
-          ) : (
-            <>
-              <Download className="mr-3 h-6 w-6" />
-              Download All Labels
-            </>
+        {/* Enhanced Download and Email Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button 
+            variant="outline" 
+            onClick={onDownloadAllLabels}
+            disabled={isCreatingLabels}
+            className="w-full py-6 border-3 border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all duration-300 rounded-2xl shadow-lg hover:shadow-xl bg-white/80 text-lg font-semibold"
+          >
+            {isCreatingLabels ? (
+              <>
+                <Loader className="mr-3 h-6 w-6 animate-spin" />
+                Generating Labels...
+              </>
+            ) : (
+              <>
+                <Download className="mr-3 h-6 w-6" />
+                Download All Labels
+              </>
+            )}
+          </Button>
+          
+          {onEmailAllLabels && (
+            <Button 
+              variant="outline" 
+              onClick={onEmailAllLabels}
+              disabled={isCreatingLabels}
+              className="w-full py-6 border-3 border-blue-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 rounded-2xl shadow-lg hover:shadow-xl bg-white/80 text-lg font-semibold"
+            >
+              <svg className="mr-3 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.2a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Email All Labels
+            </Button>
           )}
-        </Button>
+        </div>
         
         {/* Enhanced Security & Summary Footer */}
         <div className="text-center text-sm bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-2xl border-2 border-gray-200 shadow-lg">

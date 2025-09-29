@@ -104,8 +104,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       onEditShipment(shipmentId, {
         details: {
           ...target.details,
-          customs_info: info as any
-        } as any
+          customs_info: info as any // Use type assertion to bypass strict typing for now
+        }
       });
     }
 

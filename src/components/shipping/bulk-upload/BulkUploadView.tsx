@@ -79,6 +79,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setResults,
   } = useBulkUpload();
 
+  const handleEmailLabels = () => {
+    // Open email modal or call email function with a default email
+    const email = prompt('Enter email address:');
+    if (email && results) {
+      // Use the email functionality from useBulkUpload
+      console.log('Email functionality will be implemented', { email, shipments: results.processedShipments });
+    }
+  };
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
@@ -272,13 +281,21 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
           <OrderSummary
             successfulCount={results.successful}
-            totalCost={results.processedShipments.reduce((sum, s: any) => sum + (s.rate || 0), 0)}
+            totalCost={(() => {
+              // Calculate total using the same logic as each row: sum of (rate + insurance_cost) for each shipment
+              return results.processedShipments.reduce((sum, s: any) => {
+                const rate = s.rate || 0;
+                const insurance = s.insurance_cost || 0;
+                return sum + rate + insurance; // This matches the row total calculation
+              }, 0);
+            })()}
             totalInsurance={results.processedShipments.reduce((sum, s: any) => sum + (s.insurance_cost || 0), 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}
             onAddPaymentMethod={handleAddPaymentMethod}
             isPaying={isPaying}
             isCreatingLabels={isCreatingLabels}
+            onEmailAllLabels={handleEmailLabels}
           />
 
           {/* Independent Print Preview - Simple and Isolated */}
