@@ -49,7 +49,7 @@ const validateCustomsData = (customsData: any) => {
   };
 
   // Validate required fields
-  validatedCustomsData.customs_items.forEach((item, index) => {
+  validatedCustomsData.customs_items.forEach((item: any, index: number) => {
     if (!item.description || item.description.trim() === '') {
       throw new Error(`Item ${index + 1}: Description is required`);
     }
@@ -284,7 +284,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             error: 'Failed to process customs information', 
-            details: customsError.message 
+            details: customsError instanceof Error ? customsError.message : 'Unknown error' 
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         );
@@ -501,7 +501,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-label function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
