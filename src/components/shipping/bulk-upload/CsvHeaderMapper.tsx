@@ -171,6 +171,9 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
+      <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2">
+        If the CSV header AI fails (e.g., 404), you can map fields manually using the selectors below.
+      </div>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

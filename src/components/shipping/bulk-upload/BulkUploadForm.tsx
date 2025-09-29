@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/sonner';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import CsvHeaderMapper from './CsvHeaderMapper';
+import AddAddressDialog from './AddAddressDialog';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -37,6 +38,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [addressesLoaded, setAddressesLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -69,7 +72,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     };
 
     loadAddresses();
-  }, [onPickupAddressSelect]);
+  }, []);
 
   const handleAddressChange = (addressId: string) => {
     console.log('Address changed to:', addressId);
@@ -267,7 +270,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   <span className="text-gray-600">Loading addresses...</span>
                 </div>
               ) : availableAddresses.length > 0 ? (
-                <Select value={selectedAddressId} onValueChange={handleAddressChange}>
+                <Select value={selectedAddressId} onValueChange={(val) => {
+                  if (val === '__add_new__') {
+                    setShowAddAddressModal(true);
+                    return;
+                  }
+                  handleAddressChange(val);
+                }}>
                   <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-3">
                     <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
@@ -282,6 +291,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                         </div>
                       </SelectItem>
                     ))}
+                    <div className="border-t my-1" />
+                    <SelectItem value="__add_new__">
+                      <div className="text-blue-700 font-medium">➕ Add new address</div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
@@ -408,6 +421,28 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           </div>
         </div>
       </Alert>
+
+      {/* Add Address Modal */}
+      <AddAddressDialog
+        open={showAddAddressModal}
+        onOpenChange={setShowAddAddressModal}
+        onSaved={async (created) => {
+          try {
+            const addresses = await addressService.getSavedAddresses();
+            setAvailableAddresses(addresses);
+            const createdAddress = addresses.find(a => a.id === created.id);
+            if (createdAddress) {
+              setSelectedAddressId(createdAddress.id.toString());
+              onPickupAddressSelect(createdAddress);
+            }
+            toast.success('Address added');
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        isSaving={isSavingAddress}
+        setIsSaving={setIsSavingAddress}
+      />
     </div>
   );
 };
