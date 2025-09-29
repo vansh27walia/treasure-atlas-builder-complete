@@ -133,12 +133,12 @@ serve(async (req) => {
     console.error("Error processing shipping payment:", error);
     
     // Handle specific Stripe errors
-    if (error.type === "StripeCardError") {
+    if (error instanceof Error && (error as any).type === "StripeCardError") {
       return new Response(
         JSON.stringify({ 
           error: "Your card was declined. Please try a different payment method.",
-          code: error.code,
-          decline_code: error.decline_code
+          code: (error as any).code,
+          decline_code: (error as any).decline_code
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -148,7 +148,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

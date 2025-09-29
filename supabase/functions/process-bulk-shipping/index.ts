@@ -211,7 +211,7 @@ serve(async (req) => {
     
     // Process each shipment
     for (let i = 1; i < lines.length; i++) {
-      const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
+      const row = lines[i].split(',').map((cell: string) => cell.trim().replace(/"/g, ''));
       
       try {
         // Create shipment data object
@@ -257,7 +257,7 @@ serve(async (req) => {
         });
 
         // Select cheapest rate by default
-        const selectedRate = rates.sort((a, b) => a.total_cost - b.total_cost)[0];
+        const selectedRate = rates.sort((a: any, b: any) => (a.total_cost || 0) - (b.total_cost || 0))[0];
         
         const processedShipment: ProcessedShipment = {
           id: `bulk_${crypto.randomUUID()}`,
