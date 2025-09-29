@@ -253,7 +253,7 @@ serve(async (req) => {
       console.log('Converting CSV with mappings:', mappings);
       
       // Parse original CSV
-      const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+      const lines = csvContent.split('\n').filter((line: string) => line.trim() !== '');
       if (lines.length < 2) {
         throw new Error('CSV must have at least one data row');
       }

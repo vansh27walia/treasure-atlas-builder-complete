@@ -26,14 +26,14 @@ serve(async (req) => {
     if (mode === 'individual' && shipment) {
       // Individual shipment analysis
       const rates = shipment.availableRates || [];
-      const selectedRate = rates.find(r => r.id === shipment.selectedRateId) || rates[0];
+      const selectedRate = rates.find((r: any) => r.id === shipment.selectedRateId) || rates[0];
       
       if (!selectedRate) {
         throw new Error('No rate information available for analysis');
       }
 
-      const prices = rates.map(r => parseFloat(r.rate));
-      const deliveryTimes = rates.map(r => r.delivery_days || 5);
+      const prices = rates.map((r: any) => parseFloat(r.rate));
+      const deliveryTimes = rates.map((r: any) => r.delivery_days || 5);
       
       const cheapestPrice = Math.min(...prices);
       const fastestDelivery = Math.min(...deliveryTimes);
@@ -70,9 +70,9 @@ serve(async (req) => {
       };
     } else {
       // Combined analysis for all shipments
-      const totalCost = allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0);
-      const averageDelivery = allShipments.reduce((sum, s) => {
-        const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
+      const totalCost = allShipments.reduce((sum: number, s: any) => sum + parseFloat(s.rate || 0), 0);
+      const averageDelivery = allShipments.reduce((sum: number, s: any) => {
+        const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
         return sum + (selectedRate?.delivery_days || 5);
       }, 0) / allShipments.length;
 
@@ -114,7 +114,7 @@ serve(async (req) => {
     console.error('Error in analyze-bulk-shipping-rates:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to analyze rates',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

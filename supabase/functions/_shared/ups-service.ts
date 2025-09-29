@@ -366,9 +366,9 @@ export class UPSService {
       console.error('UPS: Error in getRates:', error);
       
       // For service availability errors, return empty rates instead of throwing
-      if (error.message?.includes('service is invalid') || 
-          error.message?.includes('111100') ||
-          error.message?.includes('not available')) {
+      if ((error instanceof Error && error.message?.includes('service is invalid')) ||
+          (error instanceof Error && error.message?.includes('111100')) ||
+          (error instanceof Error && error.message?.includes('not available'))) {
         console.log('UPS: Returning empty rates due to service availability');
         return { RateResponse: { RatedShipment: [] } };
       }
@@ -401,12 +401,12 @@ export class UPSService {
       }
       
       // Check if the service code is in the available services
-      const isValidService = availableServices.some(service => service.Service.Code === serviceCode);
+      const isValidService = availableServices?.some(service => service.Service.Code === serviceCode);
       
-      console.log(`UPS: Service code ${serviceCode} validation result: ${isValidService}`);
-      console.log(`UPS: Available service codes: ${availableServices.map(s => s.Service.Code).join(', ')}`);
-      
-      return isValidService;
+      if (!isValidService) {
+        console.log(`UPS: Available service codes: ${availableServices?.map(s => s.Service.Code).join(', ')}`);
+        throw new Error(`Service code ${serviceCode} not available for this route. Please select a different service.`);
+      }
       
     } catch (error) {
       console.error('UPS: Error validating service code:', error);
