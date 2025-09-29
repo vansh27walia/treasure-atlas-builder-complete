@@ -38,17 +38,17 @@ serve(async (req) => {
     console.error('Error processing request:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
 // Function to get AI analysis from OpenAI
-async function getAIAnalysis(rates) {
+async function getAIAnalysis(rates: any) {
   try {
     // Prepare data for OpenAI prompt
-    const formattedRates = rates.map((rate) => ({
+    const formattedRates = rates.map((rate: any) => ({
       id: rate.id,
       carrier: rate.carrier,
       service: rate.service,
@@ -135,7 +135,7 @@ async function getAIAnalysis(rates) {
 }
 
 // Fallback function for basic analysis without AI
-function provideBasicAnalysis(rates) {
+function provideBasicAnalysis(rates: any) {
   // Sort rates by price to find best value
   const sortedByPrice = [...rates].sort((a, b) => 
     parseFloat(a.rate) - parseFloat(b.rate)
@@ -146,10 +146,10 @@ function provideBasicAnalysis(rates) {
     .sort((a, b) => a.delivery_days - b.delivery_days);
   
   // Maps of carrier reliability based on general market perception
-  const carrierReliabilityScores = {
+  const carrierReliabilityScores: { [key: string]: number } = {
     'UPS': 4.7,
     'USPS': 4.3,
-    'FedEx': 4.6,
+    'FEDEX': 4.6,
     'DHL': 4.5
   };
   
@@ -179,13 +179,13 @@ function provideBasicAnalysis(rates) {
   let bestOverallRate = rates[0];
   let bestOverallScore = -1;
   
-  const maxPrice = Math.max(...rates.map(r => parseFloat(r.rate)));
-  const minPrice = Math.min(...rates.map(r => parseFloat(r.rate)));
+  const maxPrice = Math.max(...rates.map((r: any) => parseFloat(r.rate)));
+  const minPrice = Math.min(...rates.map((r: any) => parseFloat(r.rate)));
   const priceRange = maxPrice - minPrice || 1;
   
-  const ratesWithDays = rates.filter(r => r.delivery_days);
-  const maxDays = Math.max(...ratesWithDays.map(r => r.delivery_days));
-  const minDays = Math.min(...ratesWithDays.map(r => r.delivery_days));
+  const ratesWithDays = rates.filter((r: any) => r.delivery_days);
+  const maxDays = Math.max(...ratesWithDays.map((r: any) => r.delivery_days));
+  const minDays = Math.min(...ratesWithDays.map((r: any) => r.delivery_days));
   const daysRange = maxDays - minDays || 1;
   
   for (const rate of rates) {

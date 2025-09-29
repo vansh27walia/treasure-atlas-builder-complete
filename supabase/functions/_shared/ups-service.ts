@@ -408,6 +408,7 @@ export class UPSService {
         throw new Error(`Service code ${serviceCode} not available for this route. Please select a different service.`);
       }
       
+      return true; // Service is valid
     } catch (error) {
       console.error('UPS: Error validating service code:', error);
       return false;

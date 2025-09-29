@@ -123,10 +123,10 @@ serve(async (req) => {
 });
 
 function getCarrierReliabilityScore(carrier: string): number {
-  const scores = {
+  const scores: { [key: string]: number } = {
     'USPS': 85,
     'UPS': 90,
-    'FedEx': 88,
+    'FEDEX': 88,
     'DHL': 82
   };
   return scores[carrier?.toUpperCase()] || 75;
@@ -140,10 +140,10 @@ function getServiceQualityScore(service: string): number {
 }
 
 function getTrackingScore(carrier: string): number {
-  const scores = {
+  const scores: { [key: string]: number } = {
     'USPS': 80,
     'UPS': 95,
-    'FedEx': 92,
+    'FEDEX': 92,
     'DHL': 88
   };
   return scores[carrier?.toUpperCase()] || 75;
@@ -153,7 +153,7 @@ function calculateCombinedCostScore(shipments: any[]): number {
   const totalActual = shipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0);
   const totalOptimal = shipments.reduce((sum, s) => {
     const rates = s.availableRates || [];
-    const cheapest = Math.min(...rates.map(r => parseFloat(r.rate)));
+    const cheapest = Math.min(...rates.map((r: any) => parseFloat(r.rate)));
     return sum + cheapest;
   }, 0);
   
@@ -162,13 +162,13 @@ function calculateCombinedCostScore(shipments: any[]): number {
 
 function calculateCombinedSpeedScore(shipments: any[]): number {
   const averageActual = shipments.reduce((sum, s) => {
-    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
+    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
     return sum + (selectedRate?.delivery_days || 5);
   }, 0) / shipments.length;
   
   const averageOptimal = shipments.reduce((sum, s) => {
     const rates = s.availableRates || [];
-    const fastest = Math.min(...rates.map(r => r.delivery_days || 5));
+    const fastest = Math.min(...rates.map((r: any) => r.delivery_days || 5));
     return sum + fastest;
   }, 0) / shipments.length;
   
@@ -177,7 +177,7 @@ function calculateCombinedSpeedScore(shipments: any[]): number {
 
 function calculateCombinedReliabilityScore(shipments: any[]): number {
   const totalScore = shipments.reduce((sum, s) => {
-    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
+    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
     return sum + getCarrierReliabilityScore(selectedRate?.carrier || s.carrier);
   }, 0);
   
@@ -186,7 +186,7 @@ function calculateCombinedReliabilityScore(shipments: any[]): number {
 
 function calculateCombinedServiceScore(shipments: any[]): number {
   const totalScore = shipments.reduce((sum, s) => {
-    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
+    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
     return sum + getServiceQualityScore(selectedRate?.service || s.service);
   }, 0);
   
@@ -195,7 +195,7 @@ function calculateCombinedServiceScore(shipments: any[]): number {
 
 function calculateCombinedTrackingScore(shipments: any[]): number {
   const totalScore = shipments.reduce((sum, s) => {
-    const selectedRate = s.availableRates?.find(r => r.id === s.selectedRateId);
+    const selectedRate = s.availableRates?.find((r: any) => r.id === s.selectedRateId);
     return sum + getTrackingScore(selectedRate?.carrier || s.carrier);
   }, 0);
   

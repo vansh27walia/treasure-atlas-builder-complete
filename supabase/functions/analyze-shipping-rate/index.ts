@@ -23,8 +23,8 @@ serve(async (req) => {
     // Analyze the selected rate against all available rates
     const rates = allRates || [];
     const selectedRatePrice = parseFloat(selectedRate.rate);
-    const prices = rates.map(r => parseFloat(r.rate));
-    const deliveryTimes = rates.map(r => r.delivery_days || 5);
+    const prices = rates.map((r: any) => parseFloat(r.rate));
+    const deliveryTimes = rates.map((r: any) => r.delivery_days || 5);
 
     // Calculate positions
     const cheapestPrice = Math.min(...prices);
@@ -33,10 +33,10 @@ serve(async (req) => {
     const isFastest = selectedRate.delivery_days === fastestDelivery;
 
     // Determine reliability based on carrier
-    const reliabilityScores = {
+    const reliabilityScores: { [key: string]: number } = {
       'USPS': 85,
       'UPS': 90,
-      'FedEx': 88,
+      'FEDEX': 88,
       'DHL': 82
     };
 
@@ -51,7 +51,7 @@ serve(async (req) => {
     const overallScore = Math.round((costScore * 0.3 + speedScore * 0.3 + reliabilityScore * 0.4));
 
     // Determine if it's the most efficient (balance of cost and speed)
-    const efficiencyScores = rates.map(rate => {
+    const efficiencyScores = rates.map((rate: any) => {
       const price = parseFloat(rate.rate);
       const days = rate.delivery_days || 5;
       return (cheapestPrice / price) * 50 + (fastestDelivery / days) * 50;
@@ -130,7 +130,7 @@ Provide a 2-sentence recommendation explaining why this rate is good or what to 
     console.error('Error in analyze-shipping-rate:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to analyze rate',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
