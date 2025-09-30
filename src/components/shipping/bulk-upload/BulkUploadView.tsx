@@ -280,16 +280,9 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
           </div>
 
           <OrderSummary
-            successfulCount={results.successful}
-            totalCost={(() => {
-              // Calculate total using the same logic as each row: sum of (rate + insurance_cost) for each shipment
-              return results.processedShipments.reduce((sum, s: any) => {
-                const rate = s.rate || 0;
-                const insurance = s.insurance_cost || 0;
-                return sum + rate + insurance; // This matches the row total calculation
-              }, 0);
-            })()}
-            totalInsurance={results.processedShipments.reduce((sum, s: any) => sum + (s.insurance_cost || 0), 0)}
+            successfulCount={filteredShipments.length}
+            totalCost={filteredShipments.reduce((sum, s: any) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0)}
+            totalInsurance={filteredShipments.reduce((sum, s: any) => sum + (s.insurance_cost || 0), 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}
             onAddPaymentMethod={handleAddPaymentMethod}

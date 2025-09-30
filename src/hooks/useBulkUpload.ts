@@ -196,8 +196,8 @@ export const useBulkUpload = () => {
         const updatedShipment = { ...shipment, ...updates };
         
         // Recalculate insurance cost using updated values
-        const insuranceEnabled = updatedShipment.insurance_enabled !== false;
-        const declaredValue = updatedShipment.declared_value || 0;
+        const insuranceEnabled = updatedShipment.details?.insurance_enabled !== false;
+        const declaredValue = updatedShipment.details?.declared_value || 0;
         updatedShipment.insurance_cost = insuranceEnabled && declaredValue > 0 
           ? Math.max(declaredValue * 0.02, 1) 
           : 0;
