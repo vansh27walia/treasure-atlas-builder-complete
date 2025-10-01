@@ -41,11 +41,16 @@ export const useBulkUpload = () => {
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload (merge mode):', newResults);
     
-    // When processedShipments are provided, recalc totals to avoid stale totals from callers
+    // When processedShipments are provided, normalize insurance to $2 and recalc totals
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
-      const calculatedShippingTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
-      const calculatedInsuranceTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.insurance_cost || 0), 0);
-      const calculatedRowTotal = newResults.processedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0);
+      const normalizedShipments = newResults.processedShipments.map((s) => ({
+        ...s,
+        insurance_cost: 2,
+      }));
+      newResults.processedShipments = normalizedShipments as any;
+      const calculatedShippingTotal = normalizedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
+      const calculatedInsuranceTotal = normalizedShipments.reduce((sum, shipment) => sum + (shipment.insurance_cost || 0), 0);
+      const calculatedRowTotal = normalizedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0);
       newResults.totalCost = calculatedRowTotal; // Use sum of all row totals
       newResults.totalInsurance = calculatedInsuranceTotal;
     }
@@ -62,11 +67,13 @@ export const useBulkUpload = () => {
         merged.processedShipments = prev.processedShipments;
       }
 
-      // Ensure totals are consistent with the current processedShipments
+      // Ensure totals are consistent; enforce $2 insurance per shipment
       if (merged.processedShipments && Array.isArray(merged.processedShipments)) {
-        const shippingTotal = merged.processedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
-        const insuranceTotal = merged.processedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
-        const rowTotal = merged.processedShipments.reduce((sum, s) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0);
+        const normalized = merged.processedShipments.map((s) => ({ ...s, insurance_cost: 2 }));
+        merged.processedShipments = normalized as any;
+        const shippingTotal = normalized.reduce((sum, s) => sum + (s.rate || 0), 0);
+        const insuranceTotal = normalized.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
+        const rowTotal = normalized.reduce((sum, s) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0);
         merged.totalCost = rowTotal; // Use sum of all row totals
         merged.totalInsurance = insuranceTotal;
       }
@@ -183,9 +190,10 @@ export const useBulkUpload = () => {
       await handleRefreshRatesAfterEdit(updatedShipment);
       // ENHANCED: Recalculate row totals after edit
       if (results) {
-        const updatedShipments = results.processedShipments.map(s => 
-          s.id === shipment.id ? updatedShipment : s
-        );
+        const updatedShipments = results.processedShipments.map(s => {
+          const merged = s.id === shipment.id ? updatedShipment : s;
+          return { ...merged, insurance_cost: 2 };
+        });
         
         // Calculate total by summing all individual row totals (rate + insurance per shipment)
         const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
@@ -195,7 +203,7 @@ export const useBulkUpload = () => {
           return sum + rowTotal;
         }, 0);
         
-        console.log('Row totals after edit:', {
+        console.log('Row totals after edit (insurance set to $2 per shipment):', {
           editedShipmentId: shipment.id,
           newShippingTotal,
           newInsuranceTotal,
@@ -396,6 +404,7 @@ export const useBulkUpload = () => {
             carrier: labelData.carrier || originalShipment?.carrier,
             service: labelData.service || originalShipment?.service,
             rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
+            insurance_cost: originalShipment?.insurance_cost ?? 2,
             tracking_code: labelData.tracking_code,
             tracking_number: labelData.tracking_code,
             label_url: labelData.label_urls?.png || labelData.label_url,
