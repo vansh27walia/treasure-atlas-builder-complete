@@ -220,7 +220,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
               </TableHeader>
               <TableBody>
                 {filteredShipments.map((shipment) => {
-                  const rowTotal = (shipment.rate || 0) + (shipment.insurance_cost || 0);
+                  const insurance = (typeof shipment.insurance_cost === 'number' && shipment.insurance_cost > 0) ? shipment.insurance_cost : 2;
+                  const rowTotal = (shipment.rate || 0) + insurance;
                   return (
                     <TableRow key={shipment.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">{shipment.recipient || shipment.customer_name}</TableCell>
@@ -234,7 +235,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                       </TableCell>
                       <TableCell className="text-sm">{shipment.service}</TableCell>
                       <TableCell className="font-mono">${(shipment.rate || 0).toFixed(2)}</TableCell>
-                      <TableCell className="font-mono">${(shipment.insurance_cost || 0).toFixed(2)}</TableCell>
+                      <TableCell className="font-mono">${insurance.toFixed(2)}</TableCell>
                       <TableCell className="font-mono font-bold text-green-700 bg-green-50">
                         ${rowTotal.toFixed(2)}
                       </TableCell>
@@ -266,10 +267,11 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                   </TableCell>
                   <TableCell className="font-bold text-lg text-green-700">
                     ${(() => {
-                      // Recalculate from current rows to ensure accuracy
-                      const actualTotal = filteredShipments.reduce((sum, shipment) => 
-                        sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0
-                      );
+                      // Recalculate from current rows to ensure accuracy (insurance min $2)
+                      const actualTotal = filteredShipments.reduce((sum, shipment) => {
+                        const insurance = (typeof shipment.insurance_cost === 'number' && shipment.insurance_cost > 0) ? shipment.insurance_cost : 2;
+                        return sum + (shipment.rate || 0) + insurance;
+                      }, 0);
                       return actualTotal.toFixed(2);
                     })()}
                   </TableCell>
@@ -281,8 +283,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
           <OrderSummary
             successfulCount={filteredShipments.length}
-            totalCost={filteredShipments.reduce((sum, s: any) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0)}
-            totalInsurance={filteredShipments.reduce((sum, s: any) => sum + (s.insurance_cost || 0), 0)}
+            totalCost={filteredShipments.reduce((sum, s: any) => {
+              const insurance = (typeof s.insurance_cost === 'number' && s.insurance_cost > 0) ? s.insurance_cost : 2;
+              return sum + (s.rate || 0) + insurance;
+            }, 0)}
+            totalInsurance={filteredShipments.reduce((sum, s: any) => {
+              const insurance = (typeof s.insurance_cost === 'number' && s.insurance_cost > 0) ? s.insurance_cost : 2;
+              return sum + insurance;
+            }, 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}
             onAddPaymentMethod={handleAddPaymentMethod}
