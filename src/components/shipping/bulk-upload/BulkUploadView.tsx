@@ -21,7 +21,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+ } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { BulkShipment } from '@/types/shipping';
 import { useBulkUpload } from './useBulkUpload';
 import OrderSummary from './OrderSummary';
@@ -75,16 +76,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setSelectedCarrierFilter,
     handlePaymentSuccess,
     handleAddPaymentMethod,
+    handleEmailLabels,
     // THE CRITICAL FIX: You need to destructure the `setResults` function.
     setResults,
   } = useBulkUpload();
 
-  const handleEmailLabels = () => {
-    // Open email modal or call email function with a default email
-    const email = prompt('Enter email address:');
-    if (email && results) {
-      // Use the email functionality from useBulkUpload
-      console.log('Email functionality will be implemented', { email, shipments: results.processedShipments });
+  const promptEmailLabels = () => {
+    const email = prompt('Enter email address to email all labels:');
+    if (email) {
+      handleEmailLabels(email);
     }
   };
 
@@ -151,6 +151,20 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             <Download className="mr-2 h-4 w-4" />
             Download CSV Template
           </Button>
+          {results && results.processedShipments && results.processedShipments.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>Print Preview All</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="z-50">
+                  <DropdownMenuItem onClick={handleOpenBatchPrintPreview}>Open Print Preview</DropdownMenuItem>
+                  <DropdownMenuItem onClick={promptEmailLabels}>Email All Labels</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" onClick={promptEmailLabels}>Email All</Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -220,7 +234,14 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
               </TableHeader>
               <TableBody>
                 {filteredShipments.map((shipment) => {
-                  const insurance = (typeof shipment.insurance_cost === 'number' && shipment.insurance_cost > 0) ? shipment.insurance_cost : 2;
+                  const insurance = shipment.insurance_enabled === false
+                    ? 0
+                    : (typeof shipment.insurance_cost === 'number'
+                        ? shipment.insurance_cost
+                        : (() => {
+                            const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
+                            return declared > 0 ? Math.max(declared * 0.02, 1) : 0;
+                          })());
                   const rowTotal = (shipment.rate || 0) + insurance;
                   return (
                     <TableRow key={shipment.id} className="hover:bg-gray-50">
@@ -296,7 +317,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             onAddPaymentMethod={handleAddPaymentMethod}
             isPaying={isPaying}
             isCreatingLabels={isCreatingLabels}
-            onEmailAllLabels={handleEmailLabels}
+            onEmailAllLabels={promptEmailLabels}
           />
 
           {/* Independent Print Preview - Simple and Isolated */}

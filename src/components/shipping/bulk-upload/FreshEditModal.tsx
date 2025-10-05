@@ -162,7 +162,7 @@ const FreshEditModal = ({
 
       // Calculate insurance cost
       const insuranceCost = localData.insurance_enabled  
-        ? Math.max(1, localData.declared_value * 0.01)  
+        ? Math.max(1, localData.declared_value * 0.02)  
         : 0;
 
       // Normalize weight to ounces based on selected unit - FIXED CONVERSION
@@ -203,13 +203,22 @@ const FreshEditModal = ({
         insurance_enabled: localData.insurance_enabled,
         insurance_cost: insuranceCost,
         
-        // Clear old rate data - will be refreshed
-        carrier: '',
-        service: '',
-        rate: 0,
-        selectedRateId: null,
-        easypost_id: null,
-        availableRates: [],
+        // Rate data - preserve existing unless a new rate is selected
+        ...(selectedRate ? {
+          carrier: selectedRate.carrier,
+          service: selectedRate.service,
+          rate: selectedRate.rate,
+          selectedRateId: selectedRate.id,
+          easypost_id: shipment.easypost_id,
+          availableRates: rates,
+        } : {
+          carrier: shipment.carrier,
+          service: shipment.service,
+          rate: shipment.rate,
+          selectedRateId: shipment.selectedRateId,
+          easypost_id: shipment.easypost_id,
+          availableRates: shipment.availableRates || [],
+        }),
         status: 'processed' as const,
         
         // Comprehensive details object for API calls
@@ -463,7 +472,7 @@ const FreshEditModal = ({
               <Label htmlFor="insurance">Enable Insurance</Label>
               {localData.insurance_enabled && (
                 <span className="text-sm text-muted-foreground">
-                  (Cost: ${Math.max(1, localData.declared_value * 0.01).toFixed(2)})
+                  (Cost: ${Math.max(1, localData.declared_value * 0.02).toFixed(2)})
                 </span>
               )}
             </div>
@@ -511,7 +520,7 @@ const FreshEditModal = ({
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveChanges} disabled={!selectedRate}>
+              <Button onClick={handleSaveChanges}>
                 Save Changes
               </Button>
             </div>

@@ -41,14 +41,15 @@ export const useBulkUpload = () => {
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload (merge mode):', newResults);
     
-    // When processedShipments are provided, normalize insurance to $2 and recalc totals
+    // When processedShipments are provided, recompute insurance based on flags and declared value, then recalc totals
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
-      const normalizedShipments = newResults.processedShipments.map((s) => ({
-        ...s,
-        insurance_cost: 2,
-      }));
+      const normalizedShipments = newResults.processedShipments.map((s) => {
+        const declared = Number((((s as any).declared_value ?? (s as any).details?.declared_value) ?? 0) || 0);
+        const enabled = Boolean(((s as any).insurance_enabled ?? (s as any).details?.insurance_enabled ?? false));
+        const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
+        return { ...s, insurance_cost };
+      });
       newResults.processedShipments = normalizedShipments as any;
-      const calculatedShippingTotal = normalizedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
       const calculatedInsuranceTotal = normalizedShipments.reduce((sum, shipment) => sum + (shipment.insurance_cost || 0), 0);
       const calculatedRowTotal = normalizedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0) + (shipment.insurance_cost || 0), 0);
       newResults.totalCost = calculatedRowTotal; // Use sum of all row totals
@@ -67,11 +68,15 @@ export const useBulkUpload = () => {
         merged.processedShipments = prev.processedShipments;
       }
 
-      // Ensure totals are consistent; enforce $2 insurance per shipment
+      // Ensure totals are consistent; recompute insurance from shipment settings
       if (merged.processedShipments && Array.isArray(merged.processedShipments)) {
-        const normalized = merged.processedShipments.map((s) => ({ ...s, insurance_cost: 2 }));
+        const normalized = merged.processedShipments.map((s) => {
+          const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
+          const enabled = (s.insurance_enabled ?? s.details?.insurance_enabled ?? false) as boolean;
+          const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
+          return { ...s, insurance_cost };
+        });
         merged.processedShipments = normalized as any;
-        const shippingTotal = normalized.reduce((sum, s) => sum + (s.rate || 0), 0);
         const insuranceTotal = normalized.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
         const rowTotal = normalized.reduce((sum, s) => sum + (s.rate || 0) + (s.insurance_cost || 0), 0);
         merged.totalCost = rowTotal; // Use sum of all row totals
@@ -192,23 +197,20 @@ export const useBulkUpload = () => {
       if (results) {
         const updatedShipments = results.processedShipments.map(s => {
           const merged = s.id === shipment.id ? updatedShipment : s;
-          return { ...merged, insurance_cost: 2 };
+          const declared = (merged.declared_value ?? merged.details?.declared_value ?? 0) as number;
+          const enabled = (merged.insurance_enabled ?? merged.details?.insurance_enabled ?? false) as boolean;
+          const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
+          return { ...merged, insurance_cost };
         });
         
-        // Calculate total by summing all individual row totals (rate + insurance per shipment)
-        const newShippingTotal = updatedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
+        // Calculate totals from current rows (rate + insurance per shipment)
         const newInsuranceTotal = updatedShipments.reduce((sum, s) => sum + (s.insurance_cost || 0), 0);
-        const newFinalTotal = updatedShipments.reduce((sum, s) => {
-          const rowTotal = (s.rate || 0) + (s.insurance_cost || 0);
-          return sum + rowTotal;
-        }, 0);
+        const newFinalTotal = updatedShipments.reduce((sum, s) => (sum + (s.rate || 0) + (s.insurance_cost || 0)), 0);
         
-        console.log('Row totals after edit (insurance set to $2 per shipment):', {
+        console.log('Row totals after edit (insurance recalculated from settings):', {
           editedShipmentId: shipment.id,
-          newShippingTotal,
           newInsuranceTotal,
           newFinalTotal,
-          verification: `${newShippingTotal} + ${newInsuranceTotal} = ${newShippingTotal + newInsuranceTotal} (should equal ${newFinalTotal})`,
           rowBreakdown: updatedShipments.map(s => ({
             id: s.id,
             rate: s.rate || 0,
