@@ -197,8 +197,9 @@ export const useBulkUpload = () => {
       if (results) {
         const updatedShipments = results.processedShipments.map(s => {
           const merged = s.id === shipment.id ? updatedShipment : s;
-          const declared = (merged.declared_value ?? merged.details?.declared_value ?? 0) as number;
-          const enabled = (merged.insurance_enabled ?? merged.details?.insurance_enabled ?? false) as boolean;
+          const m: any = merged as any;
+          const declared = Number((m.declared_value ?? m.details?.declared_value ?? 0) || 0);
+          const enabled = Boolean(m.insurance_enabled ?? m.details?.insurance_enabled ?? false);
           const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
           return { ...merged, insurance_cost };
         });
