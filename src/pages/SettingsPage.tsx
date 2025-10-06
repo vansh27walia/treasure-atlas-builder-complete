@@ -18,6 +18,7 @@ import { Loader2 } from 'lucide-react';
 import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
 import { extractAddressComponents } from '@/utils/addressUtils';
 import { supabase } from '@/integrations/supabase/client';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 
 interface SimpleAddressFormValues {
   name: string;
@@ -342,6 +343,9 @@ const SettingsPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Unified AI Chatbot */}
+      <ShipAIChatbot />
     </div>
   );
 };

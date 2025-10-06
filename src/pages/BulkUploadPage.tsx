@@ -5,6 +5,8 @@ import { FileText, Upload, CheckCircle, Download, Info, Sparkles, Brain } from '
 import BulkUpload from '@/components/shipping/BulkUpload';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
   const handleDownloadTemplate = () => {
@@ -260,6 +262,9 @@ const BulkUploadPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Unified AI Chatbot */}
+      <ShipAIChatbot />
     </div>;
 };
 export default BulkUploadPage;

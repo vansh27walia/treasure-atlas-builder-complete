@@ -14,8 +14,6 @@ import EnhancedRateFilter from './EnhancedRateFilter';
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
 import PackageTypeSelector from './PackageTypeSelector';
-import InsuranceCalculator from './InsuranceCalculator';
-import HazmatCalculator from './HazmatCalculator';
 
 // Insurance always $100 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -62,14 +60,8 @@ const IndependentRateCalculator: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
   
-  // Insurance and Hazmat settings - not used during rate fetching
-  const [insuranceSettings, setInsuranceSettings] = useState({
-    enabled: true,
-    amount: DEFAULT_INSURANCE_AMOUNT
-  });
-  const [hazmatSettings, setHazmatSettings] = useState({
-    enabled: false
-  });
+  // Insurance and Hazmat settings removed from rate calculator
+  // These should only be in normal shipping flow
   
   const [customsClearance, setCustomsClearance] = useState(false);
   const [customsInfo, setCustomsInfo] = useState({
@@ -286,8 +278,6 @@ const IndependentRateCalculator: React.FC = () => {
       dimensions,
       selectedRate: rate,
       isInternational,
-      insuranceSettings,
-      hazmatSettings,
       customsClearance,
       customsInfo,
       timestamp: new Date().toISOString()
@@ -504,28 +494,6 @@ const IndependentRateCalculator: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Insurance Section - Only shown after rates are fetched */}
-        {rates.length > 0 && (
-          <div className="mb-8">
-            <InsuranceCalculator
-              onInsuranceChange={(enabled, amount) => 
-                setInsuranceSettings({ enabled, amount })
-              }
-            />
-          </div>
-        )}
-
-        {/* Hazmat Section - Only shown after rates are fetched */}
-        {rates.length > 0 && (
-          <div className="mb-8">
-            <HazmatCalculator
-              onHazmatChange={(enabled) => 
-                setHazmatSettings({ enabled })
-              }
-            />
-          </div>
-        )}
 
         {/* Customs Clearance Section */}
         {isInternational && rates.length > 0 && (

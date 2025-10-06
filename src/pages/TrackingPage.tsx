@@ -9,6 +9,7 @@ import { Search, Package, Truck, MapPin, Clock, ExternalLink, RefreshCw, Downloa
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import TrackingDashboard from '@/components/tracking/TrackingDashboard';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 
 interface TrackingInfo {
   tracking_code: string;
@@ -152,7 +153,12 @@ const TrackingPage = () => {
   };
 
   if (showFullDashboard && !trackingInfo) {
-    return <TrackingDashboard />;
+    return (
+      <>
+        <TrackingDashboard />
+        <ShipAIChatbot />
+      </>
+    );
   }
 
   return (
@@ -374,6 +380,9 @@ const TrackingPage = () => {
           </div>
         )}
       </div>
+
+      {/* Unified AI Chatbot */}
+      <ShipAIChatbot />
     </div>
   );
 };

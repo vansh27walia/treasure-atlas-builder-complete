@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Package, Truck, ChartBar, Upload, CreditCard, TrendingUp, MapPin, Clock, Users, Calculator, FileText, Plane, Container, Settings, Download, BarChart3, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import UniversalAIChatbot from '@/components/shipping/UniversalAIChatbot';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+
 const Index: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -392,8 +393,8 @@ const Index: React.FC = () => {
         </div>
       </div>
 
-      {/* Add AI Chatbot */}
-      <UniversalAIChatbot />
+      {/* Unified AI Chatbot - Same everywhere */}
+      <ShipAIChatbot />
     </div>;
 };
 export default Index;
