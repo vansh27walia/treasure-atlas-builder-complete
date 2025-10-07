@@ -15,6 +15,7 @@ import AddressSelector from '../components/shipping/AddressSelector';
 import { SavedAddress } from '@/services/AddressService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 
 const ftlFormSchema = z.object({
   trailerType: z.string().min(1, "Please select a trailer type"),
@@ -389,6 +390,7 @@ const FtlShippingPage: React.FC = () => {
           </form>
         </Form>
       </Card>
+      <ShipAIChatbot />
     </div>
   );
 };

@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AddressSelector from '@/components/shipping/AddressSelector';
 import { SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 
 interface FormValues {
   carrierCode: string;
@@ -682,6 +683,7 @@ const PickupPage: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <ShipAIChatbot />
     </div>
   );
 };
