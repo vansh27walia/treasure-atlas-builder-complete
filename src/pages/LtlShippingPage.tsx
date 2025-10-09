@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Truck, Container, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 
 const LtlShippingPage = () => {
   const navigate = useNavigate();
@@ -185,7 +184,6 @@ const LtlShippingPage = () => {
           </Tabs>
         </div>
       </div>
-      <ShipAIChatbot />
     </div>
   );
 };

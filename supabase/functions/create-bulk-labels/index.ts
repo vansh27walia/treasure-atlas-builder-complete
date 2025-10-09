@@ -18,138 +18,13 @@ const corsHeaders = {
 const ensureStorageBucket = async (supabase: any): Promise<string> => {
   try {
     console.log('Using shipping-labels-2 bucket for label storage');
+    // In a production environment, you might add logic here to create the bucket
+    // if it doesn't exist, but for Deno Edge Functions, it's usually pre-configured.
     return 'shipping-labels-2';
   } catch (error) {
     console.error('Error with storage bucket:', error);
-    return 'shipping-labels-2';
-  }
-};
-
-/**
- * Validate and set defaults for customs data
- */
-const validateCustomsData = (customsData: any) => {
-  if (!customsData || !customsData.customs_items || customsData.customs_items.length === 0) {
-    throw new Error('Customs items are required for international shipments');
-  }
-
-  const validatedCustomsData = {
-    contents_type: customsData.contents_type || 'merchandise',
-    contents_explanation: customsData.contents_explanation || '',
-    customs_certify: customsData.customs_certify !== false,
-    customs_signer: customsData.customs_signer || 'Shipper',
-    non_delivery_option: customsData.non_delivery_option || 'return',
-    restriction_type: customsData.restriction_type || 'none',
-    restriction_comments: customsData.restriction_comments || '',
-    eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
-    phone_number: customsData.phone_number || '',
-    customs_items: customsData.customs_items.map((item: any) => ({
-      description: item.description || 'Item',
-      quantity: parseInt(item.quantity) || 1,
-      weight: parseFloat(item.weight) || 1,
-      value: parseFloat(item.value) || 1,
-      hs_tariff_number: item.hs_tariff_number || '',
-      origin_country: item.origin_country || 'US'
-    }))
-  };
-
-  validatedCustomsData.customs_items.forEach((item: any, index: number) => {
-    if (!item.description || item.description.trim() === '') {
-      throw new Error(`Item ${index + 1}: Description is required`);
-    }
-    if (item.value <= 0) {
-      throw new Error(`Item ${index + 1}: Value must be greater than 0`);
-    }
-    if (item.weight <= 0) {
-      throw new Error(`Item ${index + 1}: Weight must be greater than 0`);
-    }
-  });
-
-  if (!validatedCustomsData.customs_signer || validatedCustomsData.customs_signer.trim() === '') {
-    throw new Error('Customs signer name is required');
-  }
-
-  return validatedCustomsData;
-};
-
-/**
- * Create CustomsInfo Object in EasyPost
- */
-const createCustomsInfoInEasyPost = async (customsData: any): Promise<string> => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  try {
-    const validatedCustomsData = validateCustomsData(customsData);
-    console.log('Creating CustomsInfo for bulk shipment:', JSON.stringify(validatedCustomsData, null, 2));
-    
-    const customsInfoPayload = {
-      customs_info: validatedCustomsData
-    };
-
-    const response = await fetch('https://api.easypost.com/v2/customs_infos', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(customsInfoPayload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Failed to create CustomsInfo:', errorData);
-      throw new Error(`CustomsInfo creation failed: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const customsInfoResponse = await response.json();
-    console.log('✅ Successfully created CustomsInfo with ID:', customsInfoResponse.id);
-    return customsInfoResponse.id;
-  } catch (error) {
-    console.error('Error creating CustomsInfo:', error);
-    throw error;
-  }
-};
-
-/**
- * Attach CustomsInfo to Shipment
- */
-const attachCustomsInfoToShipment = async (shipmentId: string, customsInfoId: string): Promise<any> => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  try {
-    console.log(`Attaching CustomsInfo ${customsInfoId} to shipment ${shipmentId}`);
-    
-    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customs_info: {
-          id: customsInfoId
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Failed to attach CustomsInfo:', errorData);
-      throw new Error(`Failed to attach customs: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const updatedShipment = await response.json();
-    console.log('✅ Successfully attached CustomsInfo to shipment');
-    return updatedShipment;
-  } catch (error) {
-    console.error('Error attaching CustomsInfo:', error);
-    throw error;
+    // Fallback or error handling if bucket name cannot be determined
+    return 'shipping-labels-2'; // Default bucket name
   }
 };
 
@@ -345,141 +220,12 @@ const convertPngToPdfLocally = async (pngBytes: Uint8Array): Promise<Uint8Array>
  * @returns {Promise<object>} The purchased EasyPost shipment object.
  * @throws {Error} If EasyPost API call fails.
  */
-// Validate and set defaults for customs data (copied from create-label)
-const validateCustomsData = (customsData: any) => {
-  if (!customsData || !customsData.customs_items || customsData.customs_items.length === 0) {
-    throw new Error('Customs items are required for international shipments');
-  }
-
-  const validatedCustomsData = {
-    contents_type: customsData.contents_type || 'merchandise',
-    contents_explanation: customsData.contents_explanation || '',
-    customs_certify: customsData.customs_certify !== false,
-    customs_signer: customsData.customs_signer || 'Shipper',
-    non_delivery_option: customsData.non_delivery_option || 'return',
-    restriction_type: customsData.restriction_type || 'none',
-    restriction_comments: customsData.restriction_comments || '',
-    eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
-    phone_number: customsData.phone_number || '',
-    customs_items: customsData.customs_items.map((item: any) => ({
-      description: item.description || 'Item',
-      quantity: parseInt(item.quantity) || 1,
-      weight: parseFloat(item.weight) || 1,
-      value: parseFloat(item.value) || 1,
-      hs_tariff_number: item.hs_tariff_number || '',
-      origin_country: item.origin_country || 'US'
-    }))
-  };
-
-  validatedCustomsData.customs_items.forEach((item: any, index: number) => {
-    if (!item.description || item.description.trim() === '') {
-      throw new Error(`Item ${index + 1}: Description is required`);
-    }
-    if (item.value <= 0) {
-      throw new Error(`Item ${index + 1}: Value must be greater than 0`);
-    }
-    if (item.weight <= 0) {
-      throw new Error(`Item ${index + 1}: Weight must be greater than 0`);
-    }
-  });
-
-  if (!validatedCustomsData.customs_signer || validatedCustomsData.customs_signer.trim() === '') {
-    throw new Error('Customs signer name is required');
-  }
-
-  return validatedCustomsData;
-};
-
-// Create CustomsInfo Object in EasyPost
-const createCustomsInfoInEasyPost = async (customsData: any): Promise<string> => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  try {
-    const validatedCustomsData = validateCustomsData(customsData);
-    console.log('Creating CustomsInfo for bulk shipment:', JSON.stringify(validatedCustomsData, null, 2));
-    
-    const customsInfoPayload = {
-      customs_info: validatedCustomsData
-    };
-
-    const response = await fetch('https://api.easypost.com/v2/customs_infos', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(customsInfoPayload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Failed to create CustomsInfo:', errorData);
-      throw new Error(`CustomsInfo creation failed: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const customsInfoResponse = await response.json();
-    console.log('✅ Successfully created CustomsInfo with ID:', customsInfoResponse.id);
-    return customsInfoResponse.id;
-  } catch (error) {
-    console.error('Error creating CustomsInfo:', error);
-    throw error;
-  }
-};
-
-// Attach CustomsInfo to Shipment
-const attachCustomsInfoToShipment = async (shipmentId: string, customsInfoId: string): Promise<any> => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  try {
-    console.log(`Attaching CustomsInfo ${customsInfoId} to shipment ${shipmentId}`);
-    
-    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customs_info: {
-          id: customsInfoId
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Failed to attach CustomsInfo:', errorData);
-      throw new Error(`Failed to attach customs: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const updatedShipment = await response.json();
-    console.log('✅ Successfully attached CustomsInfo to shipment');
-    return updatedShipment;
-  } catch (error) {
-    console.error('Error attaching CustomsInfo:', error);
-    throw error;
-  }
-};
-
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, customsInfo?: any): Promise<any> => {
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string): Promise<any> => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
   try {
-    // If customs info is provided, create and attach it first
-    if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
-      console.log(`International shipment detected for ${shipmentId}, processing customs...`);
-      const customsInfoId = await createCustomsInfoInEasyPost(customsInfo);
-      await attachCustomsInfoToShipment(shipmentId, customsInfoId);
-    }
-
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
     const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
@@ -858,12 +604,8 @@ serve(async (req: Request) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        // 1. Purchase the label from EasyPost (with customs support)
-        const easypostLabelData = await purchaseEasyPostLabel(
-          shipment.easypost_id, 
-          shipment.selectedRateId,
-          shipment.customs_info // Pass customs info if provided
-        );
+        // 1. Purchase the label from EasyPost
+        const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
 
         // 2. Process and store the label in Supabase Storage
         // This function will download the label, convert (if PNG), and upload,

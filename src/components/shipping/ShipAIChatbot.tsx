@@ -106,11 +106,11 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
         <div className="fixed bottom-6 right-6 z-50">
           <Button
             onClick={() => setIsOpen(true)}
-            className="rounded-full w-16 h-16 shadow-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 animate-pulse"
+            className="rounded-full w-14 h-14 bg-purple-600 hover:bg-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 group"
           >
             <div className="relative">
-              <MessageCircle className="w-7 h-7 text-white" />
-              <Sparkles className="w-4 h-4 text-yellow-300 absolute -top-1 -right-1 animate-pulse" />
+              <MessageCircle className="w-6 h-6 text-white" />
+              <Sparkles className="w-3 h-3 text-yellow-300 absolute -top-1 -right-1 animate-pulse" />
             </div>
           </Button>
         </div>
@@ -118,28 +118,28 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[420px] h-[600px] max-w-[90vw] max-h-[80vh]">
-          <Card className="h-full flex flex-col shadow-2xl border-2 border-purple-300 bg-white">
+        <div className="fixed bottom-6 right-6 z-50 w-96 h-[600px] max-w-[90vw] max-h-[80vh]">
+          <Card className="h-full flex flex-col shadow-2xl border-2 border-purple-200 bg-white">
             {/* Header */}
-            <div className="p-5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-t-lg">
+            <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="relative">
-                    <Sparkles className="w-6 h-6" />
+                    <Sparkles className="w-5 h-5" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">ShipAI Assistant</h3>
-                    <p className="text-xs text-white/80">Powered by Gemini</p>
+                    <h3 className="font-semibold">ShipAI Assistant</h3>
+                    <p className="text-xs text-purple-100">Smart shipping insights</p>
                   </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleClose}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0 rounded-full"
+                  className="text-white hover:bg-purple-500/20 h-8 w-8 p-0"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
             </div>
