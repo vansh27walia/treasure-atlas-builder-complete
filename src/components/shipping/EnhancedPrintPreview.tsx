@@ -139,7 +139,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
 
     try {
       const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
       // Clean up previous URL
@@ -169,7 +169,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       
       if (format === 'pdf') {
         const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-        blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
       } else {
         // For PNG and ZPL, use original URL for now

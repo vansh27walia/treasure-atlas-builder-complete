@@ -130,7 +130,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     // Save the PDF and create object URL
     const pdfBytes = await pdfDoc.save();
     setOriginalPdfBytes(pdfBytes);
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
     return URL.createObjectURL(blob);
   };
 
@@ -294,7 +294,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       if (originalPdfBytes) {
         // Client-side PDF conversion
         const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         
         if (currentPreviewUrl && !currentPreviewUrl.startsWith('http')) {
@@ -332,7 +332,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         if (originalPdfBytes) {
           // Use client-side PDF generation
           const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-          blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
           filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
         } else if (labelUrls?.pdf || labelUrl) {
           // Direct PDF download
