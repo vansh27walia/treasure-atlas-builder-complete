@@ -556,75 +556,24 @@ const IndependentRateCalculator: React.FC = () => {
           </Card>
         )}
 
-        {/* AI Analysis Panel */}
-        {aiRecommendation && (
-          <Card className="mb-8 shadow-xl border-0 bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <Sparkles className="h-5 w-5 text-blue-600" />
-                AI Rate Analysis
-                {isAiLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {aiRecommendation.analysisText && (
-                <div className="bg-white/70 p-4 rounded-lg mb-4">
-                  <p className="text-gray-700 text-sm leading-relaxed">{aiRecommendation.analysisText}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {aiRecommendation.bestValue && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 p-2 justify-center">
-                    Best Value Choice
-                  </Badge>
-                )}
-                {aiRecommendation.fastest && (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 p-2 justify-center">
-                    Fastest Option
-                  </Badge>
-                )}
-                {aiRecommendation.bestOverall && (
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-800 p-2 justify-center">
-                    AI Recommended
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Results Section */}
         {rates.length > 0 && (
-          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-                <CardTitle className="text-2xl text-blue-800 flex items-center gap-2">
-                  <Truck className="h-6 w-6" />
-                  Available {isInternational ? 'International' : 'Domestic'} Rates ({rates.length})
-                </CardTitle>
-                <EnhancedRateFilter
-                  filters={{
-                    search: '',
-                    carriers: [],
-                    maxPrice: undefined,
-                    maxDays: undefined,
-                    features: [],
-                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
-                    sortOrder: 'asc',
-                    selectedCarrier: carrierFilter
-                  }}
-                  availableCarriers={uniqueCarriers}
-                  onFiltersChange={(newFilters) => {
-                    setCarrierFilter(newFilters.selectedCarrier);
-                    setSortOrder(newFilters.sortBy);
-                  }}
-                  onClearFilters={() => {
-                    setCarrierFilter('all');
-                    setSortOrder('price');
-                  }}
-                  rateCount={sortedRates.length}
-                />
-              </div>
+          <>
+            {/* Rate Count Header - Move to top */}
+            <Card className="mb-6 shadow-xl border-0 bg-gradient-to-r from-blue-500 to-purple-600">
+              <CardContent className="py-4">
+                <div className="text-center">
+                  <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
+                    <Truck className="h-8 w-8" />
+                    We found {rates.length} {isInternational ? 'International' : 'Domestic'} rates for you
+                  </h2>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg text-gray-700">Shipping Options</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -716,7 +665,83 @@ const IndependentRateCalculator: React.FC = () => {
                 </div>
               )}
             </CardContent>
+
+            {/* Filter Section - Move to bottom */}
+            <CardContent className="border-t pt-6 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold text-gray-700">Filter & Sort Options</Label>
+                <EnhancedRateFilter
+                  filters={{
+                    search: '',
+                    carriers: [],
+                    maxPrice: undefined,
+                    maxDays: undefined,
+                    features: [],
+                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
+                    sortOrder: 'asc',
+                    selectedCarrier: carrierFilter
+                  }}
+                  availableCarriers={uniqueCarriers}
+                  onFiltersChange={(newFilters) => {
+                    setCarrierFilter(newFilters.selectedCarrier);
+                    setSortOrder(newFilters.sortBy);
+                  }}
+                  onClearFilters={() => {
+                    setCarrierFilter('all');
+                    setSortOrder('price');
+                  }}
+                  rateCount={sortedRates.length}
+                />
+              </div>
+            </CardContent>
           </Card>
+
+          {/* AI Analysis Panel - Move to bottom and make prettier */}
+          {aiRecommendation && (
+            <Card className="mt-6 shadow-2xl border-0 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <Sparkles className="h-6 w-6 animate-pulse" />
+                  AI Recommended Rates
+                  {isAiLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {aiRecommendation.analysisText && (
+                  <div className="bg-white/90 p-5 rounded-xl mb-6 shadow-sm border-2 border-purple-100">
+                    <p className="text-gray-800 text-base leading-relaxed font-medium">{aiRecommendation.analysisText}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {aiRecommendation.bestValue && (
+                    <div className="bg-gradient-to-br from-green-100 to-green-50 p-4 rounded-xl border-2 border-green-200 shadow-md">
+                      <Badge className="bg-green-600 text-white mb-2 px-3 py-1">
+                        💰 Best Value
+                      </Badge>
+                      <p className="text-sm text-gray-700 mt-2">Most cost-effective option</p>
+                    </div>
+                  )}
+                  {aiRecommendation.fastest && (
+                    <div className="bg-gradient-to-br from-blue-100 to-blue-50 p-4 rounded-xl border-2 border-blue-200 shadow-md">
+                      <Badge className="bg-blue-600 text-white mb-2 px-3 py-1">
+                        ⚡ Fastest Delivery
+                      </Badge>
+                      <p className="text-sm text-gray-700 mt-2">Quickest shipping available</p>
+                    </div>
+                  )}
+                  {aiRecommendation.bestOverall && (
+                    <div className="bg-gradient-to-br from-purple-100 to-purple-50 p-4 rounded-xl border-2 border-purple-200 shadow-md">
+                      <Badge className="bg-purple-600 text-white mb-2 px-3 py-1">
+                        🤖 AI Recommended
+                      </Badge>
+                      <p className="text-sm text-gray-700 mt-2">Best balance of speed & cost</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          </>
         )}
       </div>
     </div>
