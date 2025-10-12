@@ -236,31 +236,29 @@ serve(async (req) => {
 
     let allRates = data.rates || [];
     
-    // If international shipment, also fetch UPS rates
-    if (isInternational) {
-      try {
-        console.log('Fetching UPS rates for international shipment...');
+    // Always try to fetch UPS rates (not just for international shipments)
+    try {
+      console.log('Fetching UPS rates...');
+      
+      const upsClientId = Deno.env.get('UPS_CLIENT_ID');
+      const upsClientSecret = Deno.env.get('UPS_CLIENT_SECRET');
+      const upsAccountNumber = Deno.env.get('UPS_ACCOUNT_NUMBER');
+      
+      if (upsClientId && upsClientSecret && upsAccountNumber) {
+        const upsService = new UPSService(upsClientId, upsClientSecret, upsAccountNumber, false);
+        const upsResponse = await upsService.getRates(requestData);
+        const upsRates = upsService.formatRatesForFrontend(upsResponse);
         
-        const upsClientId = Deno.env.get('UPS_CLIENT_ID');
-        const upsClientSecret = Deno.env.get('UPS_CLIENT_SECRET');
-        const upsAccountNumber = Deno.env.get('UPS_ACCOUNT_NUMBER');
+        console.log(`Received ${upsRates.length} UPS rates`);
         
-        if (upsClientId && upsClientSecret && upsAccountNumber) {
-          const upsService = new UPSService(upsClientId, upsClientSecret, upsAccountNumber, false);
-          const upsResponse = await upsService.getRates(requestData);
-          const upsRates = upsService.formatRatesForFrontend(upsResponse);
-          
-          console.log(`Received ${upsRates.length} UPS rates`);
-          
-          // Add UPS rates to the total rates
-          allRates = [...allRates, ...upsRates];
-        } else {
-          console.log('UPS credentials not configured, skipping UPS rates');
-        }
-      } catch (error) {
-        console.error('Error fetching UPS rates:', error);
-        // Continue with EasyPost rates only if UPS fails
+        // Add UPS rates to the total rates
+        allRates = [...allRates, ...upsRates];
+      } else {
+        console.log('UPS credentials not configured, skipping UPS rates');
       }
+    } catch (error) {
+      console.error('Error fetching UPS rates:', error);
+      // Continue with EasyPost rates only if UPS fails
     }
     
     if (allRates.length === 0) {
@@ -277,13 +275,13 @@ serve(async (req) => {
     const processedRates = applyCarrierDiscounts(allRates);
     const organizedRates = organizeRatesByCarrier(processedRates);
 
-    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup and carrier-specific discounts (including ${isInternational ? 'UPS international rates' : 'domestic rates only'})`);
+    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup and carrier-specific discounts (including UPS rates if available)`);
 
     return new Response(JSON.stringify({
       rates: organizedRates,
       shipmentId: data.id,
       markup_applied: `${RATE_MARKUP_PERCENTAGE}%`,
-      includes_ups: isInternational
+      includes_ups: true
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

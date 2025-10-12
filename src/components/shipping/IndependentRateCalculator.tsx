@@ -14,6 +14,8 @@ import EnhancedRateFilter from './EnhancedRateFilter';
 import { COUNTRIES_LIST, countries } from '@/lib/countries';
 import CarrierLogo from './CarrierLogo';
 import PackageTypeSelector from './PackageTypeSelector';
+import AIRateAnalysisPanel from './AIRateAnalysisPanel';
+import { useNavigate } from 'react-router-dom';
 
 // Insurance always $100 as requested
 const INSURANCE_COST_PERCENTAGE = 0.02; // 2% of insurance amount
@@ -43,6 +45,7 @@ interface AIRecommendation {
 }
 
 const IndependentRateCalculator: React.FC = () => {
+  const navigate = useNavigate();
   const [originZip, setOriginZip] = useState('');
   const [destZip, setDestZip] = useState('');
   const [originCountry, setOriginCountry] = useState('US');
@@ -71,6 +74,8 @@ const IndependentRateCalculator: React.FC = () => {
   });
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [selectedRateForAI, setSelectedRateForAI] = useState<RateResult | null>(null);
 
   const isInternational = originCountry !== destCountry;
   const isCustomPackage = ['box', 'envelope'].includes(packageType);
@@ -269,23 +274,35 @@ const IndependentRateCalculator: React.FC = () => {
   };
 
   const handleShipThis = (rate: RateResult) => {
-    const calculatorData = {
-      originZip,
-      destZip,
-      originCountry,
-      destCountry,
-      packageType,
-      dimensions,
-      selectedRate: rate,
-      isInternational,
-      customsClearance,
-      customsInfo,
-      timestamp: new Date().toISOString()
+    // Only transfer ZIP codes, weight, and dimensions to normal shipping
+    const shippingData = {
+      fromZip: originZip,
+      toZip: destZip,
+      weight: dimensions.weight,
+      length: dimensions.length,
+      width: dimensions.width,
+      height: dimensions.height,
+      weightUnit
     };
-    sessionStorage.setItem('calculatorData', JSON.stringify(calculatorData));
-    sessionStorage.setItem('transferToShipping', 'true');
-    toast.success(`Package data saved! ${isInternational ? 'International customs documentation will be required.' : 'Go to Create Label to complete shipping.'}`);
-    window.location.href = '/create-label';
+
+    sessionStorage.setItem('rateCalculatorTransfer', JSON.stringify(shippingData));
+    navigate('/create-label?tab=domestic');
+    toast.success('Redirecting to normal shipping...');
+  };
+
+  const handleRateClick = (rate: RateResult) => {
+    setSelectedRateForAI(rate);
+    setShowAIPanel(true);
+  };
+
+  const handleOptimizationChange = (filterId: string) => {
+    // Handle filter changes from AI panel
+    if (filterId === 'cheapest') {
+      setSortOrder('price');
+    } else if (filterId === 'fastest') {
+      setSortOrder('speed');
+    }
+    // Additional filter logic can be added here
   };
 
   const filteredRates = rates.filter(rate => carrierFilter === 'all' || rate.carrier.toUpperCase() === carrierFilter.toUpperCase());
@@ -586,7 +603,11 @@ const IndependentRateCalculator: React.FC = () => {
                                         aiRecommendation?.fastest === rate.id;
                   
                   return (
-                    <div key={rate.id} className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
+                    <div 
+                      key={rate.id} 
+                      className="border-2 border-gray-200 hover:border-blue-300 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+                      onClick={() => handleRateClick(rate)}
+                    >
                       {/* Carrier Header with proper colors */}
                       <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-4 text-white relative`}>
                         <div className="flex items-center justify-between">
@@ -599,12 +620,12 @@ const IndependentRateCalculator: React.FC = () => {
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             {isAIRecommended && (
-                              <Badge className="bg-yellow-500 text-black text-xs font-bold">
+                              <Badge className="bg-red-600 text-white text-xs font-bold shadow-lg">
                                 🤖 AI RECOMMENDED
                               </Badge>
                             )}
                             {discountPercentage > 0 && (
-                              <Badge className="bg-green-500 text-white text-xs">
+                              <Badge className="bg-red-600 text-white text-xs font-bold shadow-lg">
                                 {Math.round(discountPercentage)}% OFF
                               </Badge>
                             )}
@@ -637,7 +658,10 @@ const IndependentRateCalculator: React.FC = () => {
                         </div>
 
                         <Button 
-                          onClick={() => handleShipThis(rate)} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShipThis(rate);
+                          }} 
                           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                         >
                           Ship This Package
@@ -744,6 +768,17 @@ const IndependentRateCalculator: React.FC = () => {
           </>
         )}
       </div>
+      
+      {/* AI Rate Analysis Panel */}
+      {showAIPanel && selectedRateForAI && (
+        <AIRateAnalysisPanel
+          selectedRate={selectedRateForAI}
+          allRates={rates}
+          isOpen={showAIPanel}
+          onClose={() => setShowAIPanel(false)}
+          onOptimizationChange={handleOptimizationChange}
+        />
+      )}
     </div>
   );
 };
