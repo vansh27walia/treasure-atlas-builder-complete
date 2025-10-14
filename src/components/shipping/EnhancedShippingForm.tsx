@@ -127,6 +127,38 @@ const EnhancedShippingForm: React.FC = () => {
     };
   }, [form]);
 
+  // Auto-fill from rate calculator sessionStorage on mount
+  useEffect(() => {
+    const rateCalcData = sessionStorage.getItem('rateCalculatorTransfer');
+    if (rateCalcData) {
+      try {
+        const data = JSON.parse(rateCalcData);
+        console.log('Auto-filling from rate calculator:', data);
+        
+        // Only fill weight, dimensions, and unit - addresses will be empty
+        form.setValue('weightValue', parseFloat(data.weight) || 0);
+        form.setValue('weightUnit', data.weightUnit || 'lbs');
+        
+        if (data.length) {
+          form.setValue('length', parseFloat(data.length));
+        }
+        if (data.width) {
+          form.setValue('width', parseFloat(data.width));
+        }
+        if (data.height) {
+          form.setValue('height', parseFloat(data.height));
+        }
+        
+        // Clear sessionStorage after using
+        sessionStorage.removeItem('rateCalculatorTransfer');
+        
+        toast.success('Package details loaded from rate calculator');
+      } catch (error) {
+        console.error('Error parsing rate calculator data:', error);
+      }
+    }
+  }, [form]);
+
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
