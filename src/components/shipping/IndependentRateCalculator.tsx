@@ -576,14 +576,101 @@ const IndependentRateCalculator: React.FC = () => {
         {/* Results Section */}
         {rates.length > 0 && (
           <>
-            {/* Rate Count Header - Move to top */}
+            {/* Rate Count Header with AI Button */}
             <Card className="mb-6 shadow-xl border-0 bg-gradient-to-r from-blue-500 to-purple-600">
               <CardContent className="py-4">
-                <div className="text-center">
-                  <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                     <Truck className="h-8 w-8" />
                     We found {rates.length} {isInternational ? 'International' : 'Domestic'} rates for you
                   </h2>
+                  <Button 
+                    onClick={() => setShowAIPanel(true)}
+                    className="bg-white text-purple-600 hover:bg-gray-100 shadow-lg font-bold"
+                  >
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    AI Assistant
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* AI Analysis Panel - At top after rate count */}
+            {aiRecommendation && (
+              <Card className="mb-6 shadow-xl border-0 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
+                <CardContent className="pt-6">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="h-6 w-6 animate-pulse" />
+                      <h3 className="text-xl font-bold">AI Recommended Rates</h3>
+                      {isAiLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>}
+                    </div>
+                  </div>
+                  {aiRecommendation.analysisText && (
+                    <div className="bg-white/90 p-5 rounded-xl mb-4 shadow-sm border-2 border-purple-100">
+                      <p className="text-gray-800 text-base leading-relaxed font-medium">{aiRecommendation.analysisText}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {aiRecommendation.bestValue && (
+                      <div className="bg-gradient-to-br from-green-100 to-green-50 p-4 rounded-xl border-2 border-green-200 shadow-md">
+                        <Badge className="bg-green-600 text-white mb-2 px-3 py-1">
+                          💰 Best Value
+                        </Badge>
+                        <p className="text-sm text-gray-700 mt-2">Most cost-effective option</p>
+                      </div>
+                    )}
+                    {aiRecommendation.fastest && (
+                      <div className="bg-gradient-to-br from-blue-100 to-blue-50 p-4 rounded-xl border-2 border-blue-200 shadow-md">
+                        <Badge className="bg-blue-600 text-white mb-2 px-3 py-1">
+                          ⚡ Fastest Delivery
+                        </Badge>
+                        <p className="text-sm text-gray-700 mt-2">Quickest shipping available</p>
+                      </div>
+                    )}
+                    {aiRecommendation.bestOverall && (
+                      <div className="bg-gradient-to-br from-purple-100 to-purple-50 p-4 rounded-xl border-2 border-purple-200 shadow-md">
+                        <Badge className="bg-purple-600 text-white mb-2 px-3 py-1">
+                          🤖 AI Recommended
+                        </Badge>
+                        <p className="text-sm text-gray-700 mt-2">Best balance of speed & cost</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Filter Section - Full width at top */}
+            <Card className="mb-6 shadow-lg border-0 bg-gray-50">
+              <CardContent className="py-4">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                    <Filter className="h-5 w-5" />
+                    Filter & Sort Options
+                  </h3>
+                  <EnhancedRateFilter
+                    filters={{
+                      search: '',
+                      carriers: [],
+                      maxPrice: undefined,
+                      maxDays: undefined,
+                      features: [],
+                      sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
+                      sortOrder: 'asc',
+                      selectedCarrier: carrierFilter
+                    }}
+                    availableCarriers={uniqueCarriers}
+                    onFiltersChange={(newFilters) => {
+                      setCarrierFilter(newFilters.selectedCarrier);
+                      setSortOrder(newFilters.sortBy);
+                    }}
+                    onClearFilters={() => {
+                      setCarrierFilter('all');
+                      setSortOrder('price');
+                    }}
+                    rateCount={sortedRates.length}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -690,81 +777,7 @@ const IndependentRateCalculator: React.FC = () => {
               )}
             </CardContent>
 
-            {/* Filter Section - Move to bottom */}
-            <CardContent className="border-t pt-6 bg-gray-50/50">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold text-gray-700">Filter & Sort Options</Label>
-                <EnhancedRateFilter
-                  filters={{
-                    search: '',
-                    carriers: [],
-                    maxPrice: undefined,
-                    maxDays: undefined,
-                    features: [],
-                    sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
-                    sortOrder: 'asc',
-                    selectedCarrier: carrierFilter
-                  }}
-                  availableCarriers={uniqueCarriers}
-                  onFiltersChange={(newFilters) => {
-                    setCarrierFilter(newFilters.selectedCarrier);
-                    setSortOrder(newFilters.sortBy);
-                  }}
-                  onClearFilters={() => {
-                    setCarrierFilter('all');
-                    setSortOrder('price');
-                  }}
-                  rateCount={sortedRates.length}
-                />
-              </div>
-            </CardContent>
           </Card>
-
-          {/* AI Analysis Panel - Move to bottom and make prettier */}
-          {aiRecommendation && (
-            <Card className="mt-6 shadow-2xl border-0 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <Sparkles className="h-6 w-6 animate-pulse" />
-                  AI Recommended Rates
-                  {isAiLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {aiRecommendation.analysisText && (
-                  <div className="bg-white/90 p-5 rounded-xl mb-6 shadow-sm border-2 border-purple-100">
-                    <p className="text-gray-800 text-base leading-relaxed font-medium">{aiRecommendation.analysisText}</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {aiRecommendation.bestValue && (
-                    <div className="bg-gradient-to-br from-green-100 to-green-50 p-4 rounded-xl border-2 border-green-200 shadow-md">
-                      <Badge className="bg-green-600 text-white mb-2 px-3 py-1">
-                        💰 Best Value
-                      </Badge>
-                      <p className="text-sm text-gray-700 mt-2">Most cost-effective option</p>
-                    </div>
-                  )}
-                  {aiRecommendation.fastest && (
-                    <div className="bg-gradient-to-br from-blue-100 to-blue-50 p-4 rounded-xl border-2 border-blue-200 shadow-md">
-                      <Badge className="bg-blue-600 text-white mb-2 px-3 py-1">
-                        ⚡ Fastest Delivery
-                      </Badge>
-                      <p className="text-sm text-gray-700 mt-2">Quickest shipping available</p>
-                    </div>
-                  )}
-                  {aiRecommendation.bestOverall && (
-                    <div className="bg-gradient-to-br from-purple-100 to-purple-50 p-4 rounded-xl border-2 border-purple-200 shadow-md">
-                      <Badge className="bg-purple-600 text-white mb-2 px-3 py-1">
-                        🤖 AI Recommended
-                      </Badge>
-                      <p className="text-sm text-gray-700 mt-2">Best balance of speed & cost</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
           </>
         )}
       </div>
