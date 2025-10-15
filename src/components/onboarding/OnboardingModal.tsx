@@ -8,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -22,9 +21,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from '@/components/ui/sonner';
-import { Loader2, X } from 'lucide-react';
-import { PaymentInfo, userProfileService } from '@/services/UserProfileService';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { userProfileService } from '@/services/UserProfileService';
 import { addressService, SavedAddress } from '@/services/AddressService';
 
 interface OnboardingModalProps {
@@ -76,6 +75,21 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     }
   });
   
+  const handleSkipPickup = async () => {
+    setActiveTab('payment');
+  };
+
+  const handleSkipPayment = async () => {
+    try {
+      await userProfileService.completeOnboarding();
+      toast.success('Welcome! You can add your information later in settings.');
+      onComplete();
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      toast.error('There was an error. Please try again.');
+    }
+  };
+  
   const handleNext = () => {
     if (activeTab === 'pickup') {
       setActiveTab('payment');
@@ -88,18 +102,18 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     }
   };
   
-  const handleCancel = () => {
-    form.reset();
-    onComplete(); // Close the modal
-  };
-  
-  const onSubmit = async (values: OnboardingFormValues) => {
+  const handleSavePickup = async () => {
+    const isValid = validateAddress('pickup');
+    if (!isValid) {
+      toast.error('Please fill in all required address fields');
+      return;
+    }
+
     setIsLoading(true);
-    
     try {
-      // 1. Save pickup address
+      const values = form.getValues();
       const pickupAddress: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
-        name: values.pickupName,
+        name: values.pickupName || 'Default Address',
         company: values.pickupCompany || undefined,
         street1: values.pickupStreet1,
         street2: values.pickupStreet2 || undefined,
@@ -117,33 +131,48 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
       if (!savedAddress) {
         throw new Error('Failed to save pickup address');
       }
+
+      await userProfileService.updateDefaultPickupAddressId(savedAddress.id);
+      toast.success('Pickup address saved!');
+      setActiveTab('payment');
+    } catch (error) {
+      console.error('Error saving pickup address:', error);
+      toast.error('Failed to save pickup address. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onSubmit = async (values: OnboardingFormValues) => {
+    setIsLoading(true);
+    
+    try {
+      // Save payment information using Stripe
+      const { supabase } = await import('@/integrations/supabase/client');
       
-      // 2. Save payment information
-      const paymentInfo: PaymentInfo = {
-        card_number: values.cardNumber,
-        exp_month: values.expiryMonth,
-        exp_year: values.expiryYear,
-        cardholder_name: values.cardholderName,
-        last4: values.cardNumber.slice(-4),
-      };
-      
-      const paymentInfoSaved = await userProfileService.updatePaymentInfo(paymentInfo);
-      
-      if (!paymentInfoSaved) {
-        throw new Error('Failed to save payment information');
+      const { data, error } = await supabase.functions.invoke('save-payment-method', {
+        body: {
+          cardNumber: values.cardNumber,
+          expMonth: values.expiryMonth,
+          expYear: values.expiryYear,
+          cvc: values.cvv,
+          cardholderName: values.cardholderName,
+          setAsDefault: true
+        }
+      });
+
+      if (error) {
+        throw error;
       }
       
-      // 3. Set the default pickup address ID in the user profile
-      await userProfileService.updateDefaultPickupAddressId(savedAddress.id);
-      
-      // 4. Mark onboarding as complete
+      // Mark onboarding as complete
       await userProfileService.completeOnboarding();
       
-      toast.success('Your profile has been set up successfully!');
+      toast.success('Payment method saved successfully!');
       onComplete();
     } catch (error) {
       console.error('Error during onboarding:', error);
-      toast.error('There was an error setting up your profile. Please try again.');
+      toast.error('Failed to save payment method. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -193,21 +222,14 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={handleCancel}>
+    <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Welcome! Let's set up your account</DialogTitle>
           <DialogDescription>
-            Please provide your details to get started. This information will help us streamline your shipping experience.
+            Add your pickup address and payment method to get started faster. You can skip these steps and add them later.
           </DialogDescription>
         </DialogHeader>
-        <DialogClose 
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
-          onClick={handleCancel}
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </DialogClose>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-2 mb-4">
@@ -220,7 +242,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
               <TabsContent value="pickup" className="space-y-4">
                 <div className="bg-blue-50 p-4 rounded-md mb-4">
                   <p className="text-sm text-blue-700">
-                    Please provide your default pickup location. This is where your packages will be collected from when you create shipments. You can add additional pickup locations later in your settings.
+                    <strong>Save your default pickup location</strong> - Add your primary shipping address now, or skip and add it later in settings.
                   </p>
                 </div>
               
@@ -361,7 +383,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
               <TabsContent value="payment" className="space-y-4">
                 <div className="bg-blue-50 p-4 rounded-md mb-4">
                   <p className="text-sm text-blue-700">
-                    Please provide your payment information. This will be used for your shipping transactions. Your information is encrypted and stored securely.
+                    <strong>Add a payment method</strong> - Save your card details for faster checkout, or skip and add it when needed.
                   </p>
                 </div>
                 
@@ -459,35 +481,58 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                 </div>
               </TabsContent>
               
-              <DialogFooter className="pt-4">
-                {activeTab !== 'pickup' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBack}
-                    className="mr-2"
-                  >
-                    Back
-                  </Button>
-                )}
+              <DialogFooter className="pt-4 flex justify-between">
+                <div className="flex gap-2">
+                  {activeTab === 'payment' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBack}
+                    >
+                      Back
+                    </Button>
+                  )}
+                </div>
                 
-                {activeTab !== 'payment' ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={isNextDisabled()}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !validatePayment()}
-                  >
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Complete Setup
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {activeTab === 'pickup' ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleSkipPickup}
+                      >
+                        Skip
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleSavePickup}
+                        disabled={isLoading || !validateAddress('pickup')}
+                      >
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save & Continue
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleSkipPayment}
+                        disabled={isLoading}
+                      >
+                        Skip
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isLoading || !validatePayment()}
+                      >
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Complete Setup
+                      </Button>
+                    </>
+                  )}
+                </div>
               </DialogFooter>
             </form>
           </Form>

@@ -32,13 +32,11 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       
       try {
         setIsCheckingStatus(true);
-        // Auto-complete onboarding without showing the modal
-        if (!await userProfileService.hasCompletedOnboarding()) {
-          await userProfileService.completeOnboarding();
-        }
-        setHasCompletedOnboarding(true);
+        const completed = await userProfileService.hasCompletedOnboarding();
+        setHasCompletedOnboarding(completed);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
+        setHasCompletedOnboarding(true); // Fail gracefully
       } finally {
         setIsCheckingStatus(false);
       }

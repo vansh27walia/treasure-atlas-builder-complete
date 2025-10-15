@@ -15,7 +15,7 @@ import Dashboard from './pages/Dashboard';
 import SettingsPage from './pages/SettingsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
-import { OnboardingProvider } from './contexts/OnboardingContext';
+import { OnboardingProvider, useOnboarding } from './contexts/OnboardingContext';
 import { Toaster } from './components/ui/sonner';
 import PaymentPage from './pages/PaymentPage';
 import InternationalShippingPage from './pages/InternationalShippingPage';
@@ -28,51 +28,70 @@ import FreightForwardingPage from './pages/FreightForwardingPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import ImportPage from './pages/ImportPage';
 import ShopifyCallbackPage from './pages/ShopifyCallbackPage';
+import OnboardingModal from './components/onboarding/OnboardingModal';
+
+function AppContent() {
+  const { hasCompletedOnboarding, completeOnboarding } = useOnboarding();
+
+  return (
+    <>
+      <div className="w-full h-screen overflow-hidden">
+        <SidebarNavigation>
+          <div className="w-full h-full overflow-y-auto">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/create-label" element={<CreateLabelPage />} />
+              <Route path="/rate-calculator" element={<RateCalculatorPage />} />
+              <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
+              <Route path="/ltl-shipping" element={<LtlShippingPage />} />
+              <Route path="/ftl-shipping" element={<FtlShippingPage />} />
+              <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
+              <Route path="/international" element={<InternationalShippingPage />} />
+              <Route path="/ship-to" element={<ShipToPage />} />
+              <Route path="/payment" element={<PaymentPage />} />
+              <Route path="/tracking" element={<TrackingPage />} />
+              <Route path="/import" element={<ImportPage />} />
+              <Route path="/shopify-callback" element={<ShopifyCallbackPage />} />
+              <Route
+                path="/dashboard"
+                element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              />
+              <Route
+                path="/settings"
+                element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
+              />
+              <Route path="/label-success" element={<LabelSuccessPage />} />
+              <Route path="/payment-success" element={<PaymentSuccessPage />} />
+              <Route path="/pickup" element={<PickupPage />} />
+              <Route
+                path="/bulk-upload"
+                element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </SidebarNavigation>
+      </div>
+      <Toaster />
+      
+      {/* Show onboarding modal for first-time users */}
+      {hasCompletedOnboarding === false && (
+        <OnboardingModal 
+          isOpen={true} 
+          onComplete={completeOnboarding}
+        />
+      )}
+    </>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <OnboardingProvider>
-          <div className="w-full h-screen overflow-hidden">
-            <SidebarNavigation>
-              <div className="w-full h-full overflow-y-auto">
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/create-label" element={<CreateLabelPage />} />
-                  <Route path="/rate-calculator" element={<RateCalculatorPage />} />
-                  <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
-                  <Route path="/ltl-shipping" element={<LtlShippingPage />} />
-                  <Route path="/ftl-shipping" element={<FtlShippingPage />} />
-                  <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
-                  <Route path="/international" element={<InternationalShippingPage />} />
-                  <Route path="/ship-to" element={<ShipToPage />} />
-                  <Route path="/payment" element={<PaymentPage />} />
-                  <Route path="/tracking" element={<TrackingPage />} />
-                  <Route path="/import" element={<ImportPage />} />
-                  <Route path="/shopify-callback" element={<ShopifyCallbackPage />} />
-                  <Route
-                    path="/dashboard"
-                    element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-                  />
-                  <Route
-                    path="/settings"
-                    element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
-                  />
-                  <Route path="/label-success" element={<LabelSuccessPage />} />
-                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
-                  <Route path="/pickup" element={<PickupPage />} />
-                  <Route
-                    path="/bulk-upload"
-                    element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </div>
-            </SidebarNavigation>
-          </div>
-          <Toaster />
+          <AppContent />
         </OnboardingProvider>
       </AuthProvider>
     </BrowserRouter>
