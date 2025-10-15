@@ -1,20 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Download, X, Loader2, Eye, File, FileImage, FileArchive, Mail, Plus, Trash2 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Printer, Download, X, Eye, File, FileImage, FileText, Mail } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { PDFDocument } from 'pdf-lib';
-
-const labelFormats = [
-  { value: '4x6', label: '4x6" Thermal', description: 'Standard thermal label size (288x432 points)' },
-  { value: '8.5x11-2up', label: '8.5x11" - 2-up', description: 'Two labels per page - top and bottom' },
-  { value: '8.5x11-top', label: '8.5x11" - Top', description: 'One label at top of letter page' },
-  { value: '8.5x11-bottom', label: '8.5x11" - Bottom', description: 'One label at bottom of letter page' }
-];
+import EmailLabelsModal from './EmailLabelsModal';
 
 interface EnhancedPrintPreviewProps {
   triggerButton?: React.ReactNode;
@@ -52,110 +42,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const [selectedFormat, setSelectedFormat] = useState('4x6');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
-  const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
   const [activeTab, setActiveTab] = useState('preview');
-  const [emailList, setEmailList] = useState(['']);
-  const [emailSubject, setEmailSubject] = useState('Shipping Label');
-  const [emailFormat, setEmailFormat] = useState('pdf');
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  // Load original PDF when dialog opens
-  useEffect(() => {
-    if (isOpen && labelUrl && !originalPdfBytes) {
-      loadOriginalPdf();
-    }
-  }, [isOpen, labelUrl]);
-
-  const loadOriginalPdf = async () => {
-    try {
-      const response = await fetch(labelUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      setOriginalPdfBytes(bytes);
-      setCurrentPreviewUrl(labelUrl); // Start with original
-    } catch (error) {
-      console.error('Error loading original PDF:', error);
-      toast.error('Failed to load label PDF');
-    }
-  };
-
-  const generateLabelPDF = async (fileBytes: Uint8Array, layoutOption: string): Promise<Uint8Array> => {
-    const originalPdf = await PDFDocument.load(fileBytes);
-    const outputPdf = await PDFDocument.create();
-
-    // Get the first page from the original PDF
-    const originalPage = originalPdf.getPage(0);
-    
-    // Embed the page in the output PDF
-    const embeddedPage = await outputPdf.embedPage(originalPage);
-
-    // Page sizes in points (72 points per inch)
-    const letterWidth = 612;  // 8.5"
-    const letterHeight = 792; // 11"
-    const labelWidth = 288;   // 4"
-    const labelHeight = 432;  // 6"
-
-    if (layoutOption === '4x6') {
-      const page = outputPdf.addPage([labelWidth, labelHeight]);
-      page.drawPage(embeddedPage);
-    } else if (layoutOption === '8.5x11-2up') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30
-      });
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: 30
-      });
-    } else if (layoutOption === '8.5x11-top') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: letterHeight - labelHeight - 30
-      });
-    } else if (layoutOption === '8.5x11-bottom') {
-      const page = outputPdf.addPage([letterWidth, letterHeight]);
-      page.drawPage(embeddedPage, { 
-        x: (letterWidth - labelWidth) / 2, 
-        y: 30
-      });
-    }
-    
-    return await outputPdf.save();
-  };
-
-  const handleFormatChange = async (format: string) => {
-    if (!originalPdfBytes) {
-      toast.error('Original PDF not loaded');
-      return;
-    }
-
-    setSelectedFormat(format);
-    setIsGenerating(true);
-
-    try {
-      const pdfBytes = await generateLabelPDF(originalPdfBytes, format);
-      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      
-      // Clean up previous URL
-      if (currentPreviewUrl && currentPreviewUrl !== labelUrl) {
-        URL.revokeObjectURL(currentPreviewUrl);
-      }
-      
-      setCurrentPreviewUrl(url);
-      toast.success(`Label format updated to ${labelFormats.find(f => f.value === format)?.label}`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate label format');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     if (!labelUrl) {
@@ -224,73 +113,8 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     }
   };
 
-  const addEmailField = () => {
-    setEmailList([...emailList, '']);
-  };
-
-  const removeEmailField = (index: number) => {
-    if (emailList.length > 1) {
-      setEmailList(emailList.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateEmailField = (index: number, value: string) => {
-    const updated = [...emailList];
-    updated[index] = value;
-    setEmailList(updated);
-  };
-
-  const handleSendEmail = async () => {
-    const validEmails = emailList.filter(email => email.trim() !== '');
-    if (validEmails.length === 0) {
-      toast.error('Please add at least one email address');
-      return;
-    }
-    if (!emailSubject.trim()) {
-      toast.error('Please enter an email subject');
-      return;
-    }
-    
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      
-      const emailData = {
-        toEmails: validEmails,
-        subject: emailSubject,
-        description: 'Please find your shipping label attached.',
-        batchResult: {
-          batchId: shipmentId || 'single-label',
-          consolidatedLabelUrls: {
-            pdf: labelUrl,
-            png: labelUrl,
-            zpl: null
-          },
-          scanFormUrl: null
-        },
-        selectedFormats: [emailFormat]
-      };
-
-      toast.loading('Sending email...');
-      
-      const { data, error } = await supabase.functions.invoke('email-labels', {
-        body: emailData
-      });
-
-      if (error) {
-        console.error('Email sending error:', error);
-        toast.dismiss();
-        toast.error('Failed to send email. Please check if RESEND_API_KEY is configured.');
-        return;
-      }
-
-      toast.dismiss();
-      toast.success(`Email sent successfully to ${validEmails.length} recipient(s)`);
-      setIsOpen(false);
-    } catch (error) {
-      console.error('Error sending email:', error);
-      toast.dismiss();
-      toast.error('Failed to send email. Please check your connection and try again.');
-    }
+  const handleEmailClick = () => {
+    setShowEmailModal(true);
   };
 
   const dialogTitleText = `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
@@ -304,7 +128,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             size="sm"
             className="border-blue-200 hover:bg-blue-50 text-blue-700"
             onClick={() => handleDownload('pdf')}
-            disabled={!originalPdfBytes}
           >
             <Download className="h-3 w-3 mr-1" />
             Download
@@ -318,7 +141,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-6xl bg-white sm:rounded-lg h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl bg-white sm:rounded-lg max-h-[95vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
@@ -327,7 +150,6 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             variant="ghost"
             size="icon"
             onClick={() => setIsOpen(false)}
-            disabled={isGenerating}
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
           >
             <X className="h-4 w-4" />
@@ -335,10 +157,10 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
           </Button>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col pt-4 overflow-hidden">
-          {/* Tabs for Preview/Download/Email */}
+        <div className="flex-1 flex flex-col pt-4">
+          {/* Tabs for Preview/Download */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
+            <TabsList className="grid w-full grid-cols-2 mb-4 h-10">
               <TabsTrigger value="preview" className="text-sm py-2">
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
@@ -347,63 +169,19 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </TabsTrigger>
-              <TabsTrigger value="email" className="text-sm py-2">
-                <Mail className="h-4 w-4 mr-2" />
-                Email
-              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
-              {/* Format Selection - Compact dropdown */}
-              <div className="mb-4">
-                <Label className="text-sm font-medium mb-2 block">Print Format</Label>
-                <Select
-                  value={selectedFormat}
-                  onValueChange={handleFormatChange}
-                  disabled={isGenerating}
-                >
-                  <SelectTrigger className="w-full h-9 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
-                    <SelectValue placeholder="Select Format" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[160px] overflow-y-auto">
-                    {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value} className="cursor-pointer py-2 hover:bg-gray-50 text-sm">
-                        <span className="font-medium">{format.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 p-4 bg-gray-50 border rounded-lg overflow-hidden">
-                <div className="mb-3 text-center">
-                  {isGenerating ? (
-                    <div className="flex items-center justify-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label} format...</span>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-600">
-                      Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg max-w-4xl">
-                  {isGenerating ? (
-                    <div className="border border-gray-300 h-96 flex items-center justify-center rounded-lg">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
-                        <p className="text-purple-800">Generating label format...</p>
-                      </div>
-                    </div>
-                  ) : currentPreviewUrl ? (
+            <TabsContent value="preview" className="flex-1 flex flex-col space-y-4">
+              {/* PDF Preview - Smaller size to show button */}
+              <div className="p-4 bg-gray-50 border rounded-lg">
+                <div className="mx-auto bg-white p-3 shadow-lg rounded-lg">
+                  {labelUrl ? (
                     <iframe 
                       ref={iframeRef} 
-                      src={currentPreviewUrl} 
+                      src={labelUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '500px' : '600px', 
+                        height: '450px',
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
@@ -421,10 +199,10 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               </div>
 
               {/* Print Button - Only in Preview Tab */}
-              <div className="pt-4 border-t mt-4">
+              <div className="pt-2">
                 <Button
                   onClick={handlePrint}
-                  disabled={isGenerating || !currentPreviewUrl}
+                  disabled={!labelUrl}
                   className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
                 >
                   <Printer className="h-5 w-5 mr-2" />
@@ -433,8 +211,20 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
               </div>
             </TabsContent>
 
-              <TabsContent value="download" className="flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+            <TabsContent value="download" className="flex-1">
+              <div className="p-6 space-y-6">
+                {/* Email Button at Top */}
+                <div className="flex justify-end mb-4">
+                  <Button 
+                    onClick={handleEmailClick}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email Label
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div 
                     className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-blue-500 bg-blue-50 hover:bg-blue-100"
                     onClick={() => handleDownload('pdf')}
@@ -448,116 +238,54 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                     </Button>
                   </div>
                 
-                <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
-                  onClick={() => handleDownload('png')}
-                >
-                  <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
-                  <h4 className="font-bold text-lg mb-2">PNG Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">Image format for viewing</p>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PNG
-                  </Button>
-                </div>
-                
-                <div 
-                  className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
-                  onClick={() => handleDownload('zpl')}
-                >
-                  <FileArchive className="h-16 w-16 mx-auto mb-4 text-purple-600" />
-                  <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
-                  <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download ZPL
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="email" className="flex-1">
-              <div className="p-6 space-y-6 max-w-xl mx-auto">
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Email Addresses</Label>
-                  <div className="space-y-3">
-                    {emailList.map((email, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          value={email}
-                          onChange={(e) => updateEmailField(index, e.target.value)}
-                          className="flex-1 h-10"
-                        />
-                        {emailList.length > 1 && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeEmailField(index)}
-                            className="text-red-600 hover:text-red-700 h-10 w-10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={addEmailField}
-                    className="mt-3 h-10"
+                  <div 
+                    className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-green-500 bg-green-50 hover:bg-green-100"
+                    onClick={() => handleDownload('png')}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Email Address
-                  </Button>
+                    <FileImage className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                    <h4 className="font-bold text-lg mb-2">PNG Format</h4>
+                    <p className="text-sm text-gray-600 mb-4">Image format for viewing</p>
+                    <Button className="bg-green-600 hover:bg-green-700 text-white w-full h-10">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PNG
+                    </Button>
+                  </div>
+                
+                  <div 
+                    className="p-6 border-2 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg border-purple-500 bg-purple-50 hover:bg-purple-100"
+                    onClick={() => handleDownload('zpl')}
+                  >
+                    <FileText className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                    <h4 className="font-bold text-lg mb-2">ZPL Format</h4>
+                    <p className="text-sm text-gray-600 mb-4">For thermal printers</p>
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full h-10">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download ZPL
+                    </Button>
+                  </div>
                 </div>
-
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Subject</Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter email subject"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Format</Label>
-                  <Select value={emailFormat} onValueChange={setEmailFormat}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pdf">PDF</SelectItem>
-                      <SelectItem value="png">PNG</SelectItem>
-                      <SelectItem value="zpl">ZPL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={handleSendEmail}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Email
-                </Button>
               </div>
             </TabsContent>
           </Tabs>
         </div>
-
-        <DialogFooter className="sm:justify-start pt-3">
-          <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-10 px-6">
-              Close
-            </Button>
-          </DialogClose>
-        </DialogFooter>
       </DialogContent>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <EmailLabelsModal
+          isOpen={showEmailModal}
+          onClose={() => setShowEmailModal(false)}
+          batchResult={{
+            batchId: shipmentId || 'single-label',
+            consolidatedLabelUrls: {
+              pdf: labelUrl,
+              png: labelUrl,
+              zpl: null
+            },
+            scanFormUrl: null
+          }}
+        />
+      )}
     </Dialog>
   );
 };
