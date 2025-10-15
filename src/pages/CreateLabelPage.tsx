@@ -43,6 +43,14 @@ const CreateLabelPage = () => {
     }
   }, [rates, showAIPanel, selectedRate, isPaymentInProgress, aiPanelClosedManually]);
 
+  // Close all modals when user signs out to prevent portal errors
+  useEffect(() => {
+    if (!user) {
+      setIsRateCalculatorOpen(false);
+      setShowAIPanel(false);
+    }
+  }, [user]);
+
   // Listen for payment events to close AI panel
   useEffect(() => {
     const handlePaymentStart = () => {
