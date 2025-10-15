@@ -328,33 +328,28 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       let blob: Blob;
       let filename: string;
       
+      // ALWAYS download the original file without modifications
       if (format === 'pdf') {
-        if (originalPdfBytes) {
-          // Use client-side PDF generation
-          const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-          blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
-        } else if (labelUrls?.pdf || labelUrl) {
-          // Direct PDF download
-          const url = labelUrls?.pdf || labelUrl;
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/pdf'
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
-        } else {
+        const url = labelUrls?.pdf || labelUrl;
+        if (!url) {
           toast.error('PDF not available for download.');
           return;
         }
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/pdf'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
       } else {
         // Handle PNG and ZPL formats
         const url = labelUrls?.[format] || (format === 'png' ? labelUrl : null);
@@ -389,9 +384,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       // Clean up the object URL
       setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
       
+      toast.dismiss();
       toast.success(`${format.toUpperCase()} label downloaded successfully`);
     } catch (error) {
       console.error('Error downloading label:', error);
+      toast.dismiss();
       toast.error(`Failed to download ${format.toUpperCase()} label. Please try again.`);
     }
   };

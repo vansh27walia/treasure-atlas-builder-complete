@@ -158,41 +158,53 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
   };
 
   const handleDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (!originalPdfBytes) {
+    if (!labelUrl) {
       toast.error('No label data available');
       return;
     }
 
     try {
+      toast.loading(`Preparing ${format.toUpperCase()} download...`);
+      
       let blob: Blob;
       let filename: string;
       
+      // ALWAYS download the original file without modifications
+      const response = await fetch(labelUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch label: ${response.status}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      
       if (format === 'pdf') {
-        const pdfBytes = await generateLabelPDF(originalPdfBytes, selectedFormat);
-        blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}_${selectedFormat}.pdf`;
+        blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+      } else if (format === 'png') {
+        blob = new Blob([arrayBuffer], { type: 'image/png' });
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.png`;
       } else {
-        // For PNG and ZPL, use original URL for now
-        const response = await fetch(labelUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        blob = new Blob([arrayBuffer], { 
-          type: format === 'png' ? 'image/png' : 'text/plain' 
-        });
-        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.${format}`;
+        blob = new Blob([arrayBuffer], { type: 'text/plain' });
+        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.zpl`;
       }
       
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
+      link.href = objectUrl;
       link.download = filename;
-      link.target = '_blank';
+      link.style.display = 'none';
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
       
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+      
+      toast.dismiss();
       toast.success(`Downloaded ${format.toUpperCase()} label`);
     } catch (error) {
       console.error('Error downloading:', error);
+      toast.dismiss();
       toast.error('Failed to download label');
     }
   };
@@ -228,7 +240,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
     setEmailList(updated);
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     const validEmails = emailList.filter(email => email.trim() !== '');
     if (validEmails.length === 0) {
       toast.error('Please add at least one email address');
@@ -239,8 +251,46 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       return;
     }
     
-    // TODO: Implement email functionality - requires backend integration
-    toast.info('Email functionality requires backend setup. Please contact support to enable email sending.');
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const emailData = {
+        toEmails: validEmails,
+        subject: emailSubject,
+        description: 'Please find your shipping label attached.',
+        batchResult: {
+          batchId: shipmentId || 'single-label',
+          consolidatedLabelUrls: {
+            pdf: labelUrl,
+            png: labelUrl,
+            zpl: null
+          },
+          scanFormUrl: null
+        },
+        selectedFormats: [emailFormat]
+      };
+
+      toast.loading('Sending email...');
+      
+      const { data, error } = await supabase.functions.invoke('email-labels', {
+        body: emailData
+      });
+
+      if (error) {
+        console.error('Email sending error:', error);
+        toast.dismiss();
+        toast.error('Failed to send email. Please check if RESEND_API_KEY is configured.');
+        return;
+      }
+
+      toast.dismiss();
+      toast.success(`Email sent successfully to ${validEmails.length} recipient(s)`);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.dismiss();
+      toast.error('Failed to send email. Please check your connection and try again.');
+    }
   };
 
   const dialogTitleText = `Shipping Label Preview ${trackingCode ? `(${trackingCode})` : ''}`;
