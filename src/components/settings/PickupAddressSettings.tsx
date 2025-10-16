@@ -115,6 +115,8 @@ const PickupAddressSettings: React.FC = () => {
       
       // Ensure all required fields are set
       const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
+        firstName: values.firstName || '',
+        lastName: values.lastName || '',
         name: values.name || '',
         company: values.company || '',
         street1: values.street1,
@@ -123,7 +125,7 @@ const PickupAddressSettings: React.FC = () => {
         state: values.state,
         zip: values.zip,
         country: values.country || 'US',
-        phone: values.phone || '', // Ensure phone is never undefined
+        phone: values.phone || '', 
         is_default_from: values.is_default_from || false,
         is_default_to: values.is_default_to || false
       };
@@ -283,6 +285,11 @@ const PickupAddressSettings: React.FC = () => {
                     </span>
                   )}
                 </div>
+                {(address.firstName || address.lastName) && (
+                  <CardDescription>
+                    {[address.firstName, address.lastName].filter(Boolean).join(' ')}
+                  </CardDescription>
+                )}
                 {address.company && (
                   <CardDescription>{address.company}</CardDescription>
                 )}
@@ -347,7 +354,7 @@ const PickupAddressSettings: React.FC = () => {
       }}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingAddress ? 'Edit Pickup Address' : 'Add New Pickup Address'}</DialogTitle>
+            <DialogTitle>{editingAddress ? 'Edit Pickup Address' : 'Pickup Address'}</DialogTitle>
           </DialogHeader>
           <AddressForm
             defaultValues={editingAddress || { is_default_from: addresses.length === 0 }}

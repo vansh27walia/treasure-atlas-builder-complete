@@ -21,7 +21,9 @@ import { toast } from '@/components/ui/sonner';
 
 // Define the schema for address form values using Zod
 const addressSchema = z.object({
-  name: z.string().optional(),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  name: z.string().min(1, 'Address type is required'),
   company: z.string().optional(),
   street1: z.string().min(1, 'Address line 1 is required'),
   street2: z.string().optional(),
@@ -29,7 +31,7 @@ const addressSchema = z.object({
   state: z.string().min(1, 'State is required'),
   zip: z.string().min(1, 'ZIP code is required'),
   country: z.string().min(1, 'Country is required'),
-  phone: z.string().optional(),
+  phone: z.string().min(1, 'Phone number is required'),
   is_default_from: z.boolean().default(false),
   is_default_to: z.boolean().default(false),
 });
@@ -61,6 +63,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
     defaultValues: {
+      firstName: '',
+      lastName: '',
       name: '',
       company: '',
       street1: '',
@@ -157,24 +161,38 @@ const AddressForm: React.FC<AddressFormProps> = ({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Location Name Field */}
+          {/* First Name Field */}
           <FormField
             control={form.control}
-            name="name"
+            name="firstName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Location Name</FormLabel>
+                <FormLabel>First Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Home, Office, etc." {...field} value={field.value || ''} />
+                  <Input placeholder="John" {...field} value={field.value || ''} required />
                 </FormControl>
-                <FormDescription>
-                  A name to help you identify this location
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          {/* Last Name Field */}
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Doe" {...field} value={field.value || ''} required />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Company Field (Optional) */}
           <FormField
             control={form.control}
@@ -184,6 +202,21 @@ const AddressForm: React.FC<AddressFormProps> = ({
                 <FormLabel>Company (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="Company name" {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Phone Field (Required) */}
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="+1 (555) 123-4567" {...field} value={field.value || ''} required />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -303,15 +336,26 @@ const AddressForm: React.FC<AddressFormProps> = ({
           />
         </div>
 
-        {/* Phone Field (Optional) */}
+        {/* Address Type Dropdown */}
         <FormField
           control={form.control}
-          name="phone"
+          name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone (Optional)</FormLabel>
+              <FormLabel>Address Type</FormLabel>
               <FormControl>
-                <Input placeholder="Phone number" {...field} value={field.value || ''} />
+                <select 
+                  {...field} 
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  required
+                >
+                  <option value="">Select address type...</option>
+                  <option value="Home">Home</option>
+                  <option value="Office">Office</option>
+                  <option value="Building">Building</option>
+                  <option value="Warehouse">Warehouse</option>
+                  <option value="Other">Other</option>
+                </select>
               </FormControl>
               <FormMessage />
             </FormItem>

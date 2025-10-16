@@ -35,6 +35,8 @@ interface OnboardingModalProps {
 
 interface OnboardingFormValues {
   // Pickup Address
+  firstName: string;
+  lastName: string;
   pickupName: string;
   pickupCompany: string;
   pickupStreet1: string;
@@ -59,6 +61,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
   
   const form = useForm<OnboardingFormValues>({
     defaultValues: {
+      firstName: '',
+      lastName: '',
       pickupName: '',
       pickupCompany: '',
       pickupStreet1: '',
@@ -130,6 +134,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     try {
       const values = form.getValues();
       const pickupAddress: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
+        firstName: values.firstName,
+        lastName: values.lastName,
         name: values.pickupName || 'Default Address',
         company: values.pickupCompany || undefined,
         street1: values.pickupStreet1,
@@ -138,7 +144,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         state: values.pickupState,
         zip: values.pickupZip,
         country: values.pickupCountry,
-        phone: values.pickupPhone || undefined,
+        phone: values.pickupPhone,
         is_default_from: true,
         is_default_to: false,
       };
@@ -262,32 +268,86 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     <strong>Save your default pickup location</strong> - Add your primary shipping address now, or skip and add it later in settings.
                   </p>
                 </div>
-              
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John" {...field} required />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Doe" {...field} required />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="pickupCompany"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Company name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="pickupPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1 (555) 123-4567" {...field} required />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
                 <FormField
                   control={form.control}
                   name="pickupName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Location Name</FormLabel>
+                      <FormLabel>Address Type *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Home, Office, etc." {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        A name to help you identify this location
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="pickupCompany"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Company name (optional)" {...field} />
+                        <select 
+                          {...field} 
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          required
+                        >
+                          <option value="">Select address type...</option>
+                          <option value="Home">Home</option>
+                          <option value="Office">Office</option>
+                          <option value="Building">Building</option>
+                          <option value="Warehouse">Warehouse</option>
+                          <option value="Other">Other</option>
+                        </select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -391,20 +451,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     )}
                   />
                 </div>
-                
-                <FormField
-                  control={form.control}
-                  name="pickupPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Phone number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </TabsContent>
               
               <TabsContent value="payment" className="space-y-4">
