@@ -25,6 +25,8 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { userProfileService } from '@/services/UserProfileService';
 import { addressService, SavedAddress } from '@/services/AddressService';
+import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
+import { extractAddressComponents } from '@/utils/addressUtils';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -75,6 +77,21 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     }
   });
   
+  // Handle Google Maps autocomplete selection
+  const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
+    try {
+      const { street1, city, state, zip } = extractAddressComponents(place);
+      if (street1) form.setValue('pickupStreet1', street1, { shouldValidate: true });
+      if (city) form.setValue('pickupCity', city, { shouldValidate: true });
+      if (state) form.setValue('pickupState', state, { shouldValidate: true });
+      if (zip) form.setValue('pickupZip', zip, { shouldValidate: true });
+      toast.success('Address details populated from Google Maps');
+    } catch (error) {
+      console.error('Error processing Google place selection:', error);
+      toast.error('Failed to process selected address');
+    }
+  };
+
   const handleSkipPickup = async () => {
     setActiveTab('payment');
   };
@@ -282,10 +299,20 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                   name="pickupStreet1"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Address Line 1 *</FormLabel>
+                      <FormLabel>Address Line 1 with Google Autocomplete *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Street address" required {...field} />
+                        <AddressAutoComplete
+                          placeholder="Start typing your address..."
+                          defaultValue={field.value}
+                          onAddressSelected={handleGooglePlaceSelected}
+                          onChange={(value) => field.onChange(value)}
+                          id="pickup-address-autocomplete"
+                          required
+                        />
                       </FormControl>
+                      <FormDescription>
+                        Use Google autocomplete to quickly fill address details
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

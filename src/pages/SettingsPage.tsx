@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSearchParams } from 'react-router-dom';
@@ -323,24 +322,81 @@ const SettingsPage: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="shipping">
-          <Card className="p-6">
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold">Shipping Options</h2>
-              <p>Configure your shipping preferences, carriers, and default packaging options.</p>
+          <div className="space-y-6">
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Shipping Preferences</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 border rounded-lg">
-                  <h3 className="font-semibold mb-2">Default Packaging</h3>
-                  <p className="text-gray-600">Set your default packaging and dimensions</p>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Preferred Carriers</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {['USPS', 'UPS', 'FedEx', 'DHL'].map((carrier) => (
+                      <label key={carrier} className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <Checkbox id={carrier} />
+                        <span className="text-sm font-medium">{carrier}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                
-                <div className="p-4 border rounded-lg">
-                  <h3 className="font-semibold mb-2">Carrier Preferences</h3>
-                  <p className="text-gray-600">Manage your preferred shipping carriers</p>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Default Service Level</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {['Ground', 'Express', 'Overnight'].map((service) => (
+                      <label key={service} className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="service-level" value={service} />
+                        <span className="text-sm font-medium">{service}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Default Package Type</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {['Parcel', 'Flat Rate Box', 'Envelope', 'Custom'].map((type) => (
+                      <label key={type} className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="package-type" value={type} />
+                        <span className="text-sm">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Insurance Preferences</h3>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-2">
+                      <Checkbox id="auto-insurance" />
+                      <span className="text-sm">Automatically add insurance for shipments over $100</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <Checkbox id="signature-confirmation" />
+                      <span className="text-sm">Require signature confirmation by default</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Notification Preferences</h3>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-2">
+                      <Checkbox id="email-tracking" />
+                      <span className="text-sm">Send tracking emails to recipients</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <Checkbox id="delivery-alerts" />
+                      <span className="text-sm">Receive delivery confirmation alerts</span>
+                    </label>
+                  </div>
+                </div>
+
+                <Button className="w-full md:w-auto">
+                  Save Shipping Preferences
+                </Button>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
