@@ -134,8 +134,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     try {
       const values = form.getValues();
       const pickupAddress: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
-        firstName: values.firstName,
-        lastName: values.lastName,
         name: values.pickupName || 'Default Address',
         company: values.pickupCompany || undefined,
         street1: values.pickupStreet1,

@@ -138,10 +138,23 @@ const AddressForm: React.FC<AddressFormProps> = ({
   // Removed the redundant handleFullAddressPopulated function as its logic is now
   // consolidated within handleGooglePlaceSelected, mirroring the working InstantAddressForm.
 
-  // Handler for direct changes to the street1 input field (when not using autocomplete suggestions)
-  const handleAddressLineChange = (value: string) => {
-    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-  };
+// Handler for direct changes to the street1 input field (when not using autocomplete suggestions)
+const handleAddressLineChange = (value: string) => {
+  form.setValue('street1', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+};
+
+// Handlers for Address Line 2 with autocomplete
+const handleAddressLine2Selected = (place: GoogleMapsPlace) => {
+  try {
+    const line2 = place.formatted_address || '';
+    form.setValue('street2', line2, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+  } catch (e) {
+    console.error('Error setting Address Line 2 from autocomplete:', e);
+  }
+};
+const handleAddressLine2Change = (value: string) => {
+  form.setValue('street2', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+};
 
   // Custom submit handler that performs additional validation before calling the parent onSubmit
   const handleFormSubmit = (values: AddressFormValues) => {
@@ -259,20 +272,30 @@ const AddressForm: React.FC<AddressFormProps> = ({
           )}
         />
 
-        {/* Address Line 2 Field (Optional) */}
-        <FormField
-          control={form.control}
-          name="street2"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Address Line 2 (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="Apartment, suite, unit, building, floor, etc." {...field} value={field.value || ''} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+{/* Address Line 2 Field with optional Autocomplete */}
+<FormField
+  control={form.control}
+  name="street2"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Address Line 2 (Optional)</FormLabel>
+      <FormControl>
+        {enableGoogleAutocomplete ? (
+          <AddressAutoComplete
+            placeholder="Apartment, suite, unit, building, floor, etc."
+            defaultValue={field.value}
+            onAddressSelected={handleAddressLine2Selected}
+            onChange={handleAddressLine2Change}
+            id="address-line2-autocomplete"
+          />
+        ) : (
+          <Input placeholder="Apartment, suite, unit, building, floor, etc." {...field} value={field.value || ''} />
+        )}
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
 
         {/* City and State Fields in a 2-column grid */}
         <div className="grid grid-cols-2 gap-4">

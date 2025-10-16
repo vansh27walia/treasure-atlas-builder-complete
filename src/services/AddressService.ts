@@ -4,8 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 export interface SavedAddress {
   id: number;
   user_id: string;
-  firstName?: string;
-  lastName?: string;
   name: string;
   company?: string;
   street1: string;
@@ -14,7 +12,7 @@ export interface SavedAddress {
   state: string;
   zip: string;
   country: string;
-  phone: string;
+  phone?: string;
   is_default_from: boolean;
   is_default_to: boolean;
   created_at?: string;
