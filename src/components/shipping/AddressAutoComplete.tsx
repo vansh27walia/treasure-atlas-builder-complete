@@ -117,32 +117,34 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     const fetchApiKey = async () => {
       try {
-        // Check for cached key first
-        const cachedApiKey = localStorage.getItem('googleMapsApiKey');
-        
-        if (cachedApiKey) {
-          console.log("Using cached Google Maps API key");
-          return cachedApiKey;
-        }
+        // Always clear cached key and fetch fresh one
+        localStorage.removeItem('googleMapsApiKey');
         
         setIsLoadingKey(true);
-        // First try to get the API key from the Supabase edge function
+        console.log("Fetching Google Maps API key from Supabase...");
+        
+        // Get the API key from the Supabase edge function
         const { data, error } = await supabase.functions.invoke('get-google-api-key');
         
         if (error) {
           console.error("Error fetching API key from edge function:", error);
           setIsLoadingKey(false);
+          toast.error("Failed to load Google Maps API key. Manual entry will work.");
           return null;
         }
         
         if (data && data.apiKey) {
-          console.log("Retrieved Google Maps API key from edge function");
-          // Store it for future use
+          console.log("✓ Retrieved Google Maps API key successfully");
+          // Store it for this session
           localStorage.setItem('googleMapsApiKey', data.apiKey);
           return data.apiKey;
+        } else {
+          console.error("No API key returned from edge function");
+          toast.error("Google Maps API key not configured. Manual entry will work.");
         }
       } catch (error) {
-        console.error("Failed to fetch API key from edge function:", error);
+        console.error("Failed to fetch API key:", error);
+        toast.error("Error loading Google Maps. Manual entry will work.");
       }
       
       setIsLoadingKey(false);

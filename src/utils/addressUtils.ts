@@ -136,69 +136,64 @@ export function getCarrierLogoUrl(carrier: string): string | null {
 export async function loadGoogleMapsAPI(): Promise<boolean> {
   return new Promise((resolve) => {
     // Check if already loaded
-    if (window.google && window.google.maps && window.google.maps.places) {
-      console.log('Google Maps API already loaded');
+    if (window.google?.maps?.places) {
+      console.log('✓ Google Maps API already loaded');
       resolve(true);
       return;
     }
-    
-    console.log('Attempting to load Google Maps API');
-    
-    try {
-      // Check if we already have a script loading
-      const existingScript = document.getElementById('google-maps-script');
-      if (existingScript) {
-        console.log('Google Maps API script is already loading');
-        const checkIfLoaded = setInterval(() => {
-          if (window.google && window.google.maps && window.google.maps.places) {
-            clearInterval(checkIfLoaded);
-            console.log('Google Maps API loaded successfully');
-            resolve(true);
-          }
-        }, 100);
-        return;
-      }
-      
-      // Get the API key from local storage or environment variable
-      let apiKey = localStorage.getItem('googleMapsApiKey');
-      
-      if (!apiKey && import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
-        apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        console.log('Using API key from environment');
-      }
-      
-      if (!apiKey) {
-        console.warn('No Google Maps API key found. Please add a Google Maps API key in settings.');
-        toast.warning('Google Maps address search requires an API key. Please add one in settings.');
-        resolve(false);
-        return;
-      }
-      
-      // Create script element
-      const script = document.createElement('script');
-      script.id = 'google-maps-script';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      
-      // Set up callbacks
-      script.onload = () => {
-        console.log('Google Maps API loaded successfully');
-        resolve(true);
-      };
-      
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API');
-        toast.error('Failed to load Google Maps. Please check your API key.');
-        resolve(false);
-      };
-      
-      // Add script to document
-      document.head.appendChild(script);
-    } catch (error) {
-      console.error('Error loading Google Maps API:', error);
-      resolve(false);
+
+    // Remove any existing failed scripts
+    const existingScripts = document.querySelectorAll('script[src*="maps.googleapis.com"]');
+    if (existingScripts.length > 0) {
+      console.log('→ Removing existing Google Maps scripts...');
+      existingScripts.forEach(script => script.remove());
     }
+
+    // Get API key from localStorage (set by edge function)
+    const apiKey = localStorage.getItem('googleMapsApiKey');
+    
+    if (!apiKey) {
+      console.error('✗ No Google Maps API key found');
+      toast.error('Google Maps API key not configured. Manual entry will work.');
+      resolve(false);
+      return;
+    }
+
+    console.log('→ Loading Google Maps API...');
+
+    // Create callback function
+    const callbackName = 'initGoogleMapsCallback';
+    (window as any)[callbackName] = () => {
+      console.log('✓ Google Maps API loaded successfully');
+      delete (window as any)[callbackName];
+      resolve(true);
+    };
+
+    // Create and append script
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=${callbackName}`;
+    script.async = true;
+    script.defer = true;
+    
+    script.onerror = (error) => {
+      console.error('✗ Error loading Google Maps API:', error);
+      console.error('→ This usually means the API key is invalid or has restrictions');
+      delete (window as any)[callbackName];
+      localStorage.removeItem('googleMapsApiKey'); // Clear bad key
+      toast.error('Google Maps API failed to load. Check API key configuration.');
+      resolve(false);
+    };
+
+    document.head.appendChild(script);
+    
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      if (!window.google?.maps?.places) {
+        console.error('✗ Google Maps API timed out after 10 seconds');
+        resolve(false);
+      }
+    }, 10000);
   });
 }
 
