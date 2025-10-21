@@ -44,7 +44,16 @@ const AddAddressDialog: React.FC<AddAddressDialogProps> = ({ open, onOpenChange,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent 
+        className="sm:max-w-lg"
+        onInteractOutside={(e) => {
+          // Prevent closing when clicking on Google Places autocomplete dropdown
+          const target = e.target as HTMLElement;
+          if (target.closest('.pac-container')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Add Pickup Address</DialogTitle>
         </DialogHeader>

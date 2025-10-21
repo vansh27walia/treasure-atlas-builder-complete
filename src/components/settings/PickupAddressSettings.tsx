@@ -345,7 +345,16 @@ const PickupAddressSettings: React.FC = () => {
           setShowAddressModal(false);
         }
       }}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking on Google Places autocomplete dropdown
+            const target = e.target as HTMLElement;
+            if (target.closest('.pac-container')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{editingAddress ? 'Edit Pickup Address' : 'Pickup Address'}</DialogTitle>
           </DialogHeader>
