@@ -48,7 +48,7 @@ const AddAddressDialog: React.FC<AddAddressDialogProps> = ({ open, onOpenChange,
         <DialogHeader>
           <DialogTitle>Add Pickup Address</DialogTitle>
         </DialogHeader>
-        <AddressForm onSubmit={handleSubmit} isPickupAddress showDefaultOptions buttonText={isSaving ? 'Saving...' : 'Save Address'} />
+        <AddressForm onSubmit={handleSubmit} isPickupAddress showDefaultOptions buttonText={isSaving ? 'Saving...' : 'Save Address'} enableGoogleAutocomplete={true} />
       </DialogContent>
     </Dialog>
   );

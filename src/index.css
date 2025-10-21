@@ -144,6 +144,7 @@ body {
 /* Google Places Autocomplete dropdown - ensure it's clickable and styled */
 .pac-container {
   z-index: 99999 !important;
+  pointer-events: auto !important;
   background-color: hsl(var(--popover)) !important;
   color: hsl(var(--popover-foreground)) !important;
   border: 1px solid hsl(var(--border)) !important;
