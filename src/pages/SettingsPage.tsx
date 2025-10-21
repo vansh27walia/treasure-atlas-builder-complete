@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+import GoogleApiKeyModal from '@/components/settings/GoogleApiKeyModal';
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuth();
@@ -64,11 +65,14 @@ const SettingsPage: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
-          <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping Options</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
+            <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+            <TabsTrigger value="shipping">Shipping Options</TabsTrigger>
+          </TabsList>
+          <GoogleApiKeyModal />
+        </div>
         
         <TabsContent value="pickup-addresses">
           <PickupAddressSettings />

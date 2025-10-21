@@ -33,13 +33,18 @@ serve(async (req) => {
       );
     }
 
-    // Save the API key as a secret
-    // This will error if you don't have the right permissions
-    await Deno.env.set('GOOGLE_PLACES_API_KEY', apiKey);
+    // Note: In Supabase Edge Functions, you cannot modify environment variables at runtime.
+    // The GOOGLE_PLACES_API_KEY secret must be set via the Supabase dashboard or CLI.
+    // This function validates the format but the actual secret must be configured by admins.
     
-    // Return success
+    console.log('API key received and validated. Please ensure GOOGLE_PLACES_API_KEY is set in Supabase secrets.');
+    
+    // Return success with a note about secret configuration
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'API key validated. Ensure it is configured in Supabase Edge Function secrets as GOOGLE_PLACES_API_KEY.' 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
