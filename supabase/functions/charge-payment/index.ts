@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,23 +32,32 @@ serve(async (req) => {
       apiVersion: "2023-10-16",
     });
 
+    // Input validation schema
+    const paymentSchema = z.object({
+      payment_method_id: z.string().optional(),
+      amount: z.number().positive("Amount must be positive").max(50000, "Amount exceeds maximum limit"),
+      currency: z.string().length(3).default("usd"),
+      description: z.string().max(500, "Description too long").default("Shipping Payment"),
+      transaction_type: z.string().max(50).default("normal"),
+      shipping_details: z.record(z.any()).default({}),
+      automatic_payment_methods: z.boolean().default(false)
+    }).refine(
+      (data) => data.payment_method_id || data.automatic_payment_methods,
+      { message: "Payment method ID is required when automatic payment methods are disabled" }
+    );
+
+    const requestBody = await req.json();
+    const validatedData = paymentSchema.parse(requestBody);
+    
     const { 
       payment_method_id, 
       amount, 
-      currency = "usd", 
-      description = "Shipping Payment",
-      transaction_type = "normal",
-      shipping_details = {},
-      automatic_payment_methods = false
-    } = await req.json();
-
-    if (!payment_method_id && !automatic_payment_methods) {
-      throw new Error("Payment method ID is required");
-    }
-
-    if (!amount || amount <= 0) {
-      throw new Error("Valid amount is required");
-    }
+      currency, 
+      description,
+      transaction_type,
+      shipping_details,
+      automatic_payment_methods
+    } = validatedData;
 
     // Get customer ID from user profile
     const { data: profile } = await supabaseClient

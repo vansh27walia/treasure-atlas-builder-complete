@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
@@ -260,17 +261,33 @@ serve(async (req) => {
       );
     }
 
-    // Parse the request body
+    // Input validation schema
+    const labelRequestSchema = z.object({
+      shipmentId: z.string().min(1, "Shipment ID is required"),
+      rateId: z.string().min(1, "Rate ID is required"),
+      options: z.object({
+        label_format: z.string().max(10).optional(),
+        label_size: z.string().max(10).optional()
+      }).optional().default({}),
+      customsInfo: z.object({
+        contents_type: z.string().max(50).optional(),
+        contents_explanation: z.string().max(500).optional(),
+        customs_signer: z.string().max(100).optional(),
+        phone_number: z.string().max(20).optional(),
+        customs_items: z.array(z.object({
+          description: z.string().max(200),
+          quantity: z.number().positive().max(10000),
+          weight: z.number().positive().max(10000),
+          value: z.number().positive().max(100000),
+          hs_tariff_number: z.string().max(20).optional(),
+          origin_country: z.string().length(2).optional()
+        })).optional()
+      }).optional()
+    });
+
     const requestData = await req.json();
-    const { shipmentId, rateId, options = {}, customsInfo } = requestData;
-    
-    if (!shipmentId || !rateId) {
-      console.error('Missing required parameters', { shipmentId, rateId });
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
+    const validatedData = labelRequestSchema.parse(requestData);
+    const { shipmentId, rateId, options, customsInfo } = validatedData;
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
 
