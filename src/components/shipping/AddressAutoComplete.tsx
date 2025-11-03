@@ -230,7 +230,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         onChange={handleInputChange}
         required={required}
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
-        disabled={disabled || isLoadingKey}
+        disabled={disabled}
         autoComplete="off"
         style={{ zIndex: 10 }}
       />
