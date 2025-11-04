@@ -74,7 +74,30 @@ serve(async (req) => {
       throw new Error("Payment method not found or doesn't belong to user");
     }
 
-    // Create and confirm payment intent off-session  
+    // Validate payment method exists in Stripe before attempting to charge
+    try {
+      const stripePaymentMethod = await stripe.paymentMethods.retrieve(
+        paymentMethodRecord.stripe_payment_method_id
+      );
+      
+      // Verify it's attached to the customer
+      if (!stripePaymentMethod.customer || stripePaymentMethod.customer !== profile.stripe_customer_id) {
+        // Try to attach it if not already attached
+        await stripe.paymentMethods.attach(paymentMethodRecord.stripe_payment_method_id, {
+          customer: profile.stripe_customer_id
+        });
+      }
+    } catch (stripeError: any) {
+      // Payment method doesn't exist in Stripe - clean up database
+      await supabaseService
+        .from("payment_methods")
+        .delete()
+        .eq("id", payment_method_id);
+      
+      throw new Error("This payment method is no longer valid. Please add a new payment method and try again.");
+    }
+
+    // Create and confirm payment intent off-session
     // Limit metadata to avoid Stripe's 500 character limit
     let limitedShippingDetails = null;
     if (shipping_details) {
