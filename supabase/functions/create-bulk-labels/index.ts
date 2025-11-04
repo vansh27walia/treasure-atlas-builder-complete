@@ -2,7 +2,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument } from "npm:pdf-lib"; // Required for local PNG to PDF conversion
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Define CORS headers to allow cross-origin requests
 const corsHeaders = {
@@ -575,23 +574,20 @@ serve(async (req: Request) => {
       });
     }
 
-    // Input validation schema
-    const bulkLabelSchema = z.object({
-      shipments: z.array(z.object({
-        shipmentId: z.string().min(1, "Shipment ID is required"),
-        rateId: z.string().min(1, "Rate ID is required"),
-        shipment_data: z.record(z.any()).optional()
-      })).min(1, "At least one shipment is required").max(1000, "Maximum 1000 shipments per batch"),
-      labelOptions: z.object({
-        label_format: z.string().max(10).optional(),
-        label_size: z.string().max(10).optional(),
-        generateBatch: z.boolean().optional()
-      }).optional().default({})
-    });
+    // Parse the request body for shipments and label options
+    const { shipments, labelOptions = {} } = await req.json();
 
-    const requestBody = await req.json();
-    const validatedData = bulkLabelSchema.parse(requestBody);
-    const { shipments, labelOptions } = validatedData;
+    if (!shipments || !Array.isArray(shipments)) {
+      return new Response(JSON.stringify({
+        error: 'Invalid shipments data: shipments array is missing or malformed'
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 400
+      });
+    }
 
     console.log(`Processing ${shipments.length} shipments for label creation for user: ${user.id}`);
 
