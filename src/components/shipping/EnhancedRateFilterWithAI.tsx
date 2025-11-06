@@ -1,0 +1,302 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Filter, Search, SortAsc, SortDesc, Brain, X, Sparkles } from 'lucide-react';
+import CarrierLogo from './CarrierLogo';
+
+interface EnhancedRateFilterWithAIProps {
+  filters: {
+    search: string;
+    carriers: string[];
+    maxPrice?: number;
+    maxDays?: number;
+    minPrice?: number;
+    features: string[];
+    sortBy: 'price' | 'speed' | 'carrier' | 'reliability';
+    sortOrder: 'asc' | 'desc';
+    selectedCarrier: string;
+  };
+  availableCarriers: string[];
+  onFiltersChange: (filters: any) => void;
+  onClearFilters: () => void;
+  onAIPoweredAnalysis: () => void;
+  rateCount: number;
+  aiEnabled?: boolean;
+}
+
+const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
+  filters,
+  availableCarriers,
+  onFiltersChange,
+  onClearFilters,
+  onAIPoweredAnalysis,
+  rateCount,
+  aiEnabled = true
+}) => {
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([filters.minPrice || 0, filters.maxPrice || 100]);
+  const [daysRange, setDaysRange] = useState<number>(filters.maxDays || 7);
+
+  const handleSearchChange = (value: string) => {
+    onFiltersChange({ ...filters, search: value });
+  };
+
+  const handleCarrierChange = (carrier: string) => {
+    onFiltersChange({ ...filters, selectedCarrier: carrier });
+  };
+
+  const handleSortChange = (sortBy: string) => {
+    onFiltersChange({ ...filters, sortBy });
+  };
+
+  const handleSortOrderToggle = () => {
+    onFiltersChange({ 
+      ...filters, 
+      sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' 
+    });
+  };
+
+  const handlePriceRangeChange = (value: number[]) => {
+    setPriceRange([value[0], value[1]]);
+    onFiltersChange({
+      ...filters,
+      minPrice: value[0],
+      maxPrice: value[1]
+    });
+  };
+
+  const handleDaysChange = (value: number[]) => {
+    setDaysRange(value[0]);
+    onFiltersChange({
+      ...filters,
+      maxDays: value[0]
+    });
+  };
+
+  const handleFeatureToggle = (feature: string) => {
+    const updatedFeatures = filters.features.includes(feature)
+      ? filters.features.filter(f => f !== feature)
+      : [...filters.features, feature];
+    onFiltersChange({ ...filters, features: updatedFeatures });
+  };
+
+  const activeFiltersCount = 
+    (filters.search ? 1 : 0) + 
+    (filters.selectedCarrier && filters.selectedCarrier !== 'all' ? 1 : 0) + 
+    (filters.maxPrice && filters.maxPrice < 100 ? 1 : 0) + 
+    (filters.minPrice && filters.minPrice > 0 ? 1 : 0) +
+    (filters.maxDays && filters.maxDays < 7 ? 1 : 0) +
+    filters.features.length;
+
+  return (
+    <div className="bg-white rounded-lg shadow-md border-2 border-gray-200 p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <Filter className="w-5 h-5 text-blue-600" />
+          Filter & Sort Rates
+        </h3>
+        {activeFiltersCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClearFilters}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Clear All ({activeFiltersCount})
+          </Button>
+        )}
+      </div>
+
+      {/* Main Controls Row */}
+      <div className="flex flex-wrap gap-3 items-center">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
+            placeholder="Search carriers or services..."
+            value={filters.search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-10 h-10 text-sm border-gray-300 focus:border-blue-500"
+          />
+        </div>
+
+        {/* Carrier Dropdown */}
+        <Select value={filters.selectedCarrier || 'all'} onValueChange={handleCarrierChange}>
+          <SelectTrigger className="w-44 h-10 border-gray-300">
+            <SelectValue>
+              <div className="flex items-center gap-2">
+                {(!filters.selectedCarrier || filters.selectedCarrier === 'all') ? (
+                  'All Carriers'
+                ) : (
+                  <>
+                    <CarrierLogo carrier={filters.selectedCarrier} className="w-4 h-4" />
+                    {filters.selectedCarrier.toUpperCase()}
+                  </>
+                )}
+              </div>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="bg-white z-50">
+            <SelectItem value="all">All Carriers</SelectItem>
+            {availableCarriers.map(carrier => (
+              <SelectItem key={carrier} value={carrier}>
+                <div className="flex items-center gap-2">
+                  <CarrierLogo carrier={carrier} className="w-4 h-4" />
+                  {carrier.toUpperCase()}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Sort Controls */}
+        <Select value={filters.sortBy} onValueChange={handleSortChange}>
+          <SelectTrigger className="w-36 h-10 border-gray-300">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white z-50">
+            <SelectItem value="price">Price</SelectItem>
+            <SelectItem value="speed">Speed</SelectItem>
+            <SelectItem value="carrier">Carrier</SelectItem>
+            <SelectItem value="reliability">Reliability</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleSortOrderToggle}
+          className="h-10 px-3 border-gray-300"
+        >
+          {filters.sortOrder === 'asc' ? 
+            <SortAsc className="h-4 w-4" /> : 
+            <SortDesc className="h-4 w-4" />
+          }
+        </Button>
+
+        {/* Advanced Filters */}
+        <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-10 border-gray-300">
+              <Filter className="h-4 w-4 mr-1" />
+              Advanced
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-blue-100 text-blue-800">
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-4 bg-white z-50" align="end">
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Price Range ($)
+                </label>
+                <div className="flex items-center gap-3 mb-2">
+                  <Input
+                    type="number"
+                    value={priceRange[0]}
+                    onChange={(e) => handlePriceRangeChange([parseFloat(e.target.value), priceRange[1]])}
+                    className="w-20 h-8 text-sm"
+                    min="0"
+                  />
+                  <span className="text-gray-500">to</span>
+                  <Input
+                    type="number"
+                    value={priceRange[1]}
+                    onChange={(e) => handlePriceRangeChange([priceRange[0], parseFloat(e.target.value)])}
+                    className="w-20 h-8 text-sm"
+                    min="0"
+                  />
+                </div>
+                <Slider
+                  value={priceRange}
+                  onValueChange={handlePriceRangeChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Max Delivery Days: {daysRange}
+                </label>
+                <Slider
+                  value={[daysRange]}
+                  onValueChange={handleDaysChange}
+                  min={1}
+                  max={10}
+                  step={1}
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Features
+                </label>
+                <div className="space-y-2">
+                  {['Express', 'Insurance', 'Tracking', 'Signature'].map(feature => (
+                    <Button
+                      key={feature}
+                      variant={filters.features.includes(feature) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleFeatureToggle(feature)}
+                      className="w-full justify-start"
+                    >
+                      {feature}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* AI Powered Analysis Button */}
+        {aiEnabled && (
+          <Button
+            onClick={onAIPoweredAnalysis}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white h-10 px-4 flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+          >
+            <Brain className="w-4 h-4" />
+            <Sparkles className="w-3 h-3" />
+            AI Analysis
+          </Button>
+        )}
+      </div>
+
+      {/* Results Count and Active Filters */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">
+            Showing {rateCount} rate{rateCount !== 1 ? 's' : ''}
+          </span>
+          {activeFiltersCount > 0 && (
+            <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border border-blue-200">
+              {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} active
+            </Badge>
+          )}
+        </div>
+        
+        {filters.sortBy !== 'price' && (
+          <span className="text-xs text-gray-500">
+            Sorted by: <span className="font-medium capitalize">{filters.sortBy}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default EnhancedRateFilterWithAI;

@@ -18,7 +18,7 @@ import CustomsDocumentationModal from './CustomsDocumentationModal';
 import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import HazmatSelector from './HazmatSelector';
-import InsuranceCalculator from './InsuranceCalculator';
+import ToggleableInsuranceCalculator from './ToggleableInsuranceCalculator';
 import { Switch } from '@/components/ui/switch';
 
 const shippingFormSchema = z.object({
@@ -44,9 +44,9 @@ const EnhancedShippingForm: React.FC = () => {
   const [customsInfo, setCustomsInfo] = useState<any>(null);
   const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
   const [labelCreationData, setLabelCreationData] = useState<any>(null);
-  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(false);
   const [insuranceAmount, setInsuranceAmount] = useState(100);
-  const [insuranceCost, setInsuranceCost] = useState(2);
+  const [insuranceCost, setInsuranceCost] = useState(0);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -61,7 +61,7 @@ const EnhancedShippingForm: React.FC = () => {
       length: undefined,
       width: undefined,
       height: undefined,
-      insurance: true, // Default insurance to true
+      insurance: false, // Default insurance to false
       hazmat: false,
       hazmatType: ''
     }
@@ -168,9 +168,14 @@ const EnhancedShippingForm: React.FC = () => {
   const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
     setInsuranceEnabled(enabled);
     setInsuranceAmount(amount);
-    setInsuranceCost(cost);
+    setInsuranceCost(enabled ? cost : 0); // Set cost to 0 when disabled
     form.setValue('insurance', enabled);
     form.setValue('declaredValue', amount);
+    
+    // Dispatch event to update insurance cost in rates display
+    document.dispatchEvent(new CustomEvent('insurance-cost-updated', {
+      detail: { enabled, cost: enabled ? cost : 0 }
+    }));
   };
 
   const handleGetRates = async (values: ShippingFormValues) => {
@@ -282,7 +287,8 @@ const EnhancedShippingForm: React.FC = () => {
           detail: {
             rates: processedRates,
             shipmentId: data.shipmentId,
-            isInternational: isInternational
+            isInternational: isInternational,
+            insuranceCost: insuranceEnabled ? insuranceCost : 0
           }
         }));
       }
@@ -420,7 +426,7 @@ const EnhancedShippingForm: React.FC = () => {
 
             {/* Insurance Section */}
             <div className="p-6">
-              <InsuranceCalculator onInsuranceChange={handleInsuranceChange} />
+              <ToggleableInsuranceCalculator onInsuranceChange={handleInsuranceChange} />
             </div>
 
             {/* HAZMAT */}

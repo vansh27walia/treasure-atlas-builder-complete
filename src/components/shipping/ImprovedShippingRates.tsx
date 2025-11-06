@@ -37,7 +37,7 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
   loading = false,
   selectedRateId,
   shipmentDetails: propShipmentDetails,
-  insuranceAmount = 2
+  insuranceAmount = 0
 }) => {
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -46,6 +46,20 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
   const [showAllRates, setShowAllRates] = useState(false);
   const [displayRates, setDisplayRates] = useState<ShippingRate[]>(rates);
   const [showChatbot, setShowChatbot] = useState(true);
+  const [dynamicInsuranceCost, setDynamicInsuranceCost] = useState(0);
+
+  // Listen for insurance cost updates from the form
+  useEffect(() => {
+    const handleInsuranceUpdate = (event: CustomEvent) => {
+      const { enabled, cost } = event.detail;
+      setDynamicInsuranceCost(enabled ? cost : 0);
+    };
+
+    document.addEventListener('insurance-cost-updated', handleInsuranceUpdate as EventListener);
+    return () => {
+      document.removeEventListener('insurance-cost-updated', handleInsuranceUpdate as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (rates && rates.length > 0) {
@@ -244,8 +258,13 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
                       </div>
                     )}
                     <div className="text-3xl font-bold text-blue-800">
-                      ${parseFloat(currentSelectedRate.rate).toFixed(2)}
+                      ${(parseFloat(currentSelectedRate.rate) + dynamicInsuranceCost).toFixed(2)}
                     </div>
+                    {dynamicInsuranceCost > 0 && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        Label: ${parseFloat(currentSelectedRate.rate).toFixed(2)} + Insurance: ${dynamicInsuranceCost.toFixed(2)}
+                      </div>
+                    )}
                   </div>
                   
                   {currentSelectedRate.delivery_days <= 2 && (
@@ -353,7 +372,7 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
             onClick={() => setShowPayment(true)}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 text-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300"
           >
-            Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}
+            Continue with {currentSelectedRate.carrier} - ${(parseFloat(currentSelectedRate.rate) + dynamicInsuranceCost).toFixed(2)}
           </Button>
         )}
       </div>
@@ -365,7 +384,7 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
             selectedRate={currentSelectedRate}
             shipmentDetails={localShipmentDetails || propShipmentDetails}
             onPaymentSuccess={handlePaymentSuccess}
-            insuranceAmount={insuranceAmount}
+            insuranceAmount={dynamicInsuranceCost}
             isCreatingLabel={isCreatingLabel}
             onCancel={handleCancelOrClose}
           />

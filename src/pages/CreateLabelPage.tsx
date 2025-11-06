@@ -5,7 +5,7 @@ import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTrack
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
-import RateFilter from '@/components/shipping/RateFilter';
+import EnhancedRateFilterWithAI from '@/components/shipping/EnhancedRateFilterWithAI';
 import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useAuth } from '@/contexts/AuthContext';
@@ -236,8 +236,9 @@ const CreateLabelPage = () => {
   const [localFilters, setLocalFilters] = useState({
     search: '',
     carriers: [],
-    maxPrice: undefined,
-    maxDays: undefined,
+    maxPrice: 100,
+    minPrice: 0,
+    maxDays: 7,
     features: [],
     sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
     sortOrder: 'asc' as 'asc' | 'desc',
@@ -246,19 +247,110 @@ const CreateLabelPage = () => {
 
   const handleLocalFiltersChange = (newFilters: any) => {
     setLocalFilters(newFilters);
+    // Apply filters to the rates
+    applyFiltersToRates(newFilters);
   };
 
   const handleLocalClearFilters = () => {
-    setLocalFilters({
+    const clearedFilters = {
       search: '',
       carriers: [],
-      maxPrice: undefined,
-      maxDays: undefined,
+      maxPrice: 100,
+      minPrice: 0,
+      maxDays: 7,
       features: [],
-      sortBy: 'price',
-      sortOrder: 'asc',
+      sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
+      sortOrder: 'asc' as 'asc' | 'desc',
       selectedCarrier: 'all'
+    };
+    setLocalFilters(clearedFilters);
+    applyFiltersToRates(clearedFilters);
+  };
+
+  // Apply filters to rates
+  const applyFiltersToRates = (filterSettings: any) => {
+    if (!rates || rates.length === 0) return;
+
+    let filteredRates = [...rates];
+
+    // Search filter
+    if (filterSettings.search) {
+      filteredRates = filteredRates.filter(rate =>
+        rate.carrier.toLowerCase().includes(filterSettings.search.toLowerCase()) ||
+        rate.service.toLowerCase().includes(filterSettings.search.toLowerCase())
+      );
+    }
+
+    // Carrier filter
+    if (filterSettings.selectedCarrier && filterSettings.selectedCarrier !== 'all') {
+      filteredRates = filteredRates.filter(rate =>
+        rate.carrier.toLowerCase() === filterSettings.selectedCarrier.toLowerCase()
+      );
+    }
+
+    // Price range filter
+    if (filterSettings.minPrice > 0 || (filterSettings.maxPrice && filterSettings.maxPrice < 100)) {
+      filteredRates = filteredRates.filter(rate => {
+        const price = parseFloat(rate.rate);
+        return price >= (filterSettings.minPrice || 0) && price <= (filterSettings.maxPrice || 100);
+      });
+    }
+
+    // Max days filter
+    if (filterSettings.maxDays && filterSettings.maxDays < 7) {
+      filteredRates = filteredRates.filter(rate =>
+        (rate.delivery_days || 999) <= filterSettings.maxDays
+      );
+    }
+
+    // Features filter
+    if (filterSettings.features && filterSettings.features.length > 0) {
+      filteredRates = filteredRates.filter(rate => {
+        // Simple feature matching - can be enhanced
+        return filterSettings.features.every((feature: string) => {
+          if (feature === 'Express') return (rate.delivery_days || 999) <= 2;
+          if (feature === 'Tracking') return true; // All have tracking
+          return true;
+        });
+      });
+    }
+
+    // Sort the filtered rates
+    filteredRates.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filterSettings.sortBy) {
+        case 'price':
+          comparison = parseFloat(a.rate) - parseFloat(b.rate);
+          break;
+        case 'speed':
+          comparison = (a.delivery_days || 999) - (b.delivery_days || 999);
+          break;
+        case 'carrier':
+          comparison = a.carrier.localeCompare(b.carrier);
+          break;
+        case 'reliability':
+          const reliabilityOrder: { [key: string]: number } = { 'USPS': 1, 'UPS': 2, 'FedEx': 3, 'DHL': 4 };
+          const scoreA = reliabilityOrder[a.carrier.toUpperCase()] || 999;
+          const scoreB = reliabilityOrder[b.carrier.toUpperCase()] || 999;
+          comparison = scoreA - scoreB;
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return filterSettings.sortOrder === 'asc' ? comparison : -comparison;
     });
+
+    // Dispatch the filtered and sorted rates
+    document.dispatchEvent(new CustomEvent('rates-reordered', { 
+      detail: { rates: filteredRates } 
+    }));
+
+    if (filteredRates.length > 0) {
+      setSelectedRate(filteredRates[0]);
+      handleSelectRate(filteredRates[0].id);
+    }
   };
 
   return (
@@ -285,23 +377,17 @@ const CreateLabelPage = () => {
               <EnhancedShippingForm />
             </div>
 
-            {/* Rate Filter with AI Powered Analysis Button */}
-            <div className="mb-6 flex gap-4">
-              <RateFilter 
+            {/* Enhanced Rate Filter with AI */}
+            <div className="mb-6">
+              <EnhancedRateFilterWithAI
                 filters={localFilters}
                 availableCarriers={uniqueCarriers}
                 onFiltersChange={handleLocalFiltersChange}
                 onClearFilters={handleLocalClearFilters}
+                onAIPoweredAnalysis={handleAIPoweredAnalysis}
                 rateCount={sortedRates.length}
+                aiEnabled={rates && rates.length > 0}
               />
-              <Button
-                onClick={handleAIPoweredAnalysis}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 flex items-center gap-2"
-                disabled={!rates || rates.length === 0}
-              >
-                <Brain className="w-4 h-4" />
-                AI Powered Analysis
-              </Button>
             </div>
             
             {/* Shipping Rates Section */}
