@@ -61,6 +61,23 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
     };
   }, []);
 
+  // Listen for rate selection from AI panel
+  useEffect(() => {
+    const handleRateSelect = (event: CustomEvent) => {
+      const { rateId } = event.detail;
+      const rate = displayRates.find(r => r.id === rateId);
+      if (rate) {
+        setSelectedRate(rate);
+        onRateSelected(rate);
+      }
+    };
+
+    document.addEventListener('select-shipping-rate', handleRateSelect as EventListener);
+    return () => {
+      document.removeEventListener('select-shipping-rate', handleRateSelect as EventListener);
+    };
+  }, [displayRates, onRateSelected]);
+
   useEffect(() => {
     if (rates && rates.length > 0) {
       setDisplayRates(rates);

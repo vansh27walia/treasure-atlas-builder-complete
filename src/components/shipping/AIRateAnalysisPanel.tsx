@@ -218,26 +218,38 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 <div className="text-xs text-blue-600 mt-1">✨ AI Recommended</div>
               </div>
 
-              {/* Labels */}
-              <div className="space-y-1">
+              {/* Labels with detailed explanations */}
+              <div className="space-y-2">
                 {analysis.labels.isCheapest && (
-                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
-                    💰 Cheapest option
+                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1.5">
+                    <div className="flex flex-col w-full">
+                      <div className="font-semibold">💰 Cheapest option</div>
+                      <div className="text-[10px] mt-0.5 opacity-80">Lowest cost among all available rates - best for budget-conscious shipping</div>
+                    </div>
                   </Badge>
                 )}
                 {analysis.labels.isFastest && (
-                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1">
-                    ⚡ Fastest delivery
+                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1.5">
+                    <div className="flex flex-col w-full">
+                      <div className="font-semibold">⚡ Fastest delivery</div>
+                      <div className="text-[10px] mt-0.5 opacity-80">Quickest transit time - ideal for time-sensitive shipments</div>
+                    </div>
                   </Badge>
                 )}
                 {analysis.labels.isMostReliable && (
-                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1">
-                    🛡️ Most reliable
+                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1.5">
+                    <div className="flex flex-col w-full">
+                      <div className="font-semibold">🛡️ Most reliable</div>
+                      <div className="text-[10px] mt-0.5 opacity-80">Best track record for on-time delivery and package safety</div>
+                    </div>
                   </Badge>
                 )}
                 {analysis.labels.isMostEfficient && (
-                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1">
-                    ✅ Most efficient
+                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1.5">
+                    <div className="flex flex-col w-full">
+                      <div className="font-semibold">✅ Most efficient</div>
+                      <div className="text-[10px] mt-0.5 opacity-80">Optimal balance of cost, speed, and reliability - AI's top recommendation</div>
+                    </div>
                   </Badge>
                 )}
               </div>

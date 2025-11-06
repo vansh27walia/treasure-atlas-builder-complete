@@ -172,7 +172,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 flex flex-col space-y-4">
-              {/* PDF Preview - Smaller size to show button */}
+              {/* PDF Preview - Optimized for full label display */}
               <div className="p-4 bg-gray-50 border rounded-lg">
                 <div className="mx-auto bg-white p-3 shadow-lg rounded-lg">
                   {labelUrl ? (
@@ -181,9 +181,11 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                       src={labelUrl} 
                       style={{ 
                         width: '100%', 
-                        height: '450px',
+                        height: '600px',
                         border: '1px solid #ccc',
-                        borderRadius: '6px'
+                        borderRadius: '6px',
+                        transform: 'scale(0.95)',
+                        transformOrigin: 'top center'
                       }} 
                       title="Label Preview"
                     />
@@ -197,6 +199,9 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
                   )}
                 </div>
               </div>
+              <p className="text-xs text-gray-500 text-center">
+                Preview scaled to fit. Download for full-size label.
+              </p>
 
               {/* Print Button - Only in Preview Tab */}
               <div className="pt-2">

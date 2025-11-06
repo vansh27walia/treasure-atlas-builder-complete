@@ -26,9 +26,19 @@ const ToggleableInsuranceCalculator: React.FC<ToggleableInsuranceCalculatorProps
   
   const insuranceCost = calculateInsuranceCost(declaredValue);
 
+  // Dispatch initial cost on mount
   useEffect(() => {
     onInsuranceChange(isEnabled, declaredValue, insuranceCost);
   }, [isEnabled, declaredValue, insuranceCost]);
+
+  // Dispatch initial state immediately when component mounts
+  useEffect(() => {
+    // Small delay to ensure parent is ready to receive the event
+    const timer = setTimeout(() => {
+      onInsuranceChange(isEnabled, declaredValue, insuranceCost);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleValueChange = (value: string) => {
     const numValue = Math.max(0, parseFloat(value) || 0);

@@ -75,6 +75,23 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     };
   }, []);
 
+  // Listen for rate selection from AI panel
+  useEffect(() => {
+    const handleRateSelect = (event: CustomEvent) => {
+      const { rateId } = event.detail;
+      const rate = displayRates.find(r => r.id === rateId);
+      if (rate) {
+        setSelectedRate(rate);
+        onRateSelected(rate);
+      }
+    };
+
+    document.addEventListener('select-shipping-rate', handleRateSelect as EventListener);
+    return () => {
+      document.removeEventListener('select-shipping-rate', handleRateSelect as EventListener);
+    };
+  }, [displayRates, onRateSelected]);
+
   // Update display rates when rates prop changes and standardize carrier names
   useEffect(() => {
     if (rates && rates.length > 0) {
