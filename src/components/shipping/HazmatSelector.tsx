@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle } from 'lucide-react';
@@ -34,15 +34,11 @@ const HazmatSelector: React.FC<HazmatSelectorProps> = ({
         <Label className="text-base font-medium text-orange-800">Hazardous Materials</Label>
       </div>
       
-      <div className="flex items-center space-x-3">
-        <Checkbox
-          id="hazmat"
-          checked={isHazmat}
-          onCheckedChange={onHazmatChange}
-        />
+      <div className="flex items-center justify-between">
         <Label htmlFor="hazmat" className="text-sm font-medium">
-          This package contains hazardous materials
+          Hazardous materials
         </Label>
+        <Switch id="hazmat" checked={isHazmat} onCheckedChange={onHazmatChange} />
       </div>
 
       {isHazmat && (

@@ -11,7 +11,7 @@ interface InlinePaymentSectionProps {
   selectedRate: any;
   shipmentDetails: any;
   onPaymentSuccess: (data: any) => void;
-  insuranceAmount?: number;
+  insuranceCost?: number;
   isCreatingLabel?: boolean;
   onCancel?: () => void;
 }
@@ -20,7 +20,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   selectedRate,
   shipmentDetails,
   onPaymentSuccess,
-  insuranceAmount = 100,
+  insuranceCost = 0,
   isCreatingLabel = false,
   onCancel
 }) => {
@@ -29,8 +29,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   const [isCreatingLabelState, setIsCreatingLabelState] = useState(false);
 
   const shippingCost = parseFloat(selectedRate.rate);
-  const insuranceCost = 2.00; // Fixed $2 insurance cost
-  const totalCost = shippingCost + insuranceCost;
+  const totalCost = shippingCost + (insuranceCost || 0);
 
   // Auto-scroll to payment section when it appears
   useEffect(() => {
@@ -135,13 +134,15 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
               <span className="font-medium">${shippingCost.toFixed(2)}</span>
             </div>
             
-            <div className="flex justify-between items-center text-green-700">
-              <div className="flex items-center">
-                <Shield className="w-4 h-4 mr-1" />
-                <span>Insurance (${insuranceAmount} coverage)</span>
+            {insuranceCost > 0 && (
+              <div className="flex justify-between items-center text-green-700">
+                <div className="flex items-center">
+                  <Shield className="w-4 h-4 mr-1" />
+                  <span>Insurance</span>
+                </div>
+                <span className="font-medium">${insuranceCost.toFixed(2)}</span>
               </div>
-              <span className="font-medium">${insuranceCost.toFixed(2)}</span>
-            </div>
+            )}
             
             <Separator className="my-2" />
             

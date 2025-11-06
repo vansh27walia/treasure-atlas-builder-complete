@@ -45,6 +45,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const [localShipmentDetails, setLocalShipmentDetails] = useState<any>(propShipmentDetails);
   const [showAllRates, setShowAllRates] = useState(false);
   const [displayRates, setDisplayRates] = useState<ShippingRate[]>(rates);
+  const [dynamicInsuranceCost, setDynamicInsuranceCost] = useState(0);
 
   // Listen for rate reordering events from the AI panel
   useEffect(() => {
@@ -59,6 +60,19 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     
     document.addEventListener('rates-reordered', handleRatesReordered);
     return () => document.removeEventListener('rates-reordered', handleRatesReordered);
+  }, []);
+
+  // Listen for insurance cost updates
+  useEffect(() => {
+    const handleInsuranceUpdate = (event: CustomEvent) => {
+      const { enabled, cost } = event.detail;
+      setDynamicInsuranceCost(enabled ? cost : 0);
+    };
+
+    document.addEventListener('insurance-cost-updated', handleInsuranceUpdate as EventListener);
+    return () => {
+      document.removeEventListener('insurance-cost-updated', handleInsuranceUpdate as EventListener);
+    };
   }, []);
 
   // Update display rates when rates prop changes and standardize carrier names
@@ -374,7 +388,9 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
             onClick={() => setShowPayment(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
           >
-            Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}
+            Continue with {currentSelectedRate.carrier} - ${(
+              parseFloat(currentSelectedRate.rate) + dynamicInsuranceCost
+            ).toFixed(2)}
           </Button>
         )}
       </div>
@@ -386,7 +402,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
             selectedRate={currentSelectedRate}
             shipmentDetails={localShipmentDetails || propShipmentDetails}
             onPaymentSuccess={handlePaymentSuccess}
-            insuranceAmount={insuranceAmount}
+            insuranceCost={dynamicInsuranceCost}
             isCreatingLabel={isCreatingLabel}
           />
         </div>

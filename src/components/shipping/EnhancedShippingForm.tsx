@@ -19,6 +19,7 @@ import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import HazmatSelector from './HazmatSelector';
 import ToggleableInsuranceCalculator from './ToggleableInsuranceCalculator';
+import ToggleableCustomsClearance from './ToggleableCustomsClearance';
 import { Switch } from '@/components/ui/switch';
 
 const shippingFormSchema = z.object({
@@ -44,9 +45,9 @@ const EnhancedShippingForm: React.FC = () => {
   const [customsInfo, setCustomsInfo] = useState<any>(null);
   const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
   const [labelCreationData, setLabelCreationData] = useState<any>(null);
-  const [insuranceEnabled, setInsuranceEnabled] = useState(false);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(100);
-  const [insuranceCost, setInsuranceCost] = useState(0);
+  const [insuranceCost, setInsuranceCost] = useState(2);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -61,7 +62,7 @@ const EnhancedShippingForm: React.FC = () => {
       length: undefined,
       width: undefined,
       height: undefined,
-      insurance: false, // Default insurance to false
+      insurance: true, // Default insurance to true
       hazmat: false,
       hazmatType: ''
     }
@@ -430,13 +431,25 @@ const EnhancedShippingForm: React.FC = () => {
             </div>
 
             {/* HAZMAT */}
-            <div className="p-6">
+            <div className="p-6 space-y-4">
               <FormField control={form.control} name="hazmat" render={({
               field
             }) => <FormItem>
                     <HazmatSelector isHazmat={field.value} hazmatType={form.watch('hazmatType') || ''} onHazmatChange={field.onChange} onHazmatTypeChange={type => form.setValue('hazmatType', type)} />
                     <FormMessage />
                   </FormItem>} />
+
+              {/* Customs Clearance Toggle */}
+              <ToggleableCustomsClearance
+                enabled={!!customsInfo}
+                onToggle={(checked) => {
+                  if (checked) {
+                    setShowCustomsModal(true);
+                  } else {
+                    setCustomsInfo(null);
+                  }
+                }}
+              />
             </div>
 
             {/* Customs Documentation Section */}

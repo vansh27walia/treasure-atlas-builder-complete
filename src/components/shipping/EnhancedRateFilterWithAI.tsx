@@ -123,7 +123,7 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
             placeholder="Search carriers or services..."
             value={filters.search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10 h-10 text-sm border-gray-300 focus:border-blue-500"
+            className="pl-10 h-9 text-sm border-gray-300 focus:border-blue-500"
           />
         </div>
 
@@ -246,7 +246,7 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
                   Features
                 </label>
                 <div className="space-y-2">
-                  {['Express', 'Insurance', 'Tracking', 'Signature'].map(feature => (
+                  {['Express', 'Insurance', 'Tracking', 'Signature', 'Weekend', 'Pickup', 'Dropoff'].map(feature => (
                     <Button
                       key={feature}
                       variant={filters.features.includes(feature) ? "default" : "outline"}
@@ -264,16 +264,15 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
         </Popover>
 
         {/* AI Powered Analysis Button */}
-        {aiEnabled && (
-          <Button
-            onClick={onAIPoweredAnalysis}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white h-10 px-4 flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
-          >
-            <Brain className="w-4 h-4" />
-            <Sparkles className="w-3 h-3" />
-            AI Analysis
-          </Button>
-        )}
+        <Button
+          onClick={onAIPoweredAnalysis}
+          variant="default"
+          className="h-10 px-4 flex items-center gap-2"
+        >
+          <Brain className="w-4 h-4" />
+          <Sparkles className="w-3 h-3" />
+          AI Analysis
+        </Button>
       </div>
 
       {/* Results Count and Active Filters */}

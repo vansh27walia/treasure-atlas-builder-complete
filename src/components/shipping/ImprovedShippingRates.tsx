@@ -384,7 +384,7 @@ const ImprovedShippingRates: React.FC<ImprovedShippingRatesProps> = ({
             selectedRate={currentSelectedRate}
             shipmentDetails={localShipmentDetails || propShipmentDetails}
             onPaymentSuccess={handlePaymentSuccess}
-            insuranceAmount={dynamicInsuranceCost}
+            insuranceCost={dynamicInsuranceCost}
             isCreatingLabel={isCreatingLabel}
             onCancel={handleCancelOrClose}
           />

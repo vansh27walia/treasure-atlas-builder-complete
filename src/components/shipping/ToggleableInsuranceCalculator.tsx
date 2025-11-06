@@ -15,7 +15,7 @@ const ToggleableInsuranceCalculator: React.FC<ToggleableInsuranceCalculatorProps
   onInsuranceChange,
   hideFromRates = false
 }) => {
-  const [isEnabled, setIsEnabled] = useState(false);
+  const [isEnabled, setIsEnabled] = useState(true);
   const [declaredValue, setDeclaredValue] = useState(100);
   
   const calculateInsuranceCost = (value: number) => {
