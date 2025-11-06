@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -13,10 +12,11 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Brain } from 'lucide-react';
 import { toast } from 'sonner';
-
 const CreateLabelPage = () => {
   // Move ALL hooks to the top before any conditional logic
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const {
     rates,
     handleSelectRate,
@@ -25,7 +25,6 @@ const CreateLabelPage = () => {
     handleFiltersChange: handleShippingFiltersChange,
     handleClearFilters: handleShippingClearFilters
   } = useShippingRates();
-  
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showAIPanel, setShowAIPanel] = useState(false);
@@ -57,7 +56,6 @@ const CreateLabelPage = () => {
       setIsPaymentInProgress(true);
       setShowAIPanel(false);
     };
-
     const handlePaymentEnd = () => {
       setIsPaymentInProgress(false);
     };
@@ -75,8 +73,12 @@ const CreateLabelPage = () => {
     // Listen for dimensions transfer from rate calculator
     const handleDimensionsTransfer = (event: CustomEvent) => {
       console.log('Dimensions transfer event received:', event.detail);
-      const { dimensions, weightUnit, packageType } = event.detail;
-      
+      const {
+        dimensions,
+        weightUnit,
+        packageType
+      } = event.detail;
+
       // Dispatch event to pre-fill only the dimensions in the shipping form
       document.dispatchEvent(new CustomEvent('prefill-dimensions-only', {
         detail: {
@@ -85,7 +87,6 @@ const CreateLabelPage = () => {
           packageType
         }
       }));
-      
       toast.success('Package dimensions pre-filled from rate calculator');
     };
 
@@ -95,7 +96,6 @@ const CreateLabelPage = () => {
     document.addEventListener('payment-cancelled', handlePaymentEnd);
     document.addEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
     document.addEventListener('transfer-dimensions-to-shipping', handleDimensionsTransfer as EventListener);
-
     return () => {
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-complete', handlePaymentEnd);
@@ -109,7 +109,6 @@ const CreateLabelPage = () => {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
@@ -118,7 +117,6 @@ const CreateLabelPage = () => {
     }
     handleSelectRate(rate.id);
   };
-
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
     // Use the new filters system instead
@@ -134,13 +132,11 @@ const CreateLabelPage = () => {
       });
     }
   };
-
   const handleOptimizationChange = (filter: string) => {
     console.log('Optimization changed:', filter);
-    
+
     // Apply optimization logic here
     let sortedRates = [...(rates || [])];
-    
     switch (filter) {
       case 'cheapest':
         sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
@@ -152,15 +148,20 @@ const CreateLabelPage = () => {
       case 'most-efficient':
         // Balance between price and speed
         sortedRates.sort((a, b) => {
-          const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 999);
-          const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 999);
+          const scoreA = parseFloat(a.rate) / 10 + (a.delivery_days || 999);
+          const scoreB = parseFloat(b.rate) / 10 + (b.delivery_days || 999);
           return scoreA - scoreB;
         });
         break;
       case 'most-reliable':
         // Sort by carrier reliability (USPS first, then UPS, FedEx, DHL)
         sortedRates.sort((a, b) => {
-          const reliabilityOrder = { 'USPS': 1, 'UPS': 2, 'FedEx': 3, 'DHL': 4 };
+          const reliabilityOrder = {
+            'USPS': 1,
+            'UPS': 2,
+            'FedEx': 3,
+            'DHL': 4
+          };
           const scoreA = reliabilityOrder[a.carrier.toUpperCase()] || 999;
           const scoreB = reliabilityOrder[b.carrier.toUpperCase()] || 999;
           return scoreA - scoreB;
@@ -170,29 +171,28 @@ const CreateLabelPage = () => {
         // Keep current order
         break;
     }
-    
+
     // Update the rates order and select the first one
     if (sortedRates.length > 0) {
       setSelectedRate(sortedRates[0]);
       handleSelectRate(sortedRates[0].id);
-      
+
       // Trigger a re-render of the ShippingRates component with new order
-      document.dispatchEvent(new CustomEvent('rates-reordered', { 
-        detail: { rates: sortedRates } 
+      document.dispatchEvent(new CustomEvent('rates-reordered', {
+        detail: {
+          rates: sortedRates
+        }
       }));
     }
   };
-
   const handleOpenRateCalculator = () => {
     setIsRateCalculatorOpen(true);
   };
-
   const handleCloseSidebar = () => {
     console.log('Closing AI sidebar manually');
     setShowAIPanel(false);
     setAiPanelClosedManually(true); // Mark as manually closed
   };
-
   const handleAIPoweredAnalysis = () => {
     console.log('AI Powered Analysis button clicked');
     if (rates && rates.length > 0) {
@@ -212,7 +212,6 @@ const CreateLabelPage = () => {
       list_rate: rate.list_rate || rate.retail_rate
     }));
   };
-
   const getStandardizedCarrierName = (carrierName: string) => {
     const name = carrierName.toUpperCase();
     if (name.includes('USPS')) return 'USPS';
@@ -244,13 +243,11 @@ const CreateLabelPage = () => {
     sortOrder: 'asc' as 'asc' | 'desc',
     selectedCarrier: 'all'
   });
-
   const handleLocalFiltersChange = (newFilters: any) => {
     setLocalFilters(newFilters);
     // Apply filters to the rates
     applyFiltersToRates(newFilters);
   };
-
   const handleLocalClearFilters = () => {
     const clearedFilters = {
       search: '',
@@ -270,26 +267,20 @@ const CreateLabelPage = () => {
   // Apply filters to rates
   const applyFiltersToRates = (filterSettings: any) => {
     if (!rates || rates.length === 0) return;
-
     let filteredRates = [...rates];
 
     // Search filter
     if (filterSettings.search) {
-      filteredRates = filteredRates.filter(rate =>
-        rate.carrier.toLowerCase().includes(filterSettings.search.toLowerCase()) ||
-        rate.service.toLowerCase().includes(filterSettings.search.toLowerCase())
-      );
+      filteredRates = filteredRates.filter(rate => rate.carrier.toLowerCase().includes(filterSettings.search.toLowerCase()) || rate.service.toLowerCase().includes(filterSettings.search.toLowerCase()));
     }
 
     // Carrier filter
     if (filterSettings.selectedCarrier && filterSettings.selectedCarrier !== 'all') {
-      filteredRates = filteredRates.filter(rate =>
-        rate.carrier.toLowerCase() === filterSettings.selectedCarrier.toLowerCase()
-      );
+      filteredRates = filteredRates.filter(rate => rate.carrier.toLowerCase() === filterSettings.selectedCarrier.toLowerCase());
     }
 
     // Price range filter
-    if (filterSettings.minPrice > 0 || (filterSettings.maxPrice && filterSettings.maxPrice < 100)) {
+    if (filterSettings.minPrice > 0 || filterSettings.maxPrice && filterSettings.maxPrice < 100) {
       filteredRates = filteredRates.filter(rate => {
         const price = parseFloat(rate.rate);
         return price >= (filterSettings.minPrice || 0) && price <= (filterSettings.maxPrice || 100);
@@ -298,9 +289,7 @@ const CreateLabelPage = () => {
 
     // Max days filter
     if (filterSettings.maxDays && filterSettings.maxDays < 7) {
-      filteredRates = filteredRates.filter(rate =>
-        (rate.delivery_days || 999) <= filterSettings.maxDays
-      );
+      filteredRates = filteredRates.filter(rate => (rate.delivery_days || 999) <= filterSettings.maxDays);
     }
 
     // Features filter
@@ -318,7 +307,6 @@ const CreateLabelPage = () => {
     // Sort the filtered rates
     filteredRates.sort((a, b) => {
       let comparison = 0;
-      
       switch (filterSettings.sortBy) {
         case 'price':
           comparison = parseFloat(a.rate) - parseFloat(b.rate);
@@ -330,7 +318,14 @@ const CreateLabelPage = () => {
           comparison = a.carrier.localeCompare(b.carrier);
           break;
         case 'reliability':
-          const reliabilityOrder: { [key: string]: number } = { 'USPS': 1, 'UPS': 2, 'FedEx': 3, 'DHL': 4 };
+          const reliabilityOrder: {
+            [key: string]: number;
+          } = {
+            'USPS': 1,
+            'UPS': 2,
+            'FedEx': 3,
+            'DHL': 4
+          };
           const scoreA = reliabilityOrder[a.carrier.toUpperCase()] || 999;
           const scoreB = reliabilityOrder[b.carrier.toUpperCase()] || 999;
           comparison = scoreA - scoreB;
@@ -338,32 +333,30 @@ const CreateLabelPage = () => {
         default:
           comparison = 0;
       }
-
       return filterSettings.sortOrder === 'asc' ? comparison : -comparison;
     });
 
     // Dispatch the filtered and sorted rates
-    document.dispatchEvent(new CustomEvent('rates-reordered', { 
-      detail: { rates: filteredRates } 
+    document.dispatchEvent(new CustomEvent('rates-reordered', {
+      detail: {
+        rates: filteredRates
+      }
     }));
-
     if (filteredRates.length > 0) {
       setSelectedRate(filteredRates[0]);
       handleSelectRate(filteredRates[0].id);
     }
   };
-
-  return (
-    <div className="min-h-screen bg-background relative">
+  return <div className="min-h-screen bg-background relative">
       {/* Sticky Workflow Tracker */}
       <div className="sticky top-0 z-40 bg-transparent">
-        <EnhancedWorkflowTracker currentStep="package" />
+        <EnhancedWorkflowTracker currentStep="package" className="rounded-xl px-[10px]" />
       </div>
       
       {/* Main Content - Adjust width when sidebar is open and not in payment */}
       <div className={`transition-all duration-300 ${showAIPanel && !isPaymentInProgress ? 'pr-80' : ''}`}>
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-[20px]">
             {/* Header Section */}
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
@@ -379,50 +372,25 @@ const CreateLabelPage = () => {
 
             {/* Enhanced Rate Filter with AI */}
             <div className="mb-6">
-              <EnhancedRateFilterWithAI
-                filters={localFilters}
-                availableCarriers={uniqueCarriers}
-                onFiltersChange={handleLocalFiltersChange}
-                onClearFilters={handleLocalClearFilters}
-                onAIPoweredAnalysis={handleAIPoweredAnalysis}
-                rateCount={sortedRates.length}
-                aiEnabled={rates && rates.length > 0}
-              />
+              <EnhancedRateFilterWithAI filters={localFilters} availableCarriers={uniqueCarriers} onFiltersChange={handleLocalFiltersChange} onClearFilters={handleLocalClearFilters} onAIPoweredAnalysis={handleAIPoweredAnalysis} rateCount={sortedRates.length} aiEnabled={rates && rates.length > 0} />
             </div>
             
             {/* Shipping Rates Section */}
             <div id="shipping-rates-section">
-              <ShippingRates 
-                rates={sortedRates || []} 
-                onRateSelected={handleRateSelected} 
-                loading={false} 
-              />
+              <ShippingRates rates={sortedRates || []} onRateSelected={handleRateSelected} loading={false} />
             </div>
           </div>
         </div>
       </div>
 
       {/* AI Analysis Panel - Only show when not in payment flow and not manually closed */}
-      {showAIPanel && selectedRate && !isPaymentInProgress && (
-        <AIRateAnalysisPanel
-          selectedRate={selectedRate}
-          allRates={sortedRates || []}
-          isOpen={showAIPanel}
-          onClose={handleCloseSidebar}
-          onOptimizationChange={handleOptimizationChange}
-        />
-      )}
+      {showAIPanel && selectedRate && !isPaymentInProgress && <AIRateAnalysisPanel selectedRate={selectedRate} allRates={sortedRates || []} isOpen={showAIPanel} onClose={handleCloseSidebar} onOptimizationChange={handleOptimizationChange} />}
 
       {/* Rate Calculator Modal */}
-      <RateCalculatorModal 
-        isOpen={isRateCalculatorOpen} 
-        onClose={() => setIsRateCalculatorOpen(false)} 
-      />
+      <RateCalculatorModal isOpen={isRateCalculatorOpen} onClose={() => setIsRateCalculatorOpen(false)} />
 
       {/* ShipAI Chatbot */}
       <ShipAIChatbot onClose={() => {}} />
-    </div>
-  );
+    </div>;
 };
-
 export default CreateLabelPage;

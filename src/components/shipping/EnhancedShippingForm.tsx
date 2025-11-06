@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,7 +20,6 @@ import HazmatSelector from './HazmatSelector';
 import ToggleableInsuranceCalculator from './ToggleableInsuranceCalculator';
 import ToggleableCustomsClearance from './ToggleableCustomsClearance';
 import { Switch } from '@/components/ui/switch';
-
 const shippingFormSchema = z.object({
   packageType: z.string().min(1, "Please select a package type"),
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
@@ -34,9 +32,7 @@ const shippingFormSchema = z.object({
   hazmat: z.boolean().default(false),
   hazmatType: z.string().optional()
 });
-
 type ShippingFormValues = z.infer<typeof shippingFormSchema>;
-
 const EnhancedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
@@ -48,26 +44,25 @@ const EnhancedShippingForm: React.FC = () => {
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(100);
   const [insuranceCost, setInsuranceCost] = useState(2);
-
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
-
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
       packageType: 'box',
       weightValue: undefined,
       weightUnit: 'lb',
-      declaredValue: 100, // Default to $100
+      declaredValue: 100,
+      // Default to $100
       length: undefined,
       width: undefined,
       height: undefined,
-      insurance: true, // Default insurance to true
+      insurance: true,
+      // Default insurance to true
       hazmat: false,
       hazmatType: ''
     }
   });
-
   const watchPackageType = form.watch("packageType");
   const watchInsurance = form.watch("insurance");
   const watchDeclaredValue = form.watch("declaredValue");
@@ -75,16 +70,16 @@ const EnhancedShippingForm: React.FC = () => {
 
   // Updated logic for showing dimensions based on package type
   const predefinedPackages = [
-    // USPS Predefined Packages
-    'Card', 'Letter', 'Flat', 'FlatRateEnvelope', 'FlatRateLegalEnvelope', 'FlatRatePaddedEnvelope', 'FlatRateWindowEnvelope', 'FlatRateCardboardEnvelope', 'SmallFlatRateEnvelope', 'Parcel', 'SoftPack', 'SmallFlatRateBox', 'MediumFlatRateBox', 'LargeFlatRateBox', 'LargeFlatRateBoxAPOFPO', 'FlatTubTrayBox', 'EMMTrayBox', 'FullTrayBox', 'HalfTrayBox', 'PMODSack',
-    // FedEx Predefined Packages
-    'FedExEnvelope', 'FedExBox', 'FedExPak', 'FedExTube', 'FedEx10kgBox', 'FedEx25kgBox', 'FedExSmallBox', 'FedExMediumBox', 'FedExLargeBox', 'FedExExtraLargeBox',
-    // DHL Predefined Packages
-    'JumboDocument', 'JumboParcel', 'Document', 'DHLFlyer', 'Domestic', 'ExpressDocument', 'DHLExpressEnvelope', 'JumboBox', 'JumboJuniorDocument', 'JuniorJumboBox', 'JumboJuniorParcel', 'OtherDHLPackaging', 'YourPackaging',
-    // UPS Predefined Packages
-    'UPSLetter', 'UPSExpressBox', 'UPS25kgBox', 'UPS10kgBox', 'Tube', 'Pak', 'SmallExpressBox', 'MediumExpressBox', 'LargeExpressBox',
-    // Legacy packages for backward compatibility
-    'canada_post_box', 'uk_post_box'];
+  // USPS Predefined Packages
+  'Card', 'Letter', 'Flat', 'FlatRateEnvelope', 'FlatRateLegalEnvelope', 'FlatRatePaddedEnvelope', 'FlatRateWindowEnvelope', 'FlatRateCardboardEnvelope', 'SmallFlatRateEnvelope', 'Parcel', 'SoftPack', 'SmallFlatRateBox', 'MediumFlatRateBox', 'LargeFlatRateBox', 'LargeFlatRateBoxAPOFPO', 'FlatTubTrayBox', 'EMMTrayBox', 'FullTrayBox', 'HalfTrayBox', 'PMODSack',
+  // FedEx Predefined Packages
+  'FedExEnvelope', 'FedExBox', 'FedExPak', 'FedExTube', 'FedEx10kgBox', 'FedEx25kgBox', 'FedExSmallBox', 'FedExMediumBox', 'FedExLargeBox', 'FedExExtraLargeBox',
+  // DHL Predefined Packages
+  'JumboDocument', 'JumboParcel', 'Document', 'DHLFlyer', 'Domestic', 'ExpressDocument', 'DHLExpressEnvelope', 'JumboBox', 'JumboJuniorDocument', 'JuniorJumboBox', 'JumboJuniorParcel', 'OtherDHLPackaging', 'YourPackaging',
+  // UPS Predefined Packages
+  'UPSLetter', 'UPSExpressBox', 'UPS25kgBox', 'UPS10kgBox', 'Tube', 'Pak', 'SmallExpressBox', 'MediumExpressBox', 'LargeExpressBox',
+  // Legacy packages for backward compatibility
+  'canada_post_box', 'uk_post_box'];
   const showDimensions = watchPackageType === 'box';
   const showEnvelopeDimensions = watchPackageType === 'envelope';
   const isPredefinedPackage = predefinedPackages.includes(watchPackageType);
@@ -102,14 +97,17 @@ const EnhancedShippingForm: React.FC = () => {
   // Listen for dimensions-only prefill from rate calculator
   useEffect(() => {
     const handleDimensionsPrefill = (event: CustomEvent) => {
-      const { dimensions, weightUnit, packageType } = event.detail;
+      const {
+        dimensions,
+        weightUnit,
+        packageType
+      } = event.detail;
       console.log('Pre-filling dimensions only from rate calculator:', event.detail);
-      
+
       // Update form with only dimensions, weight, and package type
       form.setValue('packageType', packageType);
       form.setValue('weightValue', parseFloat(dimensions.weight) || 0);
       form.setValue('weightUnit', weightUnit);
-      
       if (dimensions.length) {
         form.setValue('length', parseFloat(dimensions.length));
       }
@@ -120,9 +118,7 @@ const EnhancedShippingForm: React.FC = () => {
         form.setValue('height', parseFloat(dimensions.height));
       }
     };
-
     document.addEventListener('prefill-dimensions-only', handleDimensionsPrefill as EventListener);
-    
     return () => {
       document.removeEventListener('prefill-dimensions-only', handleDimensionsPrefill as EventListener);
     };
@@ -135,11 +131,10 @@ const EnhancedShippingForm: React.FC = () => {
       try {
         const data = JSON.parse(rateCalcData);
         console.log('Auto-filling from rate calculator:', data);
-        
+
         // Only fill weight, dimensions, and unit - addresses will be empty
         form.setValue('weightValue', parseFloat(data.weight) || 0);
         form.setValue('weightUnit', data.weightUnit || 'lbs');
-        
         if (data.length) {
           form.setValue('length', parseFloat(data.length));
         }
@@ -149,36 +144,35 @@ const EnhancedShippingForm: React.FC = () => {
         if (data.height) {
           form.setValue('height', parseFloat(data.height));
         }
-        
+
         // Clear sessionStorage after using
         sessionStorage.removeItem('rateCalculatorTransfer');
-        
         toast.success('Package details loaded from rate calculator');
       } catch (error) {
         console.error('Error parsing rate calculator data:', error);
       }
     }
   }, [form]);
-
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
     toast.success("Customs documentation saved successfully");
   };
-
   const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
     setInsuranceEnabled(enabled);
     setInsuranceAmount(amount);
     setInsuranceCost(enabled ? cost : 0); // Set cost to 0 when disabled
     form.setValue('insurance', enabled);
     form.setValue('declaredValue', amount);
-    
+
     // Dispatch event to update insurance cost in rates display
     document.dispatchEvent(new CustomEvent('insurance-cost-updated', {
-      detail: { enabled, cost: enabled ? cost : 0 }
+      detail: {
+        enabled,
+        cost: enabled ? cost : 0
+      }
     }));
   };
-
   const handleGetRates = async (values: ShippingFormValues) => {
     if (!fromAddress || !toAddress) {
       toast.error("Please provide both origin and destination addresses");
@@ -191,7 +185,6 @@ const EnhancedShippingForm: React.FC = () => {
       setShowCustomsModal(true);
       return;
     }
-
     setIsLoading(true);
     try {
       // Convert weight to ounces for backend processing
@@ -251,7 +244,8 @@ const EnhancedShippingForm: React.FC = () => {
         },
         parcel: parcelData,
         options: {},
-        carriers: ['usps', 'ups', 'fedex', 'dhl'], // Default to all carriers
+        carriers: ['usps', 'ups', 'fedex', 'dhl'],
+        // Default to all carriers
         customs_info: customsInfo
         // NOTE: insurance_info is NOT included during rate fetching
       };
@@ -328,13 +322,12 @@ const EnhancedShippingForm: React.FC = () => {
     document.addEventListener('label-created', handleLabelCreated);
     return () => document.removeEventListener('label-created', handleLabelCreated);
   }, [fromAddress, toAddress, isInternational, customsInfo]);
-
   return <div className="w-full">
       <Card className="border shadow-sm">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-border">
             {/* Pickup Address */}
-            <div className="p-6">
+            <div className="p-6 my-0 px-0 mx-[10px]">
               <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-green-600" />
                 Pickup Address
@@ -440,16 +433,13 @@ const EnhancedShippingForm: React.FC = () => {
                   </FormItem>} />
 
               {/* Customs Clearance Toggle */}
-              <ToggleableCustomsClearance
-                enabled={!!customsInfo}
-                onToggle={(checked) => {
-                  if (checked) {
-                    setShowCustomsModal(true);
-                  } else {
-                    setCustomsInfo(null);
-                  }
-                }}
-              />
+              <ToggleableCustomsClearance enabled={!!customsInfo} onToggle={checked => {
+              if (checked) {
+                setShowCustomsModal(true);
+              } else {
+                setCustomsInfo(null);
+              }
+            }} />
             </div>
 
             {/* Customs Documentation Section */}
@@ -514,5 +504,4 @@ const EnhancedShippingForm: React.FC = () => {
       <LabelCreationModal isOpen={showLabelCreationModal} onClose={() => setShowLabelCreationModal(false)} labelData={labelCreationData} />
     </div>;
 };
-
 export default EnhancedShippingForm;
