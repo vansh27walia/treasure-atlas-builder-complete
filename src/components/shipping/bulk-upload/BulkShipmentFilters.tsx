@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, SortAsc, SortDesc, Filter } from 'lucide-react';
+import { Search, SortAsc, SortDesc, Filter, Zap } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 
 // Extended carrier options with additional carriers
 const EXTENDED_CARRIER_OPTIONS = [
@@ -74,6 +75,20 @@ const EXTENDED_CARRIER_OPTIONS = [
   }
 ];
 
+// Quick optimization options - same as AI Overview
+const OPTIMIZATION_OPTIONS = [
+  { id: 'cheapest', label: 'Cheapest', icon: '💰', color: 'bg-green-100 text-green-800' },
+  { id: 'fastest', label: 'Fastest', icon: '⚡', color: 'bg-yellow-100 text-yellow-800' },
+  { id: 'balanced', label: 'Most Efficient', icon: '✅', color: 'bg-blue-100 text-blue-800' },
+  { id: 'door-delivery', label: 'Door Delivery', icon: '📦', color: 'bg-purple-100 text-purple-800' },
+  { id: 'po-box', label: 'PO Box Delivery', icon: '📫', color: 'bg-indigo-100 text-indigo-800' },
+  { id: 'eco-friendly', label: 'Eco Friendly', icon: '🌱', color: 'bg-green-100 text-green-800' },
+  { id: '2-day', label: '2-Day Delivery', icon: '🕓', color: 'bg-orange-100 text-orange-800' },
+  { id: 'express', label: 'Express Delivery', icon: '🚀', color: 'bg-red-100 text-red-800' },
+  { id: 'most-reliable', label: 'Most Reliable', icon: '🛡️', color: 'bg-gray-100 text-gray-800' },
+  { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
+];
+
 interface BulkShipmentFiltersProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
@@ -83,6 +98,7 @@ interface BulkShipmentFiltersProps {
   selectedCarrier: string | null;
   onCarrierFilterChange: (carrier: string | null) => void;
   onApplyCarrierToAll: (carrier: string, service: string) => void;
+  onQuickOptimization?: (filterId: string) => void;
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
@@ -93,7 +109,8 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   onSortChange,
   selectedCarrier,
   onCarrierFilterChange,
-  onApplyCarrierToAll
+  onApplyCarrierToAll,
+  onQuickOptimization
 }) => {
   const [selectedCarrierService, setSelectedCarrierService] = useState<{carrierId: string, serviceId: string} | null>(null);
   const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([]);
@@ -129,20 +146,28 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     }
   };
 
+  const handleQuickOptimization = (filterId: string) => {
+    if (onQuickOptimization) {
+      onQuickOptimization(filterId);
+    }
+  };
+
   return (
-    <div className="flex flex-col md:flex-row gap-3 mb-4">
-      <div className="relative flex-grow">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-        <Input
-          type="text"
-          placeholder="Search by recipient, address, carrier..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-      
-      <div className="flex gap-2">
+    <div className="flex flex-col gap-3 mb-4">
+      {/* Top Row - Search and Quick Actions */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-grow">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+          <Input
+            type="text"
+            placeholder="Search by recipient, address, carrier..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        
+        <div className="flex gap-2">
         <Select
           value={sortField}
           onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
@@ -199,9 +224,34 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             </div>
           </PopoverContent>
         </Popover>
+        
+        {/* Quick Optimization Dropdown - Same as AI Overview */}
+        <Select onValueChange={handleQuickOptimization}>
+          <SelectTrigger className="w-[180px] bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-purple-600" />
+              <SelectValue placeholder="Quick Options" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Quick Optimization Options</SelectLabel>
+              {OPTIMIZATION_OPTIONS.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{option.icon}</span>
+                    <span>{option.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
       </div>
       
-      <div className="mt-3 md:mt-0 border-t pt-3 md:border-t-0 md:pt-0">
+      {/* Bottom Row - Apply to All */}
+      <div className="border-t pt-3">
         <div className="flex flex-wrap gap-2 items-center">
           <Select
             value={selectedCarrierService?.carrierId || ''}

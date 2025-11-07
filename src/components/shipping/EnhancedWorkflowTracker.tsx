@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Package, Search, CreditCard, CheckCircle } from 'lucide-react';
 interface EnhancedWorkflowTrackerProps {
   currentStep: 'address' | 'package' | 'rates' | 'payment' | 'complete';
+  className?: string;
 }
 const steps = [{
   id: 'address',
@@ -31,7 +32,8 @@ const steps = [{
   icon: CheckCircle
 }];
 const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
-  currentStep: initialStep
+  currentStep: initialStep,
+  className = ''
 }) => {
   const [currentStep, setCurrentStep] = useState(initialStep);
   useEffect(() => {
@@ -54,7 +56,7 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
     if (stepIndex === currentIndex) return 'current';
     return 'upcoming';
   };
-  return <div className="w-full py-4 sticky top-0 z-50">
+  return <div className={`w-full py-4 sticky top-0 z-50 ${className}`}>
       <div className="mx-auto max-w-4xl px-0">
         {/* Glassy translucent container with shorter width */}
         <div className="bg-white/30 backdrop-blur-xl shadow-xl border border-white/20 p-4 transition-all duration-300 hover:bg-white/40 mx-0 rounded-3xl">
