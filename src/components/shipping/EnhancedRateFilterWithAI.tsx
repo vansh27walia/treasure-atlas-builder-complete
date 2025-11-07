@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
-import { Filter, Search, SortAsc, SortDesc, Brain, X, Sparkles } from 'lucide-react';
+import { Filter, Search, SortAsc, SortDesc, Brain, X, Sparkles, DollarSign, Zap, Shield, TrendingUp } from 'lucide-react';
 import CarrierLogo from './CarrierLogo';
+import { useToast } from '@/hooks/use-toast';
 
 interface EnhancedRateFilterWithAIProps {
   filters: {
@@ -37,9 +38,17 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
   rateCount,
   aiEnabled = true
 }) => {
+  const { toast } = useToast();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([filters.minPrice || 0, filters.maxPrice || 100]);
   const [daysRange, setDaysRange] = useState<number>(filters.maxDays || 7);
+
+  const optimizationFilters = [
+    { label: 'Cheapest', icon: DollarSign, color: 'bg-green-500', value: 'cheapest' },
+    { label: 'Fastest', icon: Zap, color: 'bg-blue-500', value: 'fastest' },
+    { label: 'Most Reliable', icon: Shield, color: 'bg-purple-500', value: 'reliable' },
+    { label: 'Best Overall', icon: TrendingUp, color: 'bg-orange-500', value: 'overall' },
+  ];
 
   const handleSearchChange = (value: string) => {
     onFiltersChange({ ...filters, search: value });
@@ -82,6 +91,31 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
       ? filters.features.filter(f => f !== feature)
       : [...filters.features, feature];
     onFiltersChange({ ...filters, features: updatedFeatures });
+  };
+
+  const handleQuickOptimization = (optimizationType: string) => {
+    let updatedFilters = { ...filters };
+    
+    switch(optimizationType) {
+      case 'cheapest':
+        updatedFilters = { ...updatedFilters, sortBy: 'price', sortOrder: 'asc' };
+        break;
+      case 'fastest':
+        updatedFilters = { ...updatedFilters, sortBy: 'speed', sortOrder: 'asc' };
+        break;
+      case 'reliable':
+        updatedFilters = { ...updatedFilters, sortBy: 'reliability', sortOrder: 'desc' };
+        break;
+      case 'overall':
+        updatedFilters = { ...updatedFilters, sortBy: 'price', sortOrder: 'asc', features: ['Tracking'] };
+        break;
+    }
+    
+    onFiltersChange(updatedFilters);
+    toast({
+      title: "Filter Applied",
+      description: `Showing ${optimizationType} rates`,
+    });
   };
 
   const activeFiltersCount = 
@@ -262,6 +296,23 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Quick Optimization Dropdown */}
+        <Select onValueChange={handleQuickOptimization}>
+          <SelectTrigger className="w-44 h-10 border-gray-300">
+            <SelectValue placeholder="Quick Optimize" />
+          </SelectTrigger>
+          <SelectContent className="bg-white z-50">
+            {optimizationFilters.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                <div className="flex items-center gap-2">
+                  <opt.icon className="w-4 h-4" />
+                  {opt.label}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* AI Powered Analysis Button */}
         <Button

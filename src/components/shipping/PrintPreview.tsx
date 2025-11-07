@@ -113,18 +113,33 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     // Embed the PNG image
     const pngImage = await pdfDoc.embedPng(imageBytes);
     
-    // Get image dimensions
-    const { width, height } = pngImage.scale(1);
+    // 4x6 inches in PDF points (72 points per inch)
+    // 4 inches = 288 points, 6 inches = 432 points
+    const labelWidth = 288;  // 4 inches or 101.6mm
+    const labelHeight = 432; // 6 inches or 152.4mm
     
-    // Create a page with the same dimensions as the image
-    const page = pdfDoc.addPage([width, height]);
+    // Create a page with 4x6 dimensions
+    const page = pdfDoc.addPage([labelWidth, labelHeight]);
+    
+    // Get the original image dimensions to scale properly
+    const { width: imgWidth, height: imgHeight } = pngImage.scale(1);
+    const scaleX = labelWidth / imgWidth;
+    const scaleY = labelHeight / imgHeight;
+    const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
+    
+    const scaledWidth = imgWidth * scale;
+    const scaledHeight = imgHeight * scale;
+    
+    // Center the image on the page
+    const x = (labelWidth - scaledWidth) / 2;
+    const y = (labelHeight - scaledHeight) / 2;
     
     // Draw the image on the page
     page.drawImage(pngImage, {
-      x: 0,
-      y: 0,
-      width: width,
-      height: height,
+      x,
+      y,
+      width: scaledWidth,
+      height: scaledHeight,
     });
     
     // Save the PDF and create object URL
