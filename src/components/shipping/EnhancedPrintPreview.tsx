@@ -58,23 +58,52 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       let blob: Blob;
       let filename: string;
       
-      // ALWAYS download the original file without modifications
-      const response = await fetch(labelUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch label: ${response.status}`);
-      }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      
-      if (format === 'pdf') {
-        blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      // If downloading PDF and source is PNG, convert to 4x6 PDF
+      if (format === 'pdf' && labelUrl.toLowerCase().endsWith('.png')) {
+        console.log('Converting PNG to 4x6 PDF for download');
+        const response = await fetch(labelUrl);
+        if (!response.ok) throw new Error(`Failed to fetch label: ${response.status}`);
+        
+        const imageBytes = await response.arrayBuffer();
+        
+        const { PDFDocument } = await import('pdf-lib');
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage([288, 432]); // 4x6 inches at 72 DPI
+        
+        const image = await pdfDoc.embedPng(imageBytes);
+        const imgDims = image.scale(1);
+        
+        const scaleX = 288 / imgDims.width;
+        const scaleY = 432 / imgDims.height;
+        const scale = Math.min(scaleX, scaleY);
+        
+        const scaledWidth = imgDims.width * scale;
+        const scaledHeight = imgDims.height * scale;
+        
+        const x = (288 - scaledWidth) / 2;
+        const y = (432 - scaledHeight) / 2;
+        
+        page.drawImage(image, { x, y, width: scaledWidth, height: scaledHeight });
+        
+        const pdfBytes = await pdfDoc.save();
+        blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
-      } else if (format === 'png') {
-        blob = new Blob([arrayBuffer], { type: 'image/png' });
-        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.png`;
       } else {
-        blob = new Blob([arrayBuffer], { type: 'text/plain' });
-        filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.zpl`;
+        // Download original file for other formats
+        const response = await fetch(labelUrl);
+        if (!response.ok) throw new Error(`Failed to fetch label: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        if (format === 'pdf') {
+          blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
+        } else if (format === 'png') {
+          blob = new Blob([arrayBuffer], { type: 'image/png' });
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.png`;
+        } else {
+          blob = new Blob([arrayBuffer], { type: 'text/plain' });
+          filename = `shipping_label_${trackingCode || shipmentId || Date.now()}.zpl`;
+        }
       }
       
       const link = document.createElement('a');
@@ -90,7 +119,7 @@ const EnhancedPrintPreview: React.FC<EnhancedPrintPreviewProps> = ({
       setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
       
       toast.dismiss();
-      toast.success(`Downloaded ${format.toUpperCase()} label`);
+      toast.success(`Downloaded ${format.toUpperCase()} label (4x6 inches)`);
     } catch (error) {
       console.error('Error downloading:', error);
       toast.dismiss();

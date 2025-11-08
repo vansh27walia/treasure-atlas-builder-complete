@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin } from 'lucide-react';
+import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import CarrierLogo from './CarrierLogo';
@@ -163,46 +163,34 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
         </CardHeader>
         
         <CardContent className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* Quick Change at the top */}
-          <div className="border border-blue-200 rounded-lg p-3 bg-gradient-to-r from-blue-50 to-purple-50">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-xs mb-2">
-              <Zap className="w-3 h-3 text-purple-600" />
-              Quick Changes
-            </h3>
-            
-            <div className="grid grid-cols-1 gap-1.5">
-              {optimizationFilters.slice(0, 2).map((filter) => (
-                <Button
-                  key={filter.id}
-                  variant="outline"
-                  className="justify-start h-auto p-2 border hover:bg-blue-50 text-xs"
-                  onClick={() => handleQuickChange(filter.id)}
-                >
-                  <span className="mr-1.5">{filter.icon}</span>
-                  {filter.label}
-                </Button>
-              ))}
-            </div>
-
-            <details className="group mt-2">
-              <summary className="cursor-pointer text-blue-600 font-medium hover:text-blue-800 text-xs">
-                More options ({optimizationFilters.length - 2})
-              </summary>
-              <div className="mt-1.5 grid grid-cols-1 gap-1.5">
-                {optimizationFilters.slice(2).map((filter) => (
-                  <Button
-                    key={filter.id}
-                    variant="outline"
-                    className="justify-start h-auto p-2 text-xs border hover:bg-gray-50"
-                    onClick={() => handleQuickChange(filter.id)}
-                  >
-                    <span className="mr-1.5">{filter.icon}</span>
-                    {filter.label}
-                  </Button>
-                ))}
+          {/* AI Recommended - Moved to top */}
+          {analysis && (
+            <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Brain className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-blue-900">AI Recommended</h3>
               </div>
-            </details>
-          </div>
+              <div className="text-3xl font-bold text-blue-800 mb-2">{analysis.overallScore}/100</div>
+              <p className="text-xs text-gray-700 mb-3">
+                Our AI analyzed all available rates based on your shipping preferences, package details, 
+                and delivery requirements to find you the optimal balance of cost, speed, and reliability 
+                for this shipment. This recommendation considers carrier performance history, delivery times, 
+                and current pricing trends.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  const chatbot = document.querySelector('[data-chatbot-trigger]') as HTMLElement;
+                  if (chatbot) chatbot.click();
+                }}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Have questions? Ask AI Chatbot
+              </Button>
+            </div>
+          )}
 
           {/* Rate Selector Dropdown */}
           <div className="space-y-2">
@@ -252,12 +240,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </div>
           ) : analysis ? (
             <div className="space-y-3">
-              {/* Overall Score */}
-              <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="text-2xl font-bold text-blue-800">{analysis.overallScore}/100</div>
-                <div className="text-xs text-gray-600">Overall AI Score</div>
-                <div className="text-xs text-blue-600 mt-1">✨ AI Recommended</div>
-              </div>
 
               {/* Consolidated Features - Max 2 badges */}
               <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
@@ -334,6 +316,47 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   <span className="font-medium text-blue-900 text-xs">AI Recommendation</span>
                 </div>
                 <p className="text-xs text-gray-700">{analysis.recommendation}</p>
+              </div>
+
+              {/* Quick Changes - Moved to bottom */}
+              <div className="border border-blue-200 rounded-lg p-3 bg-gradient-to-r from-blue-50 to-purple-50">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-xs mb-2">
+                  <Zap className="w-3 h-3 text-purple-600" />
+                  Quick Changes
+                </h3>
+                
+                <div className="grid grid-cols-1 gap-1.5">
+                  {optimizationFilters.slice(0, 2).map((filter) => (
+                    <Button
+                      key={filter.id}
+                      variant="outline"
+                      className="justify-start h-auto p-2 border hover:bg-blue-50 text-xs"
+                      onClick={() => handleQuickChange(filter.id)}
+                    >
+                      <span className="mr-1.5">{filter.icon}</span>
+                      {filter.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <details className="group mt-2">
+                  <summary className="cursor-pointer text-blue-600 font-medium hover:text-blue-800 text-xs">
+                    More options ({optimizationFilters.length - 2})
+                  </summary>
+                  <div className="mt-1.5 grid grid-cols-1 gap-1.5">
+                    {optimizationFilters.slice(2).map((filter) => (
+                      <Button
+                        key={filter.id}
+                        variant="outline"
+                        className="justify-start h-auto p-2 text-xs border hover:bg-gray-50"
+                        onClick={() => handleQuickChange(filter.id)}
+                      >
+                        <span className="mr-1.5">{filter.icon}</span>
+                        {filter.label}
+                      </Button>
+                    ))}
+                  </div>
+                </details>
               </div>
             </div>
           ) : null}

@@ -143,24 +143,24 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           )}
           <div className="text-right">
             {hasDiscount ? (
-              <div className="space-y-1">
-                {/* Original Price - Strikethrough */}
+              <div className="space-y-2">
+                {/* Original Price - Strikethrough with Yellow Background */}
                 <div className="flex items-center justify-end gap-2">
-                  <span className="text-base text-gray-400 line-through font-medium">
+                  <span className="text-2xl font-bold line-through decoration-4 bg-yellow-300 text-black px-2 py-1 rounded">
                     ${parseFloat(originalRate).toFixed(2)}
                   </span>
                 </div>
                 
                 {/* Discounted Price - Large and Bold */}
                 <div className="flex items-center justify-end gap-2">
-                  <span className="font-bold text-2xl text-green-700">
+                  <span className="font-bold text-3xl text-green-700">
                     ${parseFloat(rate.rate).toFixed(2)}
                   </span>
                 </div>
                 
                 {/* Savings Badge - Prominent */}
                 <div className="flex items-center justify-end">
-                  <Badge className="bg-green-600 text-white text-sm px-3 py-1 font-bold">
+                  <Badge className="bg-green-600 text-white text-base px-4 py-2 font-bold">
                     💰 Save ${(parseFloat(originalRate) - parseFloat(rate.rate)).toFixed(2)} ({discountPercent}% OFF)
                   </Badge>
                 </div>
@@ -196,11 +196,6 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         </div>
       </div>
       
-      {isRecommended && (
-        <div className="mt-2 text-sm text-gray-600 border-t border-gray-200 pt-2">
-          <span className="font-medium text-blue-600">AI Recommended:</span> {aiRecommendation.reason}
-        </div>
-      )}
 
       {isSelected && showPayButton && (
         <div className="mt-3 pt-3 border-t border-gray-200">
