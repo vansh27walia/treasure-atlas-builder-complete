@@ -35,6 +35,22 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
     scrollToBottom();
   }, [messages]);
   
+  // Listen for auto-send event from AI Rate Analysis panel
+  useEffect(() => {
+    const handleAutoSend = (e: CustomEvent) => {
+      const message = e.detail.message;
+      if (message) {
+        setIsOpen(true);
+        setTimeout(() => {
+          handleSendMessage(message);
+        }, 300);
+      }
+    };
+
+    document.addEventListener('ai-chat-auto-send', handleAutoSend as EventListener);
+    return () => document.removeEventListener('ai-chat-auto-send', handleAutoSend as EventListener);
+  }, []);
+
   // Check for pre-filled context from sessionStorage
   useEffect(() => {
     if (isOpen) {

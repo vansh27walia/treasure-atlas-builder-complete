@@ -22,8 +22,7 @@ interface AIAnalysis {
   reliabilityScore: number;
   speedScore: number;
   costScore: number;
-  serviceQualityScore: number;
-  trackingScore: number;
+  coverageScore?: number;
   recommendation: string;
   detailedAnalysis: string;
   labels: {
@@ -245,7 +244,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 )}
               </div>
 
-              {/* Detailed Score Breakdown - Dynamic 4-5 criteria */}
+              {/* Detailed Score Breakdown - Dynamic 3-4 criteria */}
               <div className="space-y-2 p-3 bg-gray-50 rounded-lg border">
                 <h4 className="font-semibold text-xs text-gray-900 mb-2">Rating Breakdown</h4>
                 <div className="flex items-center justify-between">
@@ -269,20 +268,15 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-orange-600" />
-                    <span className="text-xs">Service Quality</span>
+                {analysis.coverageScore && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-orange-600" />
+                      <span className="text-xs">Coverage</span>
+                    </div>
+                    <span className="font-semibold text-xs">{analysis.coverageScore}/100</span>
                   </div>
-                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-red-600" />
-                    <span className="text-xs">Tracking</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
-                </div>
+                )}
               </div>
 
               {/* AI Explanation - Detailed 3-4 lines */}
@@ -301,15 +295,17 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   size="sm"
                   className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
                   onClick={() => {
-                    // Prepare context message for chatbot
-                    const contextMessage = `I'm looking at ${selectedRate.carrier} ${selectedRate.service} for $${parseFloat(selectedRate.rate).toFixed(2)} with ${selectedRate.delivery_days} day delivery. AI Score: ${analysis.overallScore}/100. Can you provide more insights about this shipping option and alternatives?`;
+                    // Prepare comprehensive context with all rates and analysis
+                    const allRatesInfo = allRates.map(r => 
+                      `${r.carrier} ${r.service}: $${parseFloat(r.rate).toFixed(2)}, ${r.delivery_days} days`
+                    ).join('; ');
                     
-                    // Store context in sessionStorage for chatbot to pick up
-                    sessionStorage.setItem('chatbot-context', contextMessage);
+                    const contextMessage = `Selected: ${selectedRate.carrier} ${selectedRate.service} - $${parseFloat(selectedRate.rate).toFixed(2)}, ${selectedRate.delivery_days} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis}. All available rates: ${allRatesInfo}. Please provide detailed insights.`;
                     
-                    // Trigger chatbot
-                    const chatbot = document.querySelector('[data-chatbot-trigger]') as HTMLElement;
-                    if (chatbot) chatbot.click();
+                    // Auto-send to chatbot
+                    document.dispatchEvent(new CustomEvent('ai-chat-auto-send', { 
+                      detail: { message: contextMessage } 
+                    }));
                   }}
                 >
                   <MessageCircle className="h-4 w-4 mr-1" />

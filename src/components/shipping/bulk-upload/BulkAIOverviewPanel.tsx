@@ -21,8 +21,7 @@ interface AIAnalysis {
   reliabilityScore: number;
   speedScore: number;
   costScore: number;
-  serviceQualityScore: number;
-  trackingScore: number;
+  coverageScore?: number;
   recommendation: string;
   labels: {
     isCheapest: boolean;
@@ -233,7 +232,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
   if (!isOpen) return null;
   const currentShipment = analysisMode === 'individual' ? allShipments.find(s => s.id === selectedShipmentId) || selectedShipment : null;
   const currentRates = currentShipment?.availableRates || [];
-  return <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+  return <div className="fixed top-0 right-0 h-screen w-72 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -385,20 +384,15 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-orange-600" />
-                    <span className="text-xs">Service Quality</span>
+                {analysis.coverageScore && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-orange-600" />
+                      <span className="text-xs">Coverage</span>
+                    </div>
+                    <span className="font-semibold text-xs">{analysis.coverageScore}/100</span>
                   </div>
-                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-red-600" />
-                    <span className="text-xs">Tracking</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
-                </div>
+                )}
               </div>
 
               {/* AI Recommendation */}
