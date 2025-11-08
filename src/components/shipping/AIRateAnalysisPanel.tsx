@@ -258,16 +258,23 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   {analysis.recommendation}
                 </p>
                 <Button 
-                  variant="ghost" 
+                  variant="default" 
                   size="sm"
-                  className="w-full mt-2 h-7 text-xs"
+                  className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
                   onClick={() => {
+                    // Prepare context message for chatbot
+                    const contextMessage = `I'm looking at ${selectedRate.carrier} ${selectedRate.service} for $${parseFloat(selectedRate.rate).toFixed(2)} with ${selectedRate.delivery_days} day delivery. AI Score: ${analysis.overallScore}/100. Can you provide more insights about this shipping option and alternatives?`;
+                    
+                    // Store context in sessionStorage for chatbot to pick up
+                    sessionStorage.setItem('chatbot-context', contextMessage);
+                    
+                    // Trigger chatbot
                     const chatbot = document.querySelector('[data-chatbot-trigger]') as HTMLElement;
                     if (chatbot) chatbot.click();
                   }}
                 >
-                  <MessageCircle className="h-3 w-3 mr-1" />
-                  Ask AI Chatbot
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Ask AI About This Rate
                 </Button>
               </div>
 

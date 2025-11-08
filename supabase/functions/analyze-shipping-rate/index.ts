@@ -60,27 +60,22 @@ serve(async (req) => {
     const selectedEfficiencyScore = (cheapestPrice / selectedRatePrice) * 50 + (fastestDelivery / (selectedRate.delivery_days || 5)) * 50;
     const isMostEfficient = Math.abs(selectedEfficiencyScore - bestEfficiencyScore) < 1;
 
-    // Create prompt for Gemini API
-    const prompt = `Analyze this shipping rate and provide a recommendation:
+    // Create prompt for Gemini API - Focus on shipment quality, reliability, timing
+    const prompt = `Analyze this shipping option and explain if it's good for the shipment:
 
-Rate Details:
-- Carrier: ${selectedRate.carrier}
-- Service: ${selectedRate.service}
-- Price: $${selectedRatePrice}
+Shipment Details:
+- Carrier: ${selectedRate.carrier} ${selectedRate.service}
 - Delivery Time: ${selectedRate.delivery_days} days
-- Overall Score: ${overallScore}/100
-- Cost Score: ${costScore}/100
-- Speed Score: ${speedScore}/100
 - Reliability Score: ${reliabilityScore}/100
+- Speed Score: ${speedScore}/100
 
 Context:
-- Total available rates: ${rates.length}
-- Price range: $${context?.priceRange?.min} - $${context?.priceRange?.max}
-- Is cheapest: ${isCheapest}
+- Total options: ${rates.length}
+- Fastest available: ${fastestDelivery} days
 - Is fastest: ${isFastest}
-- Is most efficient: ${isMostEfficient}
+- Is most reliable: ${reliabilityScore >= 85}
 
-Provide a 2-sentence recommendation explaining why this rate is good or what to consider. Focus on practical shipping advice.`;
+Write 3-4 lines explaining: 1) Is this shipment good for the recipient? 2) Will it deliver on time? 3) Is the carrier reliable? Focus on shipment quality and timing, not price.`;
 
     // Call Gemini API
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {

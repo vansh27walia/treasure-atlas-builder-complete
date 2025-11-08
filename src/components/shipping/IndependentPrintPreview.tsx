@@ -113,12 +113,12 @@ const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
         {triggerButton || defaultTrigger}
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Batch Label Preview - ID: {batchResult?.batchId || 'N/A'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
           {/* Format Selection */}
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium">Format:</label>
@@ -142,15 +142,17 @@ const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
               <iframe
                 ref={iframeRef}
                 src={batchResult.consolidatedLabelUrls.pdf}
-                className="w-full h-96"
+                className="w-full h-[400px]"
                 title="Batch Label Preview"
                 onLoad={() => console.log('PDF preview loaded')}
               />
             </div>
           )}
+        </div>
 
-          {/* Action Buttons - Independent and Simple */}
-          <div className="flex justify-between items-center pt-4 border-t">
+        {/* Action Buttons - Always Visible at Bottom */}
+        <div className="flex-shrink-0 border-t pt-4 mt-4 bg-white">
+          <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <Button
                 onClick={() => handleDownload('pdf')}

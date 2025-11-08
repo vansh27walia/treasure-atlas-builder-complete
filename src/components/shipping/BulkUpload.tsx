@@ -15,8 +15,8 @@ import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle, Mail } from 'lucide-react';
+import { toast } from 'sonner';
 import { SavedAddress } from '@/services/AddressService';
-import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 const BulkUpload: React.FC = () => {
@@ -87,59 +87,93 @@ const BulkUpload: React.FC = () => {
     setAiPanelOpen(true);
   };
   const handleAIOptimizationChange = (filter: string, shipmentId?: string) => {
+    const applyFilterToShipment = (shipment: any) => {
+      if (!shipment.availableRates || shipment.availableRates.length === 0) return;
+      
+      let selectedRate = null;
+      
+      switch (filter) {
+        case 'cheapest':
+          selectedRate = shipment.availableRates.reduce((min: any, rate: any) => 
+            parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min
+          );
+          break;
+          
+        case 'fastest':
+          selectedRate = shipment.availableRates.reduce((fastest: any, rate: any) => 
+            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
+          );
+          break;
+          
+        case 'balanced':
+          selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
+            const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
+            const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
+            return rateScore > bestScore ? rate : best;
+          });
+          break;
+          
+        case '2-day':
+          selectedRate = shipment.availableRates.find((rate: any) => 
+            rate.delivery_days <= 2
+          ) || shipment.availableRates.reduce((fastest: any, rate: any) => 
+            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
+          );
+          break;
+          
+        case 'express':
+          selectedRate = shipment.availableRates.find((rate: any) => 
+            rate.delivery_days === 1 || rate.service?.toLowerCase().includes('express')
+          ) || shipment.availableRates.reduce((fastest: any, rate: any) => 
+            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
+          );
+          break;
+          
+        case 'most-reliable':
+          const reliabilityScores: { [key: string]: number } = {
+            'UPS': 90, 'FEDEX': 88, 'USPS': 85, 'DHL': 82
+          };
+          selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
+            const rateReliability = reliabilityScores[rate.carrier?.toUpperCase()] || 75;
+            const bestReliability = reliabilityScores[best.carrier?.toUpperCase()] || 75;
+            return rateReliability > bestReliability ? rate : best;
+          });
+          break;
+          
+        case 'ai-recommended':
+          selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
+            const rateScore = (1 / parseFloat(rate.rate.toString())) * 0.4 + 
+                            (1 / (rate.delivery_days || 5)) * 0.3 +
+                            (reliabilityScores[rate.carrier?.toUpperCase()] || 75) / 100 * 0.3;
+            const bestScore = (1 / parseFloat(best.rate.toString())) * 0.4 + 
+                            (1 / (best.delivery_days || 5)) * 0.3 +
+                            (reliabilityScores[best.carrier?.toUpperCase()] || 75) / 100 * 0.3;
+            return rateScore > bestScore ? rate : best;
+          });
+          break;
+          
+        default:
+          selectedRate = shipment.availableRates[0];
+      }
+      
+      if (selectedRate) {
+        handleSelectRate(shipment.id, selectedRate.id);
+      }
+    };
+    
     if (shipmentId) {
-      // Apply optimization to specific shipment
+      // Apply to specific shipment
       const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-      if (shipment && shipment.availableRates) {
-        let selectedRate = null;
-        switch (filter) {
-          case 'cheapest':
-            selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
-            break;
-          case 'fastest':
-            selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
-            break;
-          case 'balanced':
-            selectedRate = shipment.availableRates.reduce((best, rate) => {
-              const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (best.delivery_days || 5);
-              const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
-              return rateScore > bestScore ? rate : best;
-            });
-            break;
-          default:
-            selectedRate = shipment.availableRates[0];
-        }
-        if (selectedRate) {
-          handleSelectRate(shipmentId, selectedRate.id);
-        }
+      if (shipment) {
+        applyFilterToShipment(shipment);
       }
     } else {
-      // Apply optimization to all shipments
+      // Apply to ALL shipments
       results?.processedShipments?.forEach(shipment => {
-        if (shipment.availableRates && shipment.availableRates.length > 0) {
-          let selectedRate = null;
-          switch (filter) {
-            case 'cheapest':
-              selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
-              break;
-            case 'fastest':
-              selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
-              break;
-            case 'balanced':
-              selectedRate = shipment.availableRates.reduce((best, rate) => {
-                const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (best.delivery_days || 5);
-                const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
-                return rateScore > bestScore ? rate : best;
-              });
-              break;
-            default:
-              selectedRate = shipment.availableRates[0];
-          }
-          if (selectedRate) {
-            handleSelectRate(shipment.id, selectedRate.id);
-          }
-        }
+        applyFilterToShipment(shipment);
       });
+      
+      toast.success(`Applied "${filter}" optimization to all ${results?.processedShipments?.length || 0} shipments`);
     }
   };
 
