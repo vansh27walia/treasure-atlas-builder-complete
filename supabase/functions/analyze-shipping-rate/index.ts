@@ -47,8 +47,14 @@ serve(async (req) => {
     const speedScore = Math.round(((fastestDelivery / (selectedRate.delivery_days || 5)) * 100));
     const reliabilityScore = carrierReliability;
 
-    // Overall score calculation
-    const overallScore = Math.round((costScore * 0.3 + speedScore * 0.3 + reliabilityScore * 0.4));
+    // Calculate additional scores
+    const serviceQualityScore = Math.round(carrierReliability * 0.7 + speedScore * 0.3);
+    const trackingScore = Math.round(carrierReliability * 0.6 + 85); // Most carriers have good tracking
+    
+    // Overall score calculation - weighted across 5 factors
+    const overallScore = Math.round(
+      (costScore * 0.2 + speedScore * 0.2 + reliabilityScore * 0.3 + serviceQualityScore * 0.15 + trackingScore * 0.15)
+    );
 
     // Determine if it's the most efficient (balance of cost and speed)
     const efficiencyScores = rates.map((rate: any) => {
@@ -61,21 +67,31 @@ serve(async (req) => {
     const isMostEfficient = Math.abs(selectedEfficiencyScore - bestEfficiencyScore) < 1;
 
     // Create prompt for Gemini API - Focus on shipment quality, reliability, timing
-    const prompt = `Analyze this shipping option and explain if it's good for the shipment:
+    const prompt = `Analyze this shipping option and provide detailed insights:
 
 Shipment Details:
 - Carrier: ${selectedRate.carrier} ${selectedRate.service}
 - Delivery Time: ${selectedRate.delivery_days} days
-- Reliability Score: ${reliabilityScore}/100
-- Speed Score: ${speedScore}/100
+- Overall Score: ${overallScore}/100
+- Reliability: ${reliabilityScore}/100
+- Speed: ${speedScore}/100
+- Service Quality: ${serviceQualityScore}/100
+- Tracking: ${trackingScore}/100
 
 Context:
 - Total options: ${rates.length}
 - Fastest available: ${fastestDelivery} days
-- Is fastest: ${isFastest}
+- Is fastest option: ${isFastest}
 - Is most reliable: ${reliabilityScore >= 85}
+- Is most efficient: ${isMostEfficient}
 
-Write 3-4 lines explaining: 1) Is this shipment good for the recipient? 2) Will it deliver on time? 3) Is the carrier reliable? Focus on shipment quality and timing, not price.`;
+Write a detailed 3-4 sentence analysis covering:
+1) Will this shipment arrive safely and on time for the recipient?
+2) Is ${selectedRate.carrier} reliable for this service level?
+3) What makes this option good or what should be considered?
+4) Brief mention of timing reliability.
+
+Focus on shipment quality, delivery reliability, and service value. Keep it conversational and helpful.`;
 
     // Call Gemini API
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
@@ -99,15 +115,18 @@ Write 3-4 lines explaining: 1) Is this shipment good for the recipient? 2) Will 
     });
 
     const geminiData = await geminiResponse.json();
-    const recommendation = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 
-      "This rate offers a good balance of cost and delivery time for your shipment needs.";
+    const detailedAnalysis = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 
+      `This ${selectedRate.carrier} ${selectedRate.service} option provides reliable delivery in ${selectedRate.delivery_days} days. The carrier has a strong track record for on-time deliveries. This service level is well-suited for standard shipping needs with dependable tracking throughout transit.`;
 
     const analysis = {
       overallScore,
       reliabilityScore,
       speedScore,
       costScore,
-      recommendation,
+      serviceQualityScore,
+      trackingScore,
+      recommendation: detailedAnalysis.substring(0, 200), // Short version
+      detailedAnalysis, // Full version
       labels: {
         isCheapest,
         isFastest,

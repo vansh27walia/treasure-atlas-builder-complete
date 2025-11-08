@@ -25,6 +25,7 @@ interface AIAnalysis {
   serviceQualityScore: number;
   trackingScore: number;
   recommendation: string;
+  detailedAnalysis: string;
   labels: {
     isCheapest: boolean;
     isFastest: boolean;
@@ -144,7 +145,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+    <div className="fixed top-0 right-0 h-screen w-72 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -220,9 +221,33 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 <div className="text-4xl font-bold text-blue-800">{analysis.overallScore}/100</div>
               </div>
 
-              {/* Detailed Score Breakdown */}
+              {/* Benefit Badges - Like Bulk */}
+              <div className="space-y-1">
+                {analysis.labels.isCheapest && (
+                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
+                    💰 Cost Effective
+                  </Badge>
+                )}
+                {analysis.labels.isFastest && (
+                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1">
+                    ⚡ Speed Priority
+                  </Badge>
+                )}
+                {analysis.labels.isMostReliable && (
+                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1">
+                    🛡️ Highly Reliable
+                  </Badge>
+                )}
+                {analysis.labels.isMostEfficient && (
+                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1">
+                    ✅ Best Balance
+                  </Badge>
+                )}
+              </div>
+
+              {/* Detailed Score Breakdown - Dynamic 4-5 criteria */}
               <div className="space-y-2 p-3 bg-gray-50 rounded-lg border">
-                <h4 className="font-semibold text-xs text-gray-900 mb-2">Score Breakdown</h4>
+                <h4 className="font-semibold text-xs text-gray-900 mb-2">Rating Breakdown</h4>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Shield className="w-3 h-3 text-blue-600" />
@@ -244,18 +269,32 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-orange-600" />
+                    <span className="text-xs">Service Quality</span>
+                  </div>
+                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-red-600" />
+                    <span className="text-xs">Tracking</span>
+                  </div>
+                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
+                </div>
               </div>
 
-              {/* AI Explanation - Combined in one box, max 4 lines */}
+              {/* AI Explanation - Detailed 3-4 lines */}
               <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
                 <div className="flex items-center gap-1 mb-2">
                   <Brain className="w-4 h-4 text-blue-600" />
                   <span className="font-semibold text-blue-900 text-xs">
-                    {analysis.labels.isAIRecommended ? 'AI Recommended' : 'AI Analysis'}
+                    {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
                   </span>
                 </div>
-                <p className="text-xs text-gray-700 leading-relaxed line-clamp-4">
-                  {analysis.recommendation}
+                <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                  {analysis.detailedAnalysis || analysis.recommendation}
                 </p>
                 <Button 
                   variant="default" 
