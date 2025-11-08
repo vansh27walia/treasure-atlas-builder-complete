@@ -56,6 +56,27 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
       return;
     }
 
+    // Safety check: Validate that shipment has phone numbers before creating label
+    if (shipmentDetails) {
+      // Check if we have access to the addresses from shipmentDetails
+      const fromPhone = shipmentDetails.from_address?.phone || shipmentDetails.fromAddress?.phone;
+      const toPhone = shipmentDetails.to_address?.phone || shipmentDetails.toAddress?.phone;
+      
+      if (!fromPhone || fromPhone.trim() === '') {
+        toast.error('Sender phone number is missing. Cannot create label. Please update your address in Settings.', {
+          duration: 6000
+        });
+        return;
+      }
+      
+      if (!toPhone || toPhone.trim() === '') {
+        toast.error('Recipient phone number is missing. Cannot create label. Please update the destination address.', {
+          duration: 6000
+        });
+        return;
+      }
+    }
+
     setIsProcessing(true);
     setIsCreatingLabelState(true);
     
@@ -76,6 +97,17 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
 
       if (error) {
         console.error('Label creation error:', error);
+        
+        // Check if error is related to phone number
+        const errorMsg = error.message || '';
+        if (errorMsg.toLowerCase().includes('phone')) {
+          toast.error('Label creation failed: Phone number is missing or invalid. Please update your addresses.', {
+            duration: 8000
+          });
+        } else {
+          toast.error(`Failed to create label: ${errorMsg}`);
+        }
+        
         throw new Error(error.message || 'Failed to create label');
       }
 
@@ -93,7 +125,15 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
 
     } catch (error) {
       console.error('Error creating label:', error);
-      toast.error('Payment successful but failed to create label. Please contact support.');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMsg.toLowerCase().includes('phone')) {
+        toast.error('Payment successful but label creation failed due to missing phone number. Please contact support.', {
+          duration: 8000
+        });
+      } else {
+        toast.error('Payment successful but failed to create label. Please contact support.');
+      }
     } finally {
       setIsProcessing(false);
       setIsCreatingLabelState(false);

@@ -179,6 +179,25 @@ const EnhancedShippingForm: React.FC = () => {
       return;
     }
 
+    // CRITICAL: Validate phone numbers are present for both addresses
+    if (!fromAddress.phone || fromAddress.phone.trim() === '') {
+      toast.error("Sender phone number is required. Please update your pickup address in Settings.", {
+        duration: 6000,
+        action: {
+          label: 'Go to Settings',
+          onClick: () => window.location.href = '/settings'
+        }
+      });
+      return;
+    }
+
+    if (!toAddress.phone || toAddress.phone.trim() === '') {
+      toast.error("Recipient phone number is required. Please add a phone number to the destination address.", {
+        duration: 6000
+      });
+      return;
+    }
+
     // For international shipping, customs info is required
     if (isInternational && !customsInfo) {
       toast.error("Please complete customs documentation for international shipments");
@@ -229,7 +248,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: fromAddress.state,
           zip: fromAddress.zip,
           country: fromAddress.country || 'US',
-          phone: fromAddress.phone || ''
+          phone: fromAddress.phone // Already validated above, no fallback needed
         },
         toAddress: {
           name: toAddress.name,
@@ -240,7 +259,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: toAddress.state,
           zip: toAddress.zip,
           country: toAddress.country || 'US',
-          phone: toAddress.phone || ''
+          phone: toAddress.phone // Already validated above, no fallback needed
         },
         parcel: parcelData,
         options: {},
