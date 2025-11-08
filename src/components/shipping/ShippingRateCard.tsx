@@ -135,26 +135,39 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           </div>
         </div>
         
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           {isSelected && (
-            <div className="bg-blue-500 rounded-full p-1 mr-2">
+            <div className="bg-blue-500 rounded-full p-1">
               <Check className="h-4 w-4 text-white" />
             </div>
           )}
           <div className="text-right">
-            <div className="flex items-center justify-end space-x-2">
-              {hasDiscount && (
-                <span className="text-sm text-gray-500 line-through">
-                  ${parseFloat(originalRate).toFixed(2)}
-                </span>
-              )}
-              <span className="font-bold text-lg">
+            {hasDiscount ? (
+              <div className="space-y-1">
+                {/* Original Price - Strikethrough */}
+                <div className="flex items-center justify-end gap-2">
+                  <span className="text-base text-gray-400 line-through font-medium">
+                    ${parseFloat(originalRate).toFixed(2)}
+                  </span>
+                </div>
+                
+                {/* Discounted Price - Large and Bold */}
+                <div className="flex items-center justify-end gap-2">
+                  <span className="font-bold text-2xl text-green-700">
+                    ${parseFloat(rate.rate).toFixed(2)}
+                  </span>
+                </div>
+                
+                {/* Savings Badge - Prominent */}
+                <div className="flex items-center justify-end">
+                  <Badge className="bg-green-600 text-white text-sm px-3 py-1 font-bold">
+                    💰 Save ${(parseFloat(originalRate) - parseFloat(rate.rate)).toFixed(2)} ({discountPercent}% OFF)
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <span className="font-bold text-2xl text-gray-900">
                 ${parseFloat(rate.rate).toFixed(2)}
-              </span>
-            </div>
-            {hasDiscount && (
-              <span className="text-xs font-medium text-green-600">
-                Save {discountPercent}%
               </span>
             )}
           </div>

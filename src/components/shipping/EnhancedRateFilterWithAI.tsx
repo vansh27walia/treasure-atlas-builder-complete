@@ -43,11 +43,18 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
   const [priceRange, setPriceRange] = useState<[number, number]>([filters.minPrice || 0, filters.maxPrice || 100]);
   const [daysRange, setDaysRange] = useState<number>(filters.maxDays || 7);
 
-  const optimizationFilters = [
-    { label: 'Cheapest', icon: DollarSign, color: 'bg-green-500', value: 'cheapest' },
-    { label: 'Fastest', icon: Zap, color: 'bg-blue-500', value: 'fastest' },
-    { label: 'Most Reliable', icon: Shield, color: 'bg-purple-500', value: 'reliable' },
-    { label: 'Best Overall', icon: TrendingUp, color: 'bg-orange-500', value: 'overall' },
+  // Quick optimization options - same as batch and AI Overview
+  const OPTIMIZATION_OPTIONS = [
+    { id: 'cheapest', label: 'Cheapest', icon: '💰', color: 'bg-green-100 text-green-800' },
+    { id: 'fastest', label: 'Fastest', icon: '⚡', color: 'bg-yellow-100 text-yellow-800' },
+    { id: 'balanced', label: 'Most Efficient', icon: '✅', color: 'bg-blue-100 text-blue-800' },
+    { id: 'door-delivery', label: 'Door Delivery', icon: '📦', color: 'bg-purple-100 text-purple-800' },
+    { id: 'po-box', label: 'PO Box Delivery', icon: '📫', color: 'bg-indigo-100 text-indigo-800' },
+    { id: 'eco-friendly', label: 'Eco Friendly', icon: '🌱', color: 'bg-green-100 text-green-800' },
+    { id: '2-day', label: '2-Day Delivery', icon: '🕓', color: 'bg-orange-100 text-orange-800' },
+    { id: 'express', label: 'Express Delivery', icon: '🚀', color: 'bg-red-100 text-red-800' },
+    { id: 'most-reliable', label: 'Most Reliable', icon: '🛡️', color: 'bg-gray-100 text-gray-800' },
+    { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
   ];
 
   const handleSearchChange = (value: string) => {
@@ -103,18 +110,36 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
       case 'fastest':
         updatedFilters = { ...updatedFilters, sortBy: 'speed', sortOrder: 'asc' };
         break;
-      case 'reliable':
+      case 'most-reliable':
         updatedFilters = { ...updatedFilters, sortBy: 'reliability', sortOrder: 'desc' };
         break;
-      case 'overall':
+      case 'balanced':
         updatedFilters = { ...updatedFilters, sortBy: 'price', sortOrder: 'asc', features: ['Tracking'] };
         break;
+      case 'door-delivery':
+        updatedFilters = { ...updatedFilters, features: [...updatedFilters.features, 'Dropoff'] };
+        break;
+      case 'po-box':
+        updatedFilters = { ...updatedFilters, features: [...updatedFilters.features, 'Dropoff'] };
+        break;
+      case 'eco-friendly':
+        updatedFilters = { ...updatedFilters, sortBy: 'speed', sortOrder: 'desc' };
+        break;
+      case '2-day':
+        updatedFilters = { ...updatedFilters, maxDays: 2, sortBy: 'price', sortOrder: 'asc' };
+        break;
+      case 'express':
+        updatedFilters = { ...updatedFilters, features: [...updatedFilters.features, 'Express'], sortBy: 'speed', sortOrder: 'asc' };
+        break;
+      case 'ai-recommended':
+        onAIPoweredAnalysis();
+        return;
     }
     
     onFiltersChange(updatedFilters);
     toast({
       title: "Filter Applied",
-      description: `Showing ${optimizationType} rates`,
+      description: `Showing ${OPTIMIZATION_OPTIONS.find(o => o.id === optimizationType)?.label || optimizationType} rates`,
     });
   };
 
@@ -297,17 +322,20 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
           </PopoverContent>
         </Popover>
 
-        {/* Quick Optimization Dropdown */}
+        {/* Quick Optimization Dropdown - Same as batch label creation */}
         <Select onValueChange={handleQuickOptimization}>
-          <SelectTrigger className="w-44 h-10 border-gray-300">
-            <SelectValue placeholder="Quick Optimize" />
+          <SelectTrigger className="w-48 h-10 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-purple-600" />
+              <SelectValue placeholder="Quick Options" />
+            </div>
           </SelectTrigger>
-          <SelectContent className="bg-white z-50">
-            {optimizationFilters.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+          <SelectContent className="bg-white border-2 shadow-lg z-50">
+            {OPTIMIZATION_OPTIONS.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
                 <div className="flex items-center gap-2">
-                  <opt.icon className="w-4 h-4" />
-                  {opt.label}
+                  <span>{option.icon}</span>
+                  <span>{option.label}</span>
                 </div>
               </SelectItem>
             ))}

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsList, TabsContent, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import NormalShippingLabelOptions from '@/components/shipping/NormalShippingLabelOptions';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -300,6 +301,9 @@ const LabelSuccessPage: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* AI Chatbot */}
+        <ShipAIChatbot />
       </div>
     </div>
   );

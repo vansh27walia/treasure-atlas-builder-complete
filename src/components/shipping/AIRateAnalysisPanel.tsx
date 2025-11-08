@@ -163,6 +163,47 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
         </CardHeader>
         
         <CardContent className="flex-1 overflow-y-auto p-3 space-y-4">
+          {/* Quick Change at the top */}
+          <div className="border border-blue-200 rounded-lg p-3 bg-gradient-to-r from-blue-50 to-purple-50">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-xs mb-2">
+              <Zap className="w-3 h-3 text-purple-600" />
+              Quick Changes
+            </h3>
+            
+            <div className="grid grid-cols-1 gap-1.5">
+              {optimizationFilters.slice(0, 2).map((filter) => (
+                <Button
+                  key={filter.id}
+                  variant="outline"
+                  className="justify-start h-auto p-2 border hover:bg-blue-50 text-xs"
+                  onClick={() => handleQuickChange(filter.id)}
+                >
+                  <span className="mr-1.5">{filter.icon}</span>
+                  {filter.label}
+                </Button>
+              ))}
+            </div>
+
+            <details className="group mt-2">
+              <summary className="cursor-pointer text-blue-600 font-medium hover:text-blue-800 text-xs">
+                More options ({optimizationFilters.length - 2})
+              </summary>
+              <div className="mt-1.5 grid grid-cols-1 gap-1.5">
+                {optimizationFilters.slice(2).map((filter) => (
+                  <Button
+                    key={filter.id}
+                    variant="outline"
+                    className="justify-start h-auto p-2 text-xs border hover:bg-gray-50"
+                    onClick={() => handleQuickChange(filter.id)}
+                  >
+                    <span className="mr-1.5">{filter.icon}</span>
+                    {filter.label}
+                  </Button>
+                ))}
+              </div>
+            </details>
+          </div>
+
           {/* Rate Selector Dropdown */}
           <div className="space-y-2">
             <h4 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
@@ -218,40 +259,47 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 <div className="text-xs text-blue-600 mt-1">✨ AI Recommended</div>
               </div>
 
-              {/* Labels with detailed explanations */}
-              <div className="space-y-2">
-                {analysis.labels.isCheapest && (
-                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1.5">
-                    <div className="flex flex-col w-full">
-                      <div className="font-semibold">💰 Cheapest option</div>
-                      <div className="text-[10px] mt-0.5 opacity-80">Lowest cost among all available rates - best for budget-conscious shipping</div>
+              {/* Consolidated Features - Max 2 badges */}
+              <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                <h4 className="font-semibold text-gray-900 text-xs mb-2">Key Features</h4>
+                <div className="space-y-1.5">
+                  {analysis.labels.isCheapest && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">💰</span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-xs text-green-800">Cheapest Option</div>
+                        <div className="text-[10px] text-gray-600">Lowest cost rate - saves you money on shipping</div>
+                      </div>
                     </div>
-                  </Badge>
-                )}
-                {analysis.labels.isFastest && (
-                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1.5">
-                    <div className="flex flex-col w-full">
-                      <div className="font-semibold">⚡ Fastest delivery</div>
-                      <div className="text-[10px] mt-0.5 opacity-80">Quickest transit time - ideal for time-sensitive shipments</div>
+                  )}
+                  {analysis.labels.isFastest && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">⚡</span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-xs text-yellow-800">Fastest Delivery</div>
+                        <div className="text-[10px] text-gray-600">Quickest arrival time for urgent shipments</div>
+                      </div>
                     </div>
-                  </Badge>
-                )}
-                {analysis.labels.isMostReliable && (
-                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1.5">
-                    <div className="flex flex-col w-full">
-                      <div className="font-semibold">🛡️ Most reliable</div>
-                      <div className="text-[10px] mt-0.5 opacity-80">Best track record for on-time delivery and package safety</div>
+                  )}
+                  {!analysis.labels.isCheapest && !analysis.labels.isFastest && analysis.labels.isMostReliable && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">🛡️</span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-xs text-blue-800">Most Reliable</div>
+                        <div className="text-[10px] text-gray-600">Best on-time delivery record</div>
+                      </div>
                     </div>
-                  </Badge>
-                )}
-                {analysis.labels.isMostEfficient && (
-                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1.5">
-                    <div className="flex flex-col w-full">
-                      <div className="font-semibold">✅ Most efficient</div>
-                      <div className="text-[10px] mt-0.5 opacity-80">Optimal balance of cost, speed, and reliability - AI's top recommendation</div>
+                  )}
+                  {!analysis.labels.isCheapest && !analysis.labels.isFastest && !analysis.labels.isMostReliable && analysis.labels.isMostEfficient && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">✅</span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-xs text-purple-800">Most Efficient</div>
+                        <div className="text-[10px] text-gray-600">Best balance of cost, speed & reliability</div>
+                      </div>
                     </div>
-                  </Badge>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Detailed Scores */}
@@ -289,49 +337,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
               </div>
             </div>
           ) : null}
-
-          {/* Quick Change Guide */}
-          <div className="space-y-3 border border-gray-200 rounded-lg p-3">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
-              <Zap className="w-3 h-3 text-yellow-500" />
-              Quick Changes
-            </h3>
-            
-            {/* Top 3 Quick Change Options */}
-            <div className="grid grid-cols-1 gap-1">
-              {optimizationFilters.slice(0, 3).map((filter) => (
-                <Button
-                  key={filter.id}
-                  variant="outline"
-                  className="justify-start h-auto p-2 border hover:bg-blue-50 text-xs"
-                  onClick={() => handleQuickChange(filter.id)}
-                >
-                  <span className="mr-1">{filter.icon}</span>
-                  {filter.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Expandable More Options */}
-            <details className="group">
-              <summary className="cursor-pointer text-blue-600 font-medium hover:text-blue-800 text-xs">
-                Show More ({optimizationFilters.length - 3} more)
-              </summary>
-              <div className="mt-2 grid grid-cols-1 gap-1">
-                {optimizationFilters.slice(3).map((filter) => (
-                  <Button
-                    key={filter.id}
-                    variant="outline"
-                    className="justify-start h-auto p-2 text-xs border hover:bg-gray-50"
-                    onClick={() => handleQuickChange(filter.id)}
-                  >
-                    <span className="mr-1">{filter.icon}</span>
-                    {filter.label}
-                  </Button>
-                ))}
-              </div>
-            </details>
-          </div>
         </CardContent>
       </Card>
     </div>
