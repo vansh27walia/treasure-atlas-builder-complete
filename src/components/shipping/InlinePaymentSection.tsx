@@ -99,11 +99,28 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
         console.error('Label creation error:', error);
         
         // Check if error is related to phone number
-        const errorMsg = error.message || '';
-        if (errorMsg.toLowerCase().includes('phone')) {
-          toast.error('Label creation failed: Phone number is missing or invalid. Please update your addresses.', {
-            duration: 8000
-          });
+        const errorMsg = error.message || JSON.stringify(error);
+        const errorDetails = error.details || '';
+        
+        if (errorMsg.toLowerCase().includes('phone') || errorDetails.toLowerCase().includes('phone')) {
+          // Show detailed error message about which phone is missing
+          if (errorMsg.includes('Sender') || errorDetails.includes('Sender')) {
+            toast.error('Cannot create label: Your pickup address is missing a phone number. Please update it in Settings.', {
+              duration: 10000,
+              action: {
+                label: 'Go to Settings',
+                onClick: () => window.location.href = '/settings'
+              }
+            });
+          } else if (errorMsg.includes('Recipient') || errorDetails.includes('Recipient')) {
+            toast.error('Cannot create label: The destination address is missing a phone number. Please go back and enter a phone number.', {
+              duration: 10000
+            });
+          } else {
+            toast.error(`Cannot create label: ${errorDetails || errorMsg}`, {
+              duration: 10000
+            });
+          }
         } else {
           toast.error(`Failed to create label: ${errorMsg}`);
         }
