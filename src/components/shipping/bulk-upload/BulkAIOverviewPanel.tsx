@@ -50,7 +50,6 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<'individual' | 'combined'>('individual');
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>('');
-  const [combinedCarrier, setCombinedCarrier] = useState<string>('all');
 
   // Chat functionality
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -118,8 +117,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
         mode: 'individual'
       } : {
         allShipments,
-        mode: 'combined',
-        selectedCarrier: combinedCarrier !== 'all' ? combinedCarrier : undefined
+        mode: 'combined'
       };
       const {
         data,
@@ -232,19 +230,10 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
       analyzeRates();
     }
   }, [isOpen, selectedShipment, analysisMode]);
-
-  // Re-run analysis when carrier changes in combined mode
-  useEffect(() => {
-    if (isOpen && analysisMode === 'combined') {
-      analyzeRates();
-    }
-  }, [combinedCarrier]);
-
   if (!isOpen) return null;
   const currentShipment = analysisMode === 'individual' ? allShipments.find(s => s.id === selectedShipmentId) || selectedShipment : null;
   const currentRates = currentShipment?.availableRates || [];
-  const carriers = Array.from(new Set(allShipments.map((s: any) => s.carrier).filter(Boolean)));
-  return <div className="fixed top-0 right-0 h-screen w-64 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+  return <div className="fixed top-0 right-0 h-screen w-72 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -337,26 +326,9 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
             </div>}
 
           {analysisMode === 'combined' && <div className="p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Award className="w-6 h-6 text-green-600" />
-                  <h3 className="font-semibold text-green-900 text-sm">Combined Analysis</h3>
-                </div>
-                {carriers.length > 0 && (
-                  <div className="w-32">
-                    <Select value={combinedCarrier} onValueChange={setCombinedCarrier}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="All carriers" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-2 shadow-lg z-50">
-                        <SelectItem value="all">All carriers</SelectItem>
-                        {carriers.map((c: string) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+              <div className="flex items-center gap-2 mb-2">
+                <Award className="w-6 h-6 text-green-600" />
+                <h3 className="font-semibold text-green-900 text-sm">Combined Analysis</h3>
               </div>
               <p className="text-lg font-bold text-green-800">{allShipments.length} Shipments</p>
               <p className="text-xs text-green-600">Total: ${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}</p>
@@ -435,23 +407,17 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                 <p className="text-xs text-gray-700 leading-relaxed mb-2">
                   {analysis.detailedAnalysis || analysis.recommendation}
                 </p>
-                <div className="text-[10px] text-blue-700">Edge function: analyze-bulk-shipping-rates • Chat: bulk-shipping-ai-chat</div>
                 <Button 
                   variant="default" 
                   size="sm"
                   className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
                   onClick={() => {
-                    const carriersSummary = Array.from(new Set(allShipments.map((s: any) => s.carrier))).filter(Boolean).join(', ');
-                    const totalCost = allShipments.reduce((sum: number, s: any) => sum + parseFloat(s.rate || 0), 0).toFixed(2);
-                    const ratesSummary = analysisMode === 'individual' && currentShipment && (currentRates?.length || 0) > 0
-                      ? currentRates.map((r: any) => `${r.carrier} ${r.service}: $${parseFloat(r.rate).toFixed(2)} (${r.delivery_days}d)`).join('; ')
-                      : '';
-
                     const contextMessage = analysisMode === 'individual' && currentShipment 
-                      ? `Edge function: analyze-bulk-shipping-rates | Chat: bulk-shipping-ai-chat. Selected shipment: ${currentShipment.recipient} - ${currentShipment.carrier} ${currentShipment.service} at $${parseFloat(currentShipment.rate || 0).toFixed(2)}, ${currentShipment.service} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}).\nAI Analysis: ${analysis.detailedAnalysis || analysis.recommendation}.\nAvailable rates: ${ratesSummary}`
-                      : `Edge function: analyze-bulk-shipping-rates | Chat: bulk-shipping-ai-chat. Bulk shipment analysis for ${allShipments.length} shipments. Total cost: $${totalCost}. Carriers in batch: ${carriersSummary}. Selected carrier filter: ${combinedCarrier}. Average AI score: ${analysis.overallScore}/100.\nAI Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide optimization recommendations for the entire batch.`;
+                      ? `Selected shipment: ${currentShipment.recipient} - ${currentShipment.carrier} ${currentShipment.service} at $${parseFloat(currentShipment.rate || 0).toFixed(2)}, ${currentShipment.service} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide detailed insights about this shipment and compare with other available rates.`
+                      : `Bulk shipment analysis for ${allShipments.length} shipments. Total cost: $${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}. Average AI score: ${analysis.overallScore}/100. Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide optimization recommendations for the entire batch.`;
+                    
                     sessionStorage.setItem('ai-chat-prefill', contextMessage);
-                    document.dispatchEvent(new CustomEvent('ai-chat-auto-send', { detail: { message: contextMessage } }));
+                    document.dispatchEvent(new CustomEvent('open-ai-chatbot'));
                   }}
                 >
                   <MessageCircle className="h-4 w-4 mr-1" />
