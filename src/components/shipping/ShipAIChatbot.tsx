@@ -38,7 +38,7 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
   // Listen for auto-send event from AI Rate Analysis panel
   useEffect(() => {
     const handleAutoSend = (e: CustomEvent) => {
-      const message = e.detail.message;
+      const message = e.detail?.message;
       if (message) {
         setIsOpen(true);
         setTimeout(() => {
@@ -47,8 +47,24 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
       }
     };
 
+    const handleOpenChatbot = () => {
+      setIsOpen(true);
+      // Check for prefilled message
+      const prefillMessage = sessionStorage.getItem('ai-chat-prefill');
+      if (prefillMessage) {
+        sessionStorage.removeItem('ai-chat-prefill');
+        setTimeout(() => {
+          handleSendMessage(prefillMessage);
+        }, 300);
+      }
+    };
+
     document.addEventListener('ai-chat-auto-send', handleAutoSend as EventListener);
-    return () => document.removeEventListener('ai-chat-auto-send', handleAutoSend as EventListener);
+    document.addEventListener('open-ai-chatbot', handleOpenChatbot);
+    return () => {
+      document.removeEventListener('ai-chat-auto-send', handleAutoSend as EventListener);
+      document.removeEventListener('open-ai-chatbot', handleOpenChatbot);
+    };
   }, []);
 
   // Check for pre-filled context from sessionStorage

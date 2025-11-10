@@ -40,10 +40,10 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   };
 
   const handleSave = async () => {
-    // Calculate insurance cost based on new declared value
+    // Calculate insurance cost based on new declared value (minimum $2)
     const insuranceEnabled = shipment.details?.insurance_enabled !== false;
     const insuranceCost = insuranceEnabled && editData.declared_value > 0 
-      ? Math.max(editData.declared_value * 0.02, 1) 
+      ? Math.max(editData.declared_value * 0.02, 2) 
       : 0;
     
     // Apply the changes to the shipment with updated insurance cost
@@ -196,7 +196,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
           declaredValue={editData.declared_value}
           onInsuranceToggle={(id, enabled) => {
             const newInsuranceCost = enabled && editData.declared_value > 0 
-              ? Math.max(editData.declared_value * 0.02, 1) 
+              ? Math.max(editData.declared_value * 0.02, 2) 
               : 0;
             
             console.log('Insurance toggle:', { id, enabled, declaredValue: editData.declared_value, insuranceCost: newInsuranceCost });
@@ -211,7 +211,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
             
             const insuranceEnabled = shipment.details?.insurance_enabled !== false;
             const newInsuranceCost = insuranceEnabled && value > 0 
-              ? Math.max(value * 0.02, 1) 
+              ? Math.max(value * 0.02, 2) 
               : 0;
               
             console.log('Declared value change:', { id, value, insuranceEnabled, insuranceCost: newInsuranceCost });

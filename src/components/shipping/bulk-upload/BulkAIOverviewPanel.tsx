@@ -23,6 +23,7 @@ interface AIAnalysis {
   costScore: number;
   coverageScore?: number;
   recommendation: string;
+  detailedAnalysis?: string;
   labels: {
     isCheapest: boolean;
     isFastest: boolean;
@@ -395,13 +396,33 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                 )}
               </div>
 
-              {/* AI Recommendation */}
-              <div className="p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
-                <div className="flex items-center gap-1 mb-1">
-                  <Brain className="w-3 h-3 text-blue-600" />
-                  <span className="font-medium text-blue-900 text-xs">AI Recommendation</span>
+              {/* AI Recommendation with detailed analysis */}
+              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-1 mb-2">
+                  <Brain className="w-4 h-4 text-blue-600" />
+                  <span className="font-semibold text-blue-900 text-xs">
+                    {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
+                  </span>
                 </div>
-                <p className="text-xs text-gray-700">{analysis.recommendation}</p>
+                <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                  {analysis.detailedAnalysis || analysis.recommendation}
+                </p>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
+                  onClick={() => {
+                    const contextMessage = analysisMode === 'individual' && currentShipment 
+                      ? `Selected shipment: ${currentShipment.recipient} - ${currentShipment.carrier} ${currentShipment.service} at $${parseFloat(currentShipment.rate || 0).toFixed(2)}, ${currentShipment.service} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide detailed insights about this shipment and compare with other available rates.`
+                      : `Bulk shipment analysis for ${allShipments.length} shipments. Total cost: $${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}. Average AI score: ${analysis.overallScore}/100. Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide optimization recommendations for the entire batch.`;
+                    
+                    sessionStorage.setItem('ai-chat-prefill', contextMessage);
+                    document.dispatchEvent(new CustomEvent('open-ai-chatbot'));
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Ask AI About This
+                </Button>
               </div>
             </div> : null}
 
