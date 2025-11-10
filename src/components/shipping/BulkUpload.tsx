@@ -282,7 +282,7 @@ const BulkUpload: React.FC = () => {
     handleDownloadLabelsClick();
   };
   return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300">
         {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
           <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
