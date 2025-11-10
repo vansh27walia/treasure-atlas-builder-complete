@@ -326,10 +326,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Helper function to calculate insurance cost - dynamic based on declared value (minimum $2)
-   const calculateInsuranceCost = (declaredValue: number): number => {
-     if (declaredValue <= 0) return 0;
-     return Math.max(2, declaredValue * 0.02);
-   };
+  const calculateInsuranceCost = (declaredValue: number): number => {
+    if (declaredValue <= 50) return 2.00;
+    if (declaredValue <= 100) return 2.50;
+    if (declaredValue <= 200) return 4.00;
+    if (declaredValue <= 500) return 8.00;
+    return Math.max(8, declaredValue * 0.02); // 2% for higher values, minimum $8
+  };
 
   // Helper function to get dynamic discount percentage based on rate
   const getDiscountPercentage = (rate: any): number => {

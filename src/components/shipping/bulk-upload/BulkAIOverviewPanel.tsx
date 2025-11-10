@@ -404,16 +404,6 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                     {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
                   </span>
                 </div>
-                {analysisMode === 'individual' && currentShipment && (
-                  <p className="text-[11px] text-blue-700 mb-1">
-                    Shipment: {currentShipment.recipient} • {currentShipment.carrier} {currentShipment.service} • ${parseFloat(currentShipment.rate || 0).toFixed(2)} • {(currentShipment.delivery_days ?? '—')} days
-                  </p>
-                )}
-                {analysisMode === 'combined' && (
-                  <p className="text-[11px] text-blue-700 mb-1">
-                    {allShipments.length} shipments • Total ${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)} • Carriers: {Array.from(new Set(allShipments.map(s => s.carrier))).join(', ')}
-                  </p>
-                )}
                 <p className="text-xs text-gray-700 leading-relaxed mb-2">
                   {analysis.detailedAnalysis || analysis.recommendation}
                 </p>
@@ -423,8 +413,8 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                   className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
                   onClick={() => {
                     const contextMessage = analysisMode === 'individual' && currentShipment 
-                      ? `Selected shipment: ${currentShipment.recipient} - ${currentShipment.carrier} ${currentShipment.service} at $${parseFloat(currentShipment.rate || 0).toFixed(2)}, ${(currentShipment.delivery_days ?? '—')} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Edge functions: analyze-bulk-shipping-rates (analysis), bulk-shipping-ai-chat (chat). Please provide detailed insights about this shipment and compare with other available rates.`
-                      : `Bulk shipment analysis for ${allShipments.length} shipments. Total cost: $${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}. Average AI score: ${analysis.overallScore}/100. Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Edge functions: analyze-bulk-shipping-rates (analysis), bulk-shipping-ai-chat (chat). Please provide optimization recommendations for the entire batch.`;
+                      ? `Selected shipment: ${currentShipment.recipient} - ${currentShipment.carrier} ${currentShipment.service} at $${parseFloat(currentShipment.rate || 0).toFixed(2)}, ${currentShipment.service} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide detailed insights about this shipment and compare with other available rates.`
+                      : `Bulk shipment analysis for ${allShipments.length} shipments. Total cost: $${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}. Average AI score: ${analysis.overallScore}/100. Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide optimization recommendations for the entire batch.`;
                     
                     sessionStorage.setItem('ai-chat-prefill', contextMessage);
                     document.dispatchEvent(new CustomEvent('open-ai-chatbot'));
@@ -433,7 +423,6 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                   <MessageCircle className="h-4 w-4 mr-1" />
                   Ask AI About This
                 </Button>
-                <div className="text-[10px] text-gray-500 mt-2">Using edge functions: analyze-bulk-shipping-rates, bulk-shipping-ai-chat</div>
               </div>
             </div> : null}
 
