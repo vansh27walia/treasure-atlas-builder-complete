@@ -240,7 +240,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                         ? shipment.insurance_cost
                         : (() => {
                             const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
-                            return declared > 0 ? Math.max(declared * 0.02, 1) : 0;
+                            return declared > 0 ? Math.max(declared * 0.02, 2) : 0;
                           })());
                   const rowTotal = (shipment.rate || 0) + insurance;
                   return (

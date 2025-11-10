@@ -81,11 +81,9 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
         </div>
       </div>
       
-      {insuranceEnabled && declaredValue > 0 && (
         <div className="text-xs text-gray-500">
-          Total Coverage: ${(100 + declaredValue).toFixed(2)} (Base $100 + Additional ${declaredValue.toFixed(2)})
+          Insurance is $2 per $100 of declared value (2% minimum $2).
         </div>
-      )}
     </div>
   );
 };
