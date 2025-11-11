@@ -404,7 +404,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                     {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
                   </span>
                 </div>
-                <p className="text-xs text-gray-700 leading-relaxed mb-2 whitespace-pre-wrap">
+                <p className="text-xs text-gray-700 leading-relaxed mb-2">
                   {analysis.detailedAnalysis || analysis.recommendation}
                 </p>
                 <Button 

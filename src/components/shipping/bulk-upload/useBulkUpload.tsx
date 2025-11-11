@@ -45,9 +45,8 @@ export const useBulkUpload = () => {
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
       const normalizedShipments = newResults.processedShipments.map((s) => {
         const declared = Number((((s as any).declared_value ?? (s as any).details?.declared_value) ?? 0) || 0);
-        const enabled = Boolean(((s as any).insurance_enabled ?? (s as any).details?.insurance_enabled ?? true));
-        const units = Math.ceil(Math.max(0, declared) / 100);
-        const insurance_cost = enabled ? Math.max(2, units * 2) : 0;
+        const enabled = Boolean(((s as any).insurance_enabled ?? (s as any).details?.insurance_enabled ?? false));
+        const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
         return { ...s, insurance_cost };
       });
       newResults.processedShipments = normalizedShipments as any;
@@ -73,9 +72,8 @@ export const useBulkUpload = () => {
       if (merged.processedShipments && Array.isArray(merged.processedShipments)) {
         const normalized = merged.processedShipments.map((s) => {
           const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
-          const enabled = (s.insurance_enabled ?? s.details?.insurance_enabled ?? true) as boolean;
-          const units = Math.ceil(Math.max(0, declared) / 100);
-          const insurance_cost = enabled ? Math.max(2, units * 2) : 0;
+          const enabled = (s.insurance_enabled ?? s.details?.insurance_enabled ?? false) as boolean;
+          const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
           return { ...s, insurance_cost };
         });
         merged.processedShipments = normalized as any;
@@ -201,9 +199,8 @@ export const useBulkUpload = () => {
           const merged = s.id === shipment.id ? updatedShipment : s;
           const m: any = merged as any;
           const declared = Number((m.declared_value ?? m.details?.declared_value ?? 0) || 0);
-          const enabled = Boolean(m.insurance_enabled ?? m.details?.insurance_enabled ?? true);
-          const units = Math.ceil(Math.max(0, declared) / 100);
-          const insurance_cost = enabled ? Math.max(2, units * 2) : 0;
+          const enabled = Boolean(m.insurance_enabled ?? m.details?.insurance_enabled ?? false);
+          const insurance_cost = enabled ? (declared > 0 ? Math.max(declared * 0.02, 1) : 0) : 0;
           return { ...merged, insurance_cost };
         });
         

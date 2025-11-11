@@ -240,8 +240,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                         ? shipment.insurance_cost
                         : (() => {
                             const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
-                            const units = Math.ceil(Math.max(0, declared) / 100);
-                            return Math.max(2, units * 2);
+                            return declared > 0 ? Math.max(declared * 0.02, 1) : 0;
                           })());
                   const rowTotal = (shipment.rate || 0) + insurance;
                   return (
@@ -289,16 +288,10 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                   </TableCell>
                   <TableCell className="font-bold text-lg text-green-700">
                     ${(() => {
-                      // Recalculate from current rows to ensure accuracy ($2 per $100, min $2 when enabled)
+                      // Recalculate from current rows to ensure accuracy (insurance min $2)
                       const actualTotal = filteredShipments.reduce((sum, shipment) => {
-                        const base = shipment.rate || 0;
-                        if (shipment.insurance_enabled === false) return sum + base;
-                        const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
-                        const units = Math.ceil(Math.max(0, declared) / 100);
-                        const insurance = (typeof shipment.insurance_cost === 'number' && shipment.insurance_cost >= 0)
-                          ? shipment.insurance_cost
-                          : Math.max(2, units * 2);
-                        return sum + base + insurance;
+                        const insurance = (typeof shipment.insurance_cost === 'number' && shipment.insurance_cost > 0) ? shipment.insurance_cost : 2;
+                        return sum + (shipment.rate || 0) + insurance;
                       }, 0);
                       return actualTotal.toFixed(2);
                     })()}

@@ -282,7 +282,7 @@ const BulkUpload: React.FC = () => {
     handleDownloadLabelsClick();
   };
   return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300`}>
+      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
         {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
           <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
@@ -330,21 +330,10 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
-                      <BulkShipmentFilters 
-                        searchTerm={searchTerm} 
-                        onSearchChange={setSearchTerm} 
-                        sortField={sortField} 
-                        sortDirection={sortDirection} 
-                        onSortChange={(field, direction) => {
-                          setSortField(field as any);
-                          setSortDirection(direction as any);
-                        }} 
-                        selectedCarrier={selectedCarrierFilter} 
-                        onCarrierFilterChange={setSelectedCarrierFilter} 
-                        onApplyCarrierToAll={handleBulkApplyCarrier}
-                        onQuickOptimization={(filterId) => handleAIOptimizationChange(filterId)}
-                        onOpenChatbot={() => setChatbotOpen(true)}
-                      />
+                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
+                      setSortField(field as any);
+                      setSortDirection(direction as any);
+                    }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
                     <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {
@@ -444,7 +433,7 @@ const BulkUpload: React.FC = () => {
           </Card>
         </div>
 
-        {/* Chatbot Toggle Button - now controlled via Filters AI Chat button */}
+        {/* Chatbot Toggle Button */}
         {uploadStatus === 'editing'}
       </div>
 
