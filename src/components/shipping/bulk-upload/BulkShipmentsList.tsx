@@ -325,39 +325,21 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     };
   };
 
-  // Helper function to calculate insurance cost - dynamic based on declared value (minimum $2)
+  // Helper function to calculate insurance cost - $2 per $100 declared value
   const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 2.00;
-    if (declaredValue <= 100) return 2.50;
-    if (declaredValue <= 200) return 4.00;
-    if (declaredValue <= 500) return 8.00;
-    return Math.max(8, declaredValue * 0.02); // 2% for higher values, minimum $8
+    if (declaredValue <= 0) return 0;
+    return (declaredValue / 100) * 2; // $2 per $100 declared value
   };
 
-  // Helper function to get dynamic discount percentage based on rate
+  // Helper function to get discount percentage - same logic as normal shipping
   const getDiscountPercentage = (rate: any): number => {
-    if (!rate) return 0;
+    if (!rate || !rate.original_rate) return 0;
     const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
+    const originalRate = typeof rate.original_rate === 'string' ? parseFloat(rate.original_rate) : rate.original_rate;
     
-    // Dynamic discount calculation based on carrier and service
-    let baseMultiplier = 2.2; // Base markup for discount calculation
+    if (!originalRate || originalRate <= currentRate) return 0;
     
-    // Adjust multiplier based on carrier
-    if (rate.carrier === 'USPS') baseMultiplier = 2.8;
-    else if (rate.carrier === 'UPS') baseMultiplier = 2.5;
-    else if (rate.carrier === 'FedEx') baseMultiplier = 2.6;
-    
-    // Adjust for service type
-    if (rate.service.toLowerCase().includes('express')) baseMultiplier += 0.3;
-    else if (rate.service.toLowerCase().includes('ground')) baseMultiplier -= 0.2;
-    else if (rate.service.toLowerCase().includes('priority')) baseMultiplier += 0.1;
-    
-    // Add randomization for more realistic discounts
-    const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
-    const finalMultiplier = baseMultiplier * randomFactor;
-    
-    const originalRate = currentRate * finalMultiplier;
-    return Math.min(85, Math.max(45, Math.round(((originalRate - currentRate) / originalRate) * 100)));
+    return Math.round((1 - (currentRate / originalRate)) * 100);
   };
 
   // Helper function to get dynamic insurance discount
@@ -636,9 +618,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   })
                                   .map(rate => {
                                     const standardizedCarrier = standardizeCarrierName(rate.carrier);
-                                    const discountPercent = getDiscountPercentage(rate);
                                     const currentRatePrice = parseFloat(formatRate(rate.rate));
-                                    const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
+                                    
+                                    // Use original_rate if available, otherwise calculate discount
+                                    const hasDiscount = rate.original_rate && parseFloat(rate.original_rate) > currentRatePrice;
+                                    const originalPrice = hasDiscount ? parseFloat(rate.original_rate) : 0;
+                                    const discountPercent = hasDiscount 
+                                      ? Math.round((1 - (currentRatePrice / originalPrice)) * 100)
+                                      : 0;
                                   
                                   return (
                                     <SelectItem key={rate.id} value={rate.id} className="p-0">
@@ -664,18 +651,22 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                           
                                           <div className="flex items-center justify-between">
                                             <div className="flex flex-col">
-                                              <div className="text-xs text-gray-400 line-through">
-                                                Was ${originalPrice.toFixed(2)}
-                                              </div>
+                                              {hasDiscount && (
+                                                <div className="text-sm font-bold text-gray-800 line-through mb-1">
+                                                  ${originalPrice.toFixed(2)}
+                                                </div>
+                                              )}
                                               <div className="text-xl font-bold text-green-600">
                                                 ${formatRate(rate.rate)}
                                               </div>
                                             </div>
-                                            <div className="text-right">
-                                              <div className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">
-                                                Save {discountPercent}%
+                                            {hasDiscount && (
+                                              <div className="text-right">
+                                                <Badge variant="destructive" className="bg-red-600 text-white font-bold px-3 py-1">
+                                                  {discountPercent}% OFF
+                                                </Badge>
                                               </div>
-                                            </div>
+                                            )}
                                           </div>
                                         </div>
                                       </div>
