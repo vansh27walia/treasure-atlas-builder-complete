@@ -172,8 +172,8 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
 
           {/* Carrier filter moved to top */}
           <Select
-            value={selectedCarrier || ''}
-            onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
+            value={selectedCarrier || 'all'}
+            onValueChange={(value) => onCarrierFilterChange(value === 'all' ? null : value)}
           >
             <SelectTrigger className="w-[150px] h-8">
               <SelectValue placeholder="All carriers" />
@@ -181,7 +181,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Carriers</SelectLabel>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
                   <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
                 ))}
