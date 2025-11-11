@@ -111,7 +111,8 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   selectedCarrier,
   onCarrierFilterChange,
   onApplyCarrierToAll,
-  onQuickOptimization
+  onQuickOptimization,
+  onOpenChatbot
 }) => {
   const [selectedCarrierService, setSelectedCarrierService] = useState<{carrierId: string, serviceId: string} | null>(null);
   const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([]);
