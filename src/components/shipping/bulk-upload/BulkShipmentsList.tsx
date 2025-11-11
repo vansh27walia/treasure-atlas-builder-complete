@@ -325,13 +325,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     };
   };
 
-  // Helper function to calculate insurance cost - dynamic based on declared value (minimum $2)
+  // Helper function to calculate insurance cost - flat $2 per $100 (min $2 when declared > 0)
   const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 2.00;
-    if (declaredValue <= 100) return 2.50;
-    if (declaredValue <= 200) return 4.00;
-    if (declaredValue <= 500) return 8.00;
-    return Math.max(8, declaredValue * 0.02); // 2% for higher values, minimum $8
+    if (declaredValue <= 0) return 0;
+    return Math.max(2, Math.ceil(declaredValue / 100) * 2);
   };
 
   // Helper function to get dynamic discount percentage based on rate
@@ -636,9 +633,17 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   })
                                   .map(rate => {
                                     const standardizedCarrier = standardizeCarrierName(rate.carrier);
-                                    const discountPercent = getDiscountPercentage(rate);
                                     const currentRatePrice = parseFloat(formatRate(rate.rate));
-                                    const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
+                                    let originalPrice = typeof rate.original_rate === 'string' ? parseFloat(rate.original_rate) : (rate.original_rate as number | undefined);
+                                    let discountPercent: number | null = null;
+                                    if (typeof originalPrice === 'number' && originalPrice > currentRatePrice) {
+                                      discountPercent = Math.round(((originalPrice - currentRatePrice) / originalPrice) * 100);
+                                    } else if (typeof rate.discount_percentage === 'number') {
+                                      discountPercent = Math.round(rate.discount_percentage);
+                                      if (!originalPrice) {
+                                        originalPrice = Math.round((currentRatePrice / (1 - discountPercent / 100)) * 100) / 100;
+                                      }
+                                    }
                                   
                                   return (
                                     <SelectItem key={rate.id} value={rate.id} className="p-0">
@@ -664,17 +669,21 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                           
                                           <div className="flex items-center justify-between">
                                             <div className="flex flex-col">
-                                              <div className="text-xs text-gray-400 line-through">
-                                                Was ${originalPrice.toFixed(2)}
-                                              </div>
+                                              {typeof originalPrice === 'number' && (
+                                                <div className="text-sm font-extrabold text-foreground">
+                                                  ${originalPrice.toFixed(2)}
+                                                </div>
+                                              )}
                                               <div className="text-xl font-bold text-green-600">
                                                 ${formatRate(rate.rate)}
                                               </div>
                                             </div>
                                             <div className="text-right">
-                                              <div className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">
-                                                Save {discountPercent}%
-                                              </div>
+                                              {discountPercent !== null && (
+                                                <div className="text-sm font-semibold text-destructive bg-destructive/10 px-3 py-1 rounded-full">
+                                                  Save {discountPercent}%
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
                                         </div>
@@ -766,12 +775,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <span className="text-sm font-medium text-green-800">Protection Cost</span>
                                   <span className="text-lg font-bold text-green-700">${insuranceCost.toFixed(2)}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-600">Standard: ${(insurance.value * 0.025).toFixed(2)}</span>
-                                  <span className="text-xs text-green-600 font-semibold bg-green-100 px-2 py-1 rounded">
-                                    Save {getInsuranceDiscountPercentage(insurance.value)}%
-                                  </span>
-                                </div>
+                                <div className="text-xs text-gray-600">Insurance is $2 per $100 of declared value.</div>
                               </div>
                             </div>
                           ) : (
