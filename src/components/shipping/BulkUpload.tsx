@@ -330,20 +330,10 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
-                      <BulkShipmentFilters
-                        searchTerm={searchTerm}
-                        onSearchChange={setSearchTerm}
-                        sortField={sortField}
-                        sortDirection={sortDirection}
-                        onSortChange={(field, direction) => {
-                          setSortField(field as any);
-                          setSortDirection(direction as any);
-                        }}
-                        selectedCarrier={selectedCarrierFilter}
-                        onCarrierFilterChange={setSelectedCarrierFilter}
-                        onApplyCarrierToAll={handleBulkApplyCarrier}
-                        onQuickOptimization={(id) => handleAIOptimizationChange(id)}
-                      />
+                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
+                      setSortField(field as any);
+                      setSortDirection(direction as any);
+                    }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
                     <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {

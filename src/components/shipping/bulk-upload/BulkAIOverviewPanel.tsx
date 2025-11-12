@@ -8,7 +8,6 @@ import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin, M
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import CarrierLogo from '../CarrierLogo';
-import { formatWeightDisplay } from '@/utils/weightConversion';
 interface BulkAIOverviewPanelProps {
   selectedShipment?: any;
   allShipments: any[];
@@ -397,7 +396,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                 )}
               </div>
 
-              {/* AI Recommendation with detailed analysis - 5-6 lines like normal shipping */}
+              {/* AI Recommendation with detailed analysis */}
               <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
                 <div className="flex items-center gap-1 mb-2">
                   <Brain className="w-4 h-4 text-blue-600" />
@@ -407,13 +406,6 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                 </div>
                 <p className="text-xs text-gray-700 leading-relaxed mb-2">
                   {analysis.detailedAnalysis || analysis.recommendation}
-                </p>
-                {/* Additional context - 5-6 lines explaining shipment scenarios */}
-                <p className="text-xs text-gray-600 leading-relaxed mb-2 italic">
-                  {analysisMode === 'individual' && currentShipment 
-                    ? `This rate is optimized for shipping to ${currentShipment.details?.to_city}, ${currentShipment.details?.to_state}. The carrier's delivery network and service level provide reliable transit with ${currentShipment.delivery_days || 'estimated'} day delivery. Consider package dimensions (${currentShipment.details?.length}"×${currentShipment.details?.width}"×${currentShipment.details?.height}"), weight (${formatWeightDisplay(currentShipment.details?.weight || 16)}), and destination requirements when finalizing your choice.`
-                    : `Analyzing ${allShipments.length} shipments across multiple destinations. The recommended optimization balances cost efficiency, delivery speed, and carrier reliability. Consider regional variations, package characteristics, and delivery requirements for optimal results. Total shipping cost: $${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}.`
-                  }
                 </p>
                 <Button 
                   variant="default" 
