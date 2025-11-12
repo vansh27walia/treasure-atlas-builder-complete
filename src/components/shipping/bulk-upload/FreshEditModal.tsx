@@ -102,10 +102,8 @@ const FreshEditModal = ({
         email: shipment.email || ''
       };
 
-      // Format parcel data - convert to ounces for backend based on selected unit
-      const weightOz = weightUnit === 'lb'  
-        ? convertPoundsToOunces(localData.weight)
-        : kgToOunces(localData.weight);
+      // Format parcel data - convert to ounces for backend (using pounds only)
+      const weightOz = convertPoundsToOunces(localData.weight);
 
       const parcel = {
         weight: weightOz,
@@ -160,18 +158,13 @@ const FreshEditModal = ({
         return;
       }
 
-      // Calculate insurance cost
-      const insuranceCost = localData.insurance_enabled  
-        ? Math.max(1, localData.declared_value * 0.02)  
+      // Calculate insurance cost ($2 per $100, rounded up)
+      const insuranceCost = localData.insurance_enabled
+        ? (localData.declared_value > 0 ? Math.ceil(localData.declared_value / 100) * 2 : 0)
         : 0;
 
-      // Normalize weight to ounces based on selected unit - FIXED CONVERSION
-      let weightOzToSave;
-      if (weightUnit === 'lb') {
-        weightOzToSave = convertPoundsToOunces(localData.weight);
-      } else {
-        weightOzToSave = kgToOunces(localData.weight);
-      }
+      // Normalize weight to ounces (pounds only)
+      const weightOzToSave = convertPoundsToOunces(localData.weight);
 
       console.log(`🔢 Weight conversion: ${localData.weight} ${weightUnit} = ${weightOzToSave} oz`);
 
@@ -276,7 +269,7 @@ const FreshEditModal = ({
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
             <DialogDescription>
@@ -372,42 +365,17 @@ const FreshEditModal = ({
               </div>
 
               <div>
-                <Label htmlFor="weight">Weight</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <Input
-                    id="weight"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={localData.weight}
-                    onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-                    placeholder={weightUnit === 'lb' ? 'Weight in pounds' : 'Weight in kilograms'}
-                    className="col-span-2"
-                  />
-                  <Select
-                    value={weightUnit}
-                    onValueChange={(val: 'lb' | 'kg') => {
-                      setWeightUnit((prevUnit) => {
-                        // Convert displayed weight when switching units
-                        if (prevUnit === 'lb' && val === 'kg') {
-                          setLocalData(prev => ({ ...prev, weight: poundsToKg(prev.weight) }));
-                        } else if (prevUnit === 'kg' && val === 'lb') {
-                          setLocalData(prev => ({ ...prev, weight: kgToPounds(prev.weight) }));
-                        }
-                        return val;
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lb">lb</SelectItem>
-                      <SelectItem value="kg">kg</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Weight display defaults to pounds (lb). You can switch to kg if needed.</p>
+                <Label htmlFor="weight">Weight (lb)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={localData.weight}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                  placeholder="Weight in pounds"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Weight is entered in pounds (lb).</p>
               </div>
 
               <div>
