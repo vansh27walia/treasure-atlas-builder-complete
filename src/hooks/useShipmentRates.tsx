@@ -301,10 +301,9 @@ export const useShipmentRates = (
   };
   
   const handleBulkApplyCarrier = (carrierId: string, serviceId: string) => {
-    const latest = latestResultsRef.current;
-    if (!latest) return;
+    if (!initialResults) return;
     
-    const updatedShipments = latest.processedShipments.map(shipment => {
+    const updatedShipments = initialResults.processedShipments.map(shipment => {
       // Find a rate that matches the selected carrier and service
       const matchingRate = shipment.availableRates?.find(
         rate => rate.carrier === carrierId && rate.service === serviceId
@@ -330,11 +329,11 @@ export const useShipmentRates = (
       return sum + (selectedRate?.rate || 0);
     }, 0);
     
-    updateResults({
-      ...(latest as BulkUploadResult),
-      processedShipments: updatedShipments,
-      totalCost
-    });
+  updateResults({
+    ...(latestResultsRef.current as BulkUploadResult),
+    processedShipments: updatedShipments,
+    totalCost
+  });
     
     toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
   };

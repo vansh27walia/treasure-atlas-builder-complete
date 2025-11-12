@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/components/ui/sonner';
 import { Download, UploadCloud } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -235,15 +234,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
               </TableHeader>
               <TableBody>
                 {filteredShipments.map((shipment) => {
-                  const declared = Number((shipment.declared_value ?? shipment.details?.declared_value ?? 0) || 0);
-                  const insurance = declared > 0 ? (declared / 100) * 2 : 0;
+                  const insurance = shipment.insurance_enabled === false
+                    ? 0
+                    : (typeof shipment.insurance_cost === 'number'
+                        ? shipment.insurance_cost
+                        : (() => {
+                            const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
+                            return declared > 0 ? Math.max(declared * 0.02, 1) : 0;
+                          })());
                   const rowTotal = (shipment.rate || 0) + insurance;
-                  const selectedRate = shipment.availableRates?.find((r: any) => r.id === shipment.selectedRateId);
-                  const originalRaw = selectedRate?.retail_rate ?? selectedRate?.list_rate;
-                  const original = typeof originalRaw === 'string' ? parseFloat(originalRaw) : Number(originalRaw || 0);
-                  const rateNum = Number(shipment.rate || selectedRate?.rate || 0);
-                  const hasDiscount = original && original > rateNum;
-                  const discountPercent = hasDiscount ? Math.round((1 - (rateNum / original)) * 100) : 0;
                   return (
                     <TableRow key={shipment.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">{shipment.recipient || shipment.customer_name}</TableCell>
@@ -256,23 +255,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{shipment.service}</TableCell>
-                      <TableCell className="font-mono">
-                        {hasDiscount ? (
-                          <div className="text-right">
-                            <div className="text-sm text-gray-900 line-through font-black">
-                              ${original.toFixed(2)}
-                            </div>
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="text-xl font-bold text-gray-900">${rateNum.toFixed(2)}</span>
-                              <span className="inline-flex items-center rounded px-2 py-0.5 text-white bg-red-600 text-xs font-semibold">
-                                Save {discountPercent}%
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span>${rateNum.toFixed(2)}</span>
-                        )}
-                      </TableCell>
+                      <TableCell className="font-mono">${(shipment.rate || 0).toFixed(2)}</TableCell>
                       <TableCell className="font-mono">${insurance.toFixed(2)}</TableCell>
                       <TableCell className="font-mono font-bold text-green-700 bg-green-50">
                         ${rowTotal.toFixed(2)}
@@ -305,10 +288,10 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                   </TableCell>
                   <TableCell className="font-bold text-lg text-green-700">
                     ${(() => {
+                      // Recalculate from current rows to ensure accuracy (insurance min $2)
                       const actualTotal = filteredShipments.reduce((sum, shipment) => {
-                        const declared = Number((shipment.declared_value ?? shipment.details?.declared_value ?? 0) || 0);
-                        const insurance = declared > 0 ? (declared / 100) * 2 : 0;
-                        return sum + (Number(shipment.rate || 0)) + insurance;
+                        const insurance = (typeof shipment.insurance_cost === 'number' && shipment.insurance_cost > 0) ? shipment.insurance_cost : 2;
+                        return sum + (shipment.rate || 0) + insurance;
                       }, 0);
                       return actualTotal.toFixed(2);
                     })()}
@@ -322,13 +305,11 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
           <OrderSummary
             successfulCount={filteredShipments.length}
             totalCost={filteredShipments.reduce((sum, s: any) => {
-              const declared = Number((s.declared_value ?? s.details?.declared_value ?? 0) || 0);
-              const insurance = declared > 0 ? (declared / 100) * 2 : 0;
-              return sum + (Number(s.rate || 0)) + insurance;
+              const insurance = (typeof s.insurance_cost === 'number' && s.insurance_cost > 0) ? s.insurance_cost : 2;
+              return sum + (s.rate || 0) + insurance;
             }, 0)}
             totalInsurance={filteredShipments.reduce((sum, s: any) => {
-              const declared = Number((s.declared_value ?? s.details?.declared_value ?? 0) || 0);
-              const insurance = declared > 0 ? (declared / 100) * 2 : 0;
+              const insurance = (typeof s.insurance_cost === 'number' && s.insurance_cost > 0) ? s.insurance_cost : 2;
               return sum + insurance;
             }, 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
