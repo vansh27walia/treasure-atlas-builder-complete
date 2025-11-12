@@ -160,10 +160,8 @@ const FreshEditModal = ({
         return;
       }
 
-      // Calculate insurance cost
-      const insuranceCost = localData.insurance_enabled  
-        ? Math.max(1, localData.declared_value * 0.02)  
-        : 0;
+      // Calculate insurance cost - flat $2 per $100 declared
+      const insuranceCost = localData.declared_value > 0 ? (localData.declared_value / 100) * 2 : 0;
 
       // Normalize weight to ounces based on selected unit - FIXED CONVERSION
       let weightOzToSave;
@@ -276,7 +274,7 @@ const FreshEditModal = ({
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
             <DialogDescription>
@@ -372,8 +370,8 @@ const FreshEditModal = ({
               </div>
 
               <div>
-                <Label htmlFor="weight">Weight</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <Label htmlFor="weight">Weight (lb)</Label>
+                <div className="grid grid-cols-1 gap-2">
                   <Input
                     id="weight"
                     type="number"
@@ -381,33 +379,10 @@ const FreshEditModal = ({
                     min="0"
                     value={localData.weight}
                     onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-                    placeholder={weightUnit === 'lb' ? 'Weight in pounds' : 'Weight in kilograms'}
-                    className="col-span-2"
+                    placeholder={'Weight in pounds (lb)'}
                   />
-                  <Select
-                    value={weightUnit}
-                    onValueChange={(val: 'lb' | 'kg') => {
-                      setWeightUnit((prevUnit) => {
-                        // Convert displayed weight when switching units
-                        if (prevUnit === 'lb' && val === 'kg') {
-                          setLocalData(prev => ({ ...prev, weight: poundsToKg(prev.weight) }));
-                        } else if (prevUnit === 'kg' && val === 'lb') {
-                          setLocalData(prev => ({ ...prev, weight: kgToPounds(prev.weight) }));
-                        }
-                        return val;
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lb">lb</SelectItem>
-                      <SelectItem value="kg">kg</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Weight display defaults to pounds (lb). You can switch to kg if needed.</p>
+                <p className="text-xs text-muted-foreground mt-1">Units: lb (pounds) only</p>
               </div>
 
               <div>
