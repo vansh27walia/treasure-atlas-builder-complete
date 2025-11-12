@@ -304,10 +304,17 @@ export const useShipmentRates = (
     if (!initialResults) return;
     
     const updatedShipments = initialResults.processedShipments.map(shipment => {
-      // Find a rate that matches the selected carrier and service
-      const matchingRate = shipment.availableRates?.find(
-        rate => rate.carrier === carrierId && rate.service === serviceId
-      );
+      // Find a rate that matches the selected carrier and service (case-insensitive, fuzzy)
+      const norm = (s: string) => (s || '').toLowerCase();
+      const c = norm(carrierId);
+      const s = norm(serviceId);
+      const matchingRate = shipment.availableRates?.find(rate => {
+        const rc = norm(String(rate.carrier));
+        const rs = norm(String(rate.service));
+        const carrierMatch = rc === c || rc.includes(c) || c.includes(rc);
+        const serviceMatch = rs === s || rs.includes(s) || s.includes(rs);
+        return carrierMatch && serviceMatch;
+      });
       
       if (matchingRate) {
         return { 

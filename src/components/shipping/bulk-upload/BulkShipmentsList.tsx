@@ -333,12 +333,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   // Helper function to get discount percentage - same logic as normal shipping
   const getDiscountPercentage = (rate: any): number => {
-    if (!rate || !rate.original_rate) return 0;
+    if (!rate) return 0;
     const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
-    const originalRate = typeof rate.original_rate === 'string' ? parseFloat(rate.original_rate) : rate.original_rate;
-    
+    const originalRaw: any = rate.original_rate ?? rate.retail_rate ?? rate.list_rate;
+    const originalRate = typeof originalRaw === 'string' ? parseFloat(originalRaw) : originalRaw;
     if (!originalRate || originalRate <= currentRate) return 0;
-    
     return Math.round((1 - (currentRate / originalRate)) * 100);
   };
 
@@ -620,9 +619,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                     const standardizedCarrier = standardizeCarrierName(rate.carrier);
                                     const currentRatePrice = parseFloat(formatRate(rate.rate));
                                     
-                                    // Use original_rate if available, otherwise calculate discount
-                                    const hasDiscount = rate.original_rate && parseFloat(rate.original_rate) > currentRatePrice;
-                                    const originalPrice = hasDiscount ? parseFloat(rate.original_rate) : 0;
+                                    // Determine original price using original_rate, retail_rate, or list_rate
+                                    const originalRaw: any = (rate as any).original_rate ?? (rate as any).retail_rate ?? (rate as any).list_rate;
+                                    const originalVal = originalRaw ? parseFloat(originalRaw) : 0;
+                                    const hasDiscount = originalVal > currentRatePrice;
+                                    const originalPrice = hasDiscount ? originalVal : 0;
                                     const discountPercent = hasDiscount 
                                       ? Math.round((1 - (currentRatePrice / originalPrice)) * 100)
                                       : 0;
@@ -652,7 +653,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                           <div className="flex items-center justify-between">
                                             <div className="flex flex-col">
                                               {hasDiscount && (
-                                                <div className="text-sm font-bold text-gray-800 line-through mb-1">
+                                                <div className="text-sm font-semibold text-foreground line-through mb-1">
                                                   ${originalPrice.toFixed(2)}
                                                 </div>
                                               )}
@@ -757,12 +758,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <span className="text-sm font-medium text-green-800">Protection Cost</span>
                                   <span className="text-lg font-bold text-green-700">${insuranceCost.toFixed(2)}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-600">Standard: ${(insurance.value * 0.025).toFixed(2)}</span>
-                                  <span className="text-xs text-green-600 font-semibold bg-green-100 px-2 py-1 rounded">
-                                    Save {getInsuranceDiscountPercentage(insurance.value)}%
-                                  </span>
-                                </div>
+                                <div className="text-xs text-muted-foreground">For each $100, only $2</div>
                               </div>
                             </div>
                           ) : (
