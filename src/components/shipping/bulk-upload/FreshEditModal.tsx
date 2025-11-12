@@ -479,6 +479,7 @@ const FreshEditModal = ({
                         selectedRate?.id === rate.id ? 'border-blue-600 bg-blue-600/5' : 'hover:border-blue-600/50'
                       }`}
                       onClick={() => setSelectedRate(rate)}
+                    >
                       <div className="flex justify-between items-center">
                         <div>
                           <div className="font-medium">{rate.carrier} - {rate.service}</div>
