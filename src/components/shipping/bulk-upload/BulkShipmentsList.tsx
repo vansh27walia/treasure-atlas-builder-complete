@@ -325,47 +325,28 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     };
   };
 
-  // Helper function to calculate insurance cost - dynamic based on declared value (minimum $2)
+  // Insurance calculation: Exactly $2 per $100 of declared value (rounds up to nearest $100)
   const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 2.00;
-    if (declaredValue <= 100) return 2.50;
-    if (declaredValue <= 200) return 4.00;
-    if (declaredValue <= 500) return 8.00;
-    return Math.max(8, declaredValue * 0.02); // 2% for higher values, minimum $8
+    if (declaredValue <= 0) return 0;
+    // Round up to nearest $100, then multiply by $2
+    return Math.ceil(declaredValue / 100) * 2;
   };
 
-  // Helper function to get dynamic discount percentage based on rate
+  // Helper function to get REAL discount percentage from API rates
   const getDiscountPercentage = (rate: any): number => {
     if (!rate) return 0;
     const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
+    const originalRate = rate.retail_rate || rate.list_rate;
     
-    // Dynamic discount calculation based on carrier and service
-    let baseMultiplier = 2.2; // Base markup for discount calculation
+    if (!originalRate || originalRate <= currentRate) return 0;
     
-    // Adjust multiplier based on carrier
-    if (rate.carrier === 'USPS') baseMultiplier = 2.8;
-    else if (rate.carrier === 'UPS') baseMultiplier = 2.5;
-    else if (rate.carrier === 'FedEx') baseMultiplier = 2.6;
-    
-    // Adjust for service type
-    if (rate.service.toLowerCase().includes('express')) baseMultiplier += 0.3;
-    else if (rate.service.toLowerCase().includes('ground')) baseMultiplier -= 0.2;
-    else if (rate.service.toLowerCase().includes('priority')) baseMultiplier += 0.1;
-    
-    // Add randomization for more realistic discounts
-    const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
-    const finalMultiplier = baseMultiplier * randomFactor;
-    
-    const originalRate = currentRate * finalMultiplier;
-    return Math.min(85, Math.max(45, Math.round(((originalRate - currentRate) / originalRate) * 100)));
+    const parsedOriginal = typeof originalRate === 'string' ? parseFloat(originalRate) : originalRate;
+    return Math.round(((parsedOriginal - currentRate) / parsedOriginal) * 100);
   };
 
-  // Helper function to get dynamic insurance discount
+  // Helper function to get insurance discount (removed - no discount shown)
   const getInsuranceDiscountPercentage = (declaredValue: number): number => {
-    const standardRate = declaredValue * 0.025; // Standard 2.5% rate
-    const ourRate = calculateInsuranceCost(declaredValue);
-    if (standardRate <= ourRate) return 0;
-    return Math.round(((standardRate - ourRate) / standardRate) * 100);
+    return 0; // No discount display for insurance
   };
 
   const handleEditSubmit = async (shipmentId: string, editedData: any) => {
@@ -530,8 +511,16 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           <p className="text-gray-500">No shipments found.</p>
         </Card>
       ) : (
-        <div className="overflow-x-auto">
-          <Card className="shadow-lg">
+        <div className="space-y-3">
+          {/* Insurance Notice */}
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-sm text-blue-900 font-medium">
+              📦 Insurance: For each $100 of declared value, it's $2 (automatically calculated)
+            </p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <Card className="shadow-lg">
             <Table>
               <TableHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
                 <TableRow className="border-b-2 border-blue-100">
@@ -638,7 +627,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                     const standardizedCarrier = standardizeCarrierName(rate.carrier);
                                     const discountPercent = getDiscountPercentage(rate);
                                     const currentRatePrice = parseFloat(formatRate(rate.rate));
-                                    const originalPrice = (currentRatePrice * (1 + discountPercent / 100));
+                                    const originalPrice = rate.retail_rate || rate.list_rate;
+                                    const parsedOriginal = originalPrice ? (typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice) : null;
                                   
                                   return (
                                     <SelectItem key={rate.id} value={rate.id} className="p-0">
@@ -664,18 +654,22 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                           
                                           <div className="flex items-center justify-between">
                                             <div className="flex flex-col">
-                                              <div className="text-xs text-gray-400 line-through">
-                                                Was ${originalPrice.toFixed(2)}
-                                              </div>
-                                              <div className="text-xl font-bold text-green-600">
+                                              {parsedOriginal && discountPercent > 0 && (
+                                                <div className="text-xs text-muted-foreground line-through">
+                                                  Was ${parsedOriginal.toFixed(2)}
+                                                </div>
+                                              )}
+                                              <div className="text-xl font-bold text-foreground">
                                                 ${formatRate(rate.rate)}
                                               </div>
                                             </div>
-                                            <div className="text-right">
-                                              <div className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">
-                                                Save {discountPercent}%
+                                            {discountPercent > 0 && (
+                                              <div className="text-right">
+                                                <div className="text-sm font-semibold text-red-600 bg-red-100 px-3 py-1 rounded-full">
+                                                  Save {discountPercent}%
+                                                </div>
                                               </div>
-                                            </div>
+                                            )}
                                           </div>
                                         </div>
                                       </div>
@@ -761,16 +755,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 />
                               </div>
                               
-                              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-sm font-medium text-green-800">Protection Cost</span>
-                                  <span className="text-lg font-bold text-green-700">${insuranceCost.toFixed(2)}</span>
+                                  <span className="text-sm font-medium text-blue-800">Protection Cost</span>
+                                  <span className="text-lg font-bold text-blue-700">${insuranceCost.toFixed(2)}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-600">Standard: ${(insurance.value * 0.025).toFixed(2)}</span>
-                                  <span className="text-xs text-green-600 font-semibold bg-green-100 px-2 py-1 rounded">
-                                    Save {getInsuranceDiscountPercentage(insurance.value)}%
-                                  </span>
+                                <div className="text-xs text-muted-foreground">
+                                  For each $100, it's $2 (Declared: ${insurance.value.toFixed(2)})
                                 </div>
                               </div>
                             </div>
@@ -872,7 +863,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 {isEditing ? 'Updating' : 'Edit'}
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
                               </DialogHeader>
@@ -901,6 +892,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
               </TableBody>
             </Table>
           </Card>
+        </div>
         </div>
       )}
     </div>
@@ -1007,10 +999,11 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
 
       <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="weight">Weight (oz) *</Label>
-          <Input id="weight" type="number" step="0.1" {...form.register('weight', {
+          <Label htmlFor="weight">Weight (lb) *</Label>
+          <Input id="weight" type="number" step="0.1" min="0.1" {...form.register('weight', {
             valueAsNumber: true
           })} required />
+          <p className="text-xs text-muted-foreground">Always in pounds (lb)</p>
         </div>
         
         <div className="space-y-2">
