@@ -269,7 +269,7 @@ const FreshEditModal = ({
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
             <DialogDescription>
@@ -440,7 +440,7 @@ const FreshEditModal = ({
               <Label htmlFor="insurance">Enable Insurance</Label>
               {localData.insurance_enabled && (
                 <span className="text-sm text-muted-foreground">
-                  (Cost: ${Math.max(1, localData.declared_value * 0.02).toFixed(2)})
+                  (Cost: ${Math.ceil(localData.declared_value / 100) * 2})
                 </span>
               )}
             </div>
@@ -458,27 +458,45 @@ const FreshEditModal = ({
               <div className="space-y-3">
                 <h4 className="font-semibold">Available Shipping Rates:</h4>
                 <div className="grid gap-2">
-                  {rates.map((rate) => (
-                    <div
-                      key={rate.id}
-                      className={`p-3 border rounded cursor-pointer transition-colors ${
-                        selectedRate?.id === rate.id ? 'border-blue-600 bg-blue-600/5' : 'hover:border-blue-600/50'
-                      }`}
-                      onClick={() => setSelectedRate(rate)}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">{rate.carrier} - {rate.service}</div>
-                          {rate.delivery_days && (
-                            <div className="text-sm text-gray-500">
-                              Delivery: {rate.delivery_days} business days
-                            </div>
-                          )}
+                   {rates.map((rate) => {
+                    const hasDiscount = rate.list_rate || rate.retail_rate;
+                    const originalPrice = hasDiscount ? (rate.list_rate || rate.retail_rate) : null;
+                    const discountPercent = originalPrice ? Math.round((1 - Number(rate.rate) / Number(originalPrice)) * 100) : 0;
+                    
+                    return (
+                      <div
+                        key={rate.id}
+                        className={`p-3 border rounded cursor-pointer transition-colors ${
+                          selectedRate?.id === rate.id ? 'border-blue-600 bg-blue-600/5' : 'hover:border-blue-600/50'
+                        }`}
+                        onClick={() => setSelectedRate(rate)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium">{rate.carrier} - {rate.service}</div>
+                            {rate.delivery_days && (
+                              <div className="text-sm text-gray-500">
+                                Delivery: {rate.delivery_days} business days
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {hasDiscount && discountPercent > 0 && (
+                              <div className="flex flex-col items-end mb-1">
+                                <span className="text-sm text-muted-foreground line-through">
+                                  ${Number(originalPrice).toFixed(2)}
+                                </span>
+                                <span className="text-xs text-red-600 font-semibold">
+                                  Save {discountPercent}%
+                                </span>
+                              </div>
+                            )}
+                            <div className="font-bold text-lg">${Number(rate.rate).toFixed(2)}</div>
+                          </div>
                         </div>
-                        <div className="font-bold">${rate.rate.toFixed(2)}</div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
