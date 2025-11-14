@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,8 @@ import OrderSummary from './OrderSummary';
 import BulkPaymentModal from './BulkPaymentModal';
 import FreshEditModal from './FreshEditModal';
 import IndependentPrintPreview from '../IndependentPrintPreview';
+import BulkAIOverviewPanel from './BulkAIOverviewPanel';
+import { Sparkles } from 'lucide-react';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -81,6 +84,10 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setResults,
   } = useBulkUpload();
 
+  // AI Panel state
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
+
   const promptEmailLabels = () => {
     const email = prompt('Enter email address to email all labels:');
     if (email) {
@@ -123,8 +130,12 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     return 'Address not available';
   };
 
-  // Insurance: $2 per $100 of declared value (always rounds up)
-  const calcInsurance = (declared: number) => (declared > 0 ? Math.ceil(declared / 100) * 2 : 0);
+  // Insurance: Exactly $2 per $100 of declared value (rounds up to nearest $100, then multiply by 2)
+  const calcInsurance = (declared: number) => {
+    if (declared <= 0) return 0;
+    // Always round up to nearest $100, then multiply by 2
+    return Math.ceil(declared / 100) * 2;
+  };
 
   // ENHANCED edit handler - ensures proper save-then-fetch sequence
   const handleFreshEdit = async (shipmentId: string, updatedShipment: BulkShipment) => {
@@ -196,6 +207,17 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
       {results && results.processedShipments.length > 0 && (
         <div className="space-y-6">
+          {/* AI Overview Panel Button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setAiPanelOpen(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              AI Overview
+            </Button>
+          </div>
+
           {/* Filters and Shipments List */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
@@ -221,7 +243,11 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
           </div>
 
           {/* Notice: Insurance is auto-calculated */}
-          <p className="text-xs text-gray-500">Insurance is automatically calculated at $2 per $100 of declared value.</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-sm text-blue-900 font-medium">
+              📦 Insurance: For each $100 of declared value, it's $2 (automatically calculated)
+            </p>
+          </div>
 
           {/* Enhanced Shipments Table */}
           <div className="border rounded-lg shadow-lg bg-white">
@@ -259,18 +285,22 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                           {shipment.carrier}
                         </span>
                       </TableCell>
-                      <TableCell className="font-mono">
-                        {hasDiscount ? (
-                          <div className="flex flex-col items-start">
-                            <span className="line-through font-semibold text-gray-900">${Number(original).toFixed(2)}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-red-700">${currentRate.toFixed(2)}</span>
-                              <span className="text-red-600 font-semibold">{discountPercent}% OFF</span>
+                       <TableCell>
+                        <div className="flex items-center gap-2">
+                          {hasDiscount && (
+                            <div className="flex flex-col items-start">
+                              <span className="text-sm text-muted-foreground line-through">
+                                ${Number(original).toFixed(2)}
+                              </span>
+                              <Badge variant="destructive" className="text-xs">
+                                Save {discountPercent}%
+                              </Badge>
                             </div>
-                          </div>
-                        ) : (
-                          <span className="font-mono">${currentRate.toFixed(2)}</span>
-                        )}
+                          )}
+                          <span className="text-lg font-bold text-foreground">
+                            ${currentRate.toFixed(2)}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="font-mono">${insurance.toFixed(2)}</TableCell>
                       <TableCell className="font-mono font-bold text-green-700 bg-green-50">
@@ -354,15 +384,34 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
 
       {/* Pickup (From) Information */}
       {pickupAddress && (
-        <div className="mt-6 p-4 rounded-md border bg-gray-50">
-          <h4 className="font-semibold mb-2">From (Pickup Address)</h4>
-          <p className="text-sm text-gray-700">
-            {pickupAddress?.name || pickupAddress?.company} — {formatAddressForDisplay(pickupAddress)}
-          </p>
-          <div className="mt-2">
-            <Button asChild variant="outline" size="sm">
-              <a href="/pickup">Change pickup address</a>
-            </Button>
+        <div className="mt-6 p-6 rounded-lg border-2 border-primary/20 bg-gradient-to-br from-blue-50 to-white shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span className="text-primary">📦</span> Shipping From
+              </h4>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">
+                  {pickupAddress?.name || pickupAddress?.company}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {pickupAddress.street1}{pickupAddress.street2 && `, ${pickupAddress.street2}`}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {pickupAddress.city}, {pickupAddress.state} {pickupAddress.zip}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {pickupAddress.country}
+                </p>
+              </div>
+            </div>
+            <div>
+              <Button variant="outline" size="sm" asChild>
+                <a href="/pickup">
+                  Change Address
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -371,6 +420,34 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       <BulkPaymentModal
         open={showAddPaymentModal}
         onOpenChange={setShowAddPaymentModal}
+      />
+
+      {/* AI Overview Panel */}
+      <BulkAIOverviewPanel
+        selectedShipment={selectedShipmentForAI}
+        allShipments={filteredShipments}
+        isOpen={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        onRateChange={(shipmentId, rateId) => {
+          handleSelectRate(shipmentId, rateId);
+        }}
+        onOptimizationChange={(filter, shipmentId) => {
+          if (shipmentId) {
+            // Apply to single shipment
+            const shipment = filteredShipments.find(s => s.id === shipmentId);
+            if (shipment?.availableRates && shipment.availableRates.length > 0) {
+              const optimizedRate = shipment.availableRates[0];
+              handleSelectRate(shipmentId, optimizedRate.id);
+            }
+          } else {
+            // Apply to all shipments - pass carrier and service
+            // For now, just use the first available rate's carrier and service as a simplified approach
+            if (filteredShipments.length > 0 && filteredShipments[0].availableRates && filteredShipments[0].availableRates.length > 0) {
+              const firstRate = filteredShipments[0].availableRates[0];
+              handleBulkApplyCarrier(firstRate.carrier, firstRate.service);
+            }
+          }
+        }}
       />
     </div>
   );
