@@ -85,12 +85,37 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       const newInsuranceSettings: Record<string, { enabled: boolean; value: number }> = {};
       let hasChanges = false;
       
-      shipments.forEach(shipment => {
+      shipments.forEach((shipment, index) => {
         if (!insuranceSettings[shipment.id]) {
           const enabled = shipment.details?.insurance_enabled !== false;
-          const value = shipment.details?.declared_value || 100;
+          const value = shipment.details?.declared_value || 200;
           newInsuranceSettings[shipment.id] = { enabled, value };
           hasChanges = true;
+          
+          // Programmatically toggle insurance to ensure cost is calculated
+          // This simulates close/open behavior requested by user
+          if (enabled) {
+            setTimeout(() => {
+              // First disable
+              onEditShipment(shipment.id, {
+                details: { ...shipment.details, insurance_enabled: false },
+                insurance_cost: 0
+              });
+              
+              // Then re-enable after short delay with correct cost
+              setTimeout(() => {
+                const insuranceCost = (value / 100) * 2; // $2 per $100
+                onEditShipment(shipment.id, {
+                  details: { 
+                    ...shipment.details, 
+                    insurance_enabled: true,
+                    declared_value: value 
+                  },
+                  insurance_cost: insuranceCost
+                });
+              }, 50);
+            }, 100 * index); // Stagger updates
+          }
           
           // Programmatically toggle insurance off then on to trigger proper state update
           // This ensures insurance costs are automatically added on first load
