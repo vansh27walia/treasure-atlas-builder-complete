@@ -19,8 +19,8 @@ const RateDisplay: React.FC<RateDisplayProps> = ({
   const standardizedCarrier = standardizeCarrierName(carrier);
   const formattedRate = typeof actualRate === 'string' ? parseFloat(actualRate) : actualRate;
 
-  // Calculate mock retail price and discount (54-93% discount range)
-  const discountPercentage = Math.floor(Math.random() * 40) + 54; // Random between 54-93
+  // Calculate mock retail price and discount (60-90% discount range)
+  const discountPercentage = Math.floor(Math.random() * 31) + 60; // Random between 60-90
   const mockRetailPrice = formattedRate / (1 - discountPercentage / 100);
 
   return (
@@ -48,7 +48,7 @@ const RateDisplay: React.FC<RateDisplayProps> = ({
           <span className="text-base font-bold text-gray-900 line-through decoration-2 decoration-gray-500">
             ${mockRetailPrice.toFixed(2)}
           </span>
-          <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-300">
+          <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
             {discountPercentage}% OFF
           </span>
         </div>
