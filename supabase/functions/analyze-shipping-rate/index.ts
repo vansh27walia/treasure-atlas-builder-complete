@@ -47,14 +47,8 @@ serve(async (req) => {
     const speedScore = Math.round(((fastestDelivery / (selectedRate.delivery_days || 5)) * 100));
     const reliabilityScore = carrierReliability;
 
-    // Calculate additional scores
-    const serviceQualityScore = Math.round(carrierReliability * 0.7 + speedScore * 0.3);
-    const trackingScore = Math.round(carrierReliability * 0.6 + 85); // Most carriers have good tracking
-    
-    // Overall score calculation - weighted across 5 factors
-    const overallScore = Math.round(
-      (costScore * 0.2 + speedScore * 0.2 + reliabilityScore * 0.3 + serviceQualityScore * 0.15 + trackingScore * 0.15)
-    );
+    // Overall score calculation
+    const overallScore = Math.round((costScore * 0.3 + speedScore * 0.3 + reliabilityScore * 0.4));
 
     // Determine if it's the most efficient (balance of cost and speed)
     const efficiencyScores = rates.map((rate: any) => {
@@ -66,32 +60,27 @@ serve(async (req) => {
     const selectedEfficiencyScore = (cheapestPrice / selectedRatePrice) * 50 + (fastestDelivery / (selectedRate.delivery_days || 5)) * 50;
     const isMostEfficient = Math.abs(selectedEfficiencyScore - bestEfficiencyScore) < 1;
 
-    // Create prompt for Gemini API - Focus on shipment quality, reliability, timing
-    const prompt = `Analyze this shipping option and provide detailed insights:
+    // Create prompt for Gemini API
+    const prompt = `Analyze this shipping rate and provide a recommendation:
 
-Shipment Details:
-- Carrier: ${selectedRate.carrier} ${selectedRate.service}
+Rate Details:
+- Carrier: ${selectedRate.carrier}
+- Service: ${selectedRate.service}
+- Price: $${selectedRatePrice}
 - Delivery Time: ${selectedRate.delivery_days} days
 - Overall Score: ${overallScore}/100
-- Reliability: ${reliabilityScore}/100
-- Speed: ${speedScore}/100
-- Service Quality: ${serviceQualityScore}/100
-- Tracking: ${trackingScore}/100
+- Cost Score: ${costScore}/100
+- Speed Score: ${speedScore}/100
+- Reliability Score: ${reliabilityScore}/100
 
 Context:
-- Total options: ${rates.length}
-- Fastest available: ${fastestDelivery} days
-- Is fastest option: ${isFastest}
-- Is most reliable: ${reliabilityScore >= 85}
+- Total available rates: ${rates.length}
+- Price range: $${context?.priceRange?.min} - $${context?.priceRange?.max}
+- Is cheapest: ${isCheapest}
+- Is fastest: ${isFastest}
 - Is most efficient: ${isMostEfficient}
 
-Write a detailed 3-4 sentence analysis covering:
-1) Will this shipment arrive safely and on time for the recipient?
-2) Is ${selectedRate.carrier} reliable for this service level?
-3) What makes this option good or what should be considered?
-4) Brief mention of timing reliability.
-
-Focus on shipment quality, delivery reliability, and service value. Keep it conversational and helpful.`;
+Provide a 2-sentence recommendation explaining why this rate is good or what to consider. Focus on practical shipping advice.`;
 
     // Call Gemini API
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
@@ -115,18 +104,15 @@ Focus on shipment quality, delivery reliability, and service value. Keep it conv
     });
 
     const geminiData = await geminiResponse.json();
-    const detailedAnalysis = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 
-      `This ${selectedRate.carrier} ${selectedRate.service} option provides reliable delivery in ${selectedRate.delivery_days} days. The carrier has a strong track record for on-time deliveries. This service level is well-suited for standard shipping needs with dependable tracking throughout transit.`;
+    const recommendation = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 
+      "This rate offers a good balance of cost and delivery time for your shipment needs.";
 
     const analysis = {
       overallScore,
       reliabilityScore,
       speedScore,
       costScore,
-      serviceQualityScore,
-      trackingScore,
-      recommendation: detailedAnalysis.substring(0, 200), // Short version
-      detailedAnalysis, // Full version
+      recommendation,
       labels: {
         isCheapest,
         isFastest,

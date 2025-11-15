@@ -34,17 +34,6 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  
-  // Check for pre-filled context from sessionStorage
-  useEffect(() => {
-    if (isOpen) {
-      const contextMessage = sessionStorage.getItem('chatbot-context');
-      if (contextMessage) {
-        setInputMessage(contextMessage);
-        sessionStorage.removeItem('chatbot-context');
-      }
-    }
-  }, [isOpen]);
 
   const handleSendMessage = async (predefinedMessage?: string) => {
     const messageToSend = predefinedMessage || inputMessage;

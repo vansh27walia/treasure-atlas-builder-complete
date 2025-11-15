@@ -274,6 +274,50 @@ serve(async (req) => {
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
 
+    // CRITICAL: Retrieve and validate shipment has phone numbers BEFORE buying label
+    const shipmentValidationResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+
+    if (!shipmentValidationResponse.ok) {
+      console.error('Failed to retrieve shipment for validation');
+      return new Response(
+        JSON.stringify({ error: 'Failed to retrieve shipment details' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    const shipmentData = await shipmentValidationResponse.json();
+    console.log('Validating shipment addresses for phone numbers...');
+
+    // Validate from_address (sender) has phone
+    if (!shipmentData.from_address || !shipmentData.from_address.phone || shipmentData.from_address.phone.trim() === '') {
+      console.error('❌ Sender (from) address is missing phone number');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Cannot create label: Sender phone number is missing', 
+          details: 'Please update your pickup address in Settings to include a phone number, then try again.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
+      );
+    }
+
+    // Validate to_address (recipient) has phone
+    if (!shipmentData.to_address || !shipmentData.to_address.phone || shipmentData.to_address.phone.trim() === '') {
+      console.error('❌ Recipient (to) address is missing phone number');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Cannot create label: Recipient phone number is missing', 
+          details: 'Please add a phone number to the destination address, then try again.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
+      );
+    }
+
+    console.log('✅ Phone number validation passed for both addresses');
+
     // Process customs for international shipments BEFORE purchasing label
     if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
       try {

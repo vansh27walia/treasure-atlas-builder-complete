@@ -25,7 +25,6 @@ interface AIAnalysis {
   serviceQualityScore: number;
   trackingScore: number;
   recommendation: string;
-  detailedAnalysis: string;
   labels: {
     isCheapest: boolean;
     isFastest: boolean;
@@ -145,7 +144,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-72 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+    <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -164,7 +163,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
         </CardHeader>
         
         <CardContent className="flex-1 overflow-y-auto p-3 space-y-3">
-          {/* Rate Selector Dropdown */}
+          {/* Rate Selector Dropdown - FIRST */}
           <div className="space-y-2">
             <h4 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
               <Truck className="w-3 h-3" />
@@ -192,62 +191,40 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </Select>
           </div>
 
+          {/* Cost Bar - SECOND - Smaller */}
           {/* Selected Rate Info - Smaller */}
           {selectedRate && (
             <div className="p-2 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-1.5 mb-1">
-                <CarrierLogo carrier={selectedRate.carrier} className="w-4 h-4" />
+              <div className="flex items-center gap-2 mb-1">
+                <CarrierLogo carrier={selectedRate.carrier} className="w-5 h-5" />
                 <h3 className="font-semibold text-blue-900 text-xs">{selectedRate.carrier} {selectedRate.service}</h3>
               </div>
-              <p className="text-base font-bold text-blue-800">${parseFloat(selectedRate?.rate || 0).toFixed(2)}</p>
+              <p className="text-lg font-bold text-blue-800">${parseFloat(selectedRate?.rate || 0).toFixed(2)}</p>
               <p className="text-[10px] text-blue-600">{selectedRate?.delivery_days} days delivery</p>
+            </div>
+          )}
+
+          {/* AI Overview with Scoring - THIRD */}
+          {analysis && (
+            <div className="p-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Brain className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-semibold text-blue-900">AI Score</h3>
+              </div>
+              <div className="text-2xl font-bold text-blue-800 text-center">{analysis.overallScore}/100</div>
             </div>
           )}
 
           {/* AI Analysis */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-sm">AI analyzing...</span>
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-xs">AI analyzing...</span>
             </div>
           ) : analysis ? (
-            <div className="space-y-3">
-              {/* AI Scoring - Large and Prominent */}
-              <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Brain className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-base font-semibold text-blue-900">AI Score</h3>
-                </div>
-                <div className="text-4xl font-bold text-blue-800">{analysis.overallScore}/100</div>
-              </div>
-
-              {/* Benefit Badges - Like Bulk */}
-              <div className="space-y-1">
-                {analysis.labels.isCheapest && (
-                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
-                    💰 Cost Effective
-                  </Badge>
-                )}
-                {analysis.labels.isFastest && (
-                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1">
-                    ⚡ Speed Priority
-                  </Badge>
-                )}
-                {analysis.labels.isMostReliable && (
-                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1">
-                    🛡️ Highly Reliable
-                  </Badge>
-                )}
-                {analysis.labels.isMostEfficient && (
-                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1">
-                    ✅ Best Balance
-                  </Badge>
-                )}
-              </div>
-
-              {/* Detailed Score Breakdown - Dynamic 4-5 criteria */}
-              <div className="space-y-2 p-3 bg-gray-50 rounded-lg border">
-                <h4 className="font-semibold text-xs text-gray-900 mb-2">Rating Breakdown</h4>
+            <div className="space-y-2">
+              {/* Marks on Three Parameters - FOURTH */}
+              <div className="space-y-1.5 p-2 bg-gray-50 rounded-lg border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Shield className="w-3 h-3 text-blue-600" />
@@ -269,55 +246,33 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-orange-600" />
-                    <span className="text-xs">Service Quality</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-red-600" />
-                    <span className="text-xs">Tracking</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
-                </div>
               </div>
 
-              {/* AI Explanation - Detailed 3-4 lines */}
-              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-1 mb-2">
-                  <Brain className="w-4 h-4 text-blue-600" />
-                  <span className="font-semibold text-blue-900 text-xs">
-                    {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-700 leading-relaxed mb-2">
-                  {analysis.detailedAnalysis || analysis.recommendation}
+              {/* Explanation - FIFTH - 2-3 lines */}
+              <div className="p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
+                <p className="text-[10px] text-gray-700 leading-relaxed">
+                  Our AI analyzed all available rates based on cost, speed, and reliability. 
+                  This score reflects the optimal balance for your shipment needs.
                 </p>
+              </div>
+
+              {/* Chatbot Question Box - SIXTH */}
+              <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
                 <Button 
-                  variant="default" 
+                  variant="outline" 
                   size="sm"
-                  className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
+                  className="w-full h-7 text-xs"
                   onClick={() => {
-                    // Prepare context message for chatbot
-                    const contextMessage = `I'm looking at ${selectedRate.carrier} ${selectedRate.service} for $${parseFloat(selectedRate.rate).toFixed(2)} with ${selectedRate.delivery_days} day delivery. AI Score: ${analysis.overallScore}/100. Can you provide more insights about this shipping option and alternatives?`;
-                    
-                    // Store context in sessionStorage for chatbot to pick up
-                    sessionStorage.setItem('chatbot-context', contextMessage);
-                    
-                    // Trigger chatbot
                     const chatbot = document.querySelector('[data-chatbot-trigger]') as HTMLElement;
                     if (chatbot) chatbot.click();
                   }}
                 >
-                  <MessageCircle className="h-4 w-4 mr-1" />
-                  Ask AI About This Rate
+                  <MessageCircle className="h-3 w-3 mr-1" />
+                  Questions? Ask AI Chatbot
                 </Button>
               </div>
 
-              {/* Quick Changes */}
+              {/* Quick Changes - SEVENTH - At bottom */}
               <div className="border border-blue-200 rounded-lg p-3 bg-gradient-to-r from-blue-50 to-purple-50">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-xs mb-2">
                   <Zap className="w-3 h-3 text-purple-600" />

@@ -233,7 +233,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
   if (!isOpen) return null;
   const currentShipment = analysisMode === 'individual' ? allShipments.find(s => s.id === selectedShipmentId) || selectedShipment : null;
   const currentRates = currentShipment?.availableRates || [];
-  return <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+  return <div className="fixed top-0 right-0 h-screen w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
