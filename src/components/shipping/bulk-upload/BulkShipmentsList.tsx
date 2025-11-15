@@ -78,6 +78,74 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     }
   }, []);
 
+  // Initialize insurance settings for all shipments when they load
+  // Programmatically trigger close/open to ensure costs are added automatically
+  useEffect(() => {
+    if (shipments && shipments.length > 0) {
+      const newInsuranceSettings: Record<string, { enabled: boolean; value: number }> = {};
+      let hasChanges = false;
+      
+      shipments.forEach((shipment, index) => {
+        if (!insuranceSettings[shipment.id]) {
+          const enabled = shipment.details?.insurance_enabled !== false;
+          const value = shipment.details?.declared_value || 200;
+          newInsuranceSettings[shipment.id] = { enabled, value };
+          hasChanges = true;
+          
+          // Programmatically toggle insurance to ensure cost is calculated
+          // This simulates close/open behavior requested by user
+          if (enabled) {
+            setTimeout(() => {
+              // First disable
+              onEditShipment(shipment.id, {
+                details: { ...shipment.details, insurance_enabled: false },
+                insurance_cost: 0
+              });
+              
+              // Then re-enable after short delay with correct cost
+              setTimeout(() => {
+                const insuranceCost = (value / 100) * 2; // $2 per $100
+                onEditShipment(shipment.id, {
+                  details: { 
+                    ...shipment.details, 
+                    insurance_enabled: true,
+                    declared_value: value 
+                  },
+                  insurance_cost: insuranceCost
+                });
+              }, 50);
+            }, 100 * index); // Stagger updates
+          }
+          
+          // Programmatically toggle insurance off then on to trigger proper state update
+          // This ensures insurance costs are automatically added on first load
+          setTimeout(() => {
+            // First toggle off
+            onEditShipment(shipment.id, {
+              insurance_cost: 0,
+              details: { ...shipment.details, insurance_enabled: false, declared_value: value }
+            });
+            
+            // Then toggle back on if it should be enabled
+            setTimeout(() => {
+              if (enabled) {
+                const cost = calculateInsuranceCost(value);
+                onEditShipment(shipment.id, {
+                  insurance_cost: cost,
+                  details: { ...shipment.details, insurance_enabled: true, declared_value: value }
+                });
+              }
+            }, 50);
+          }, 10);
+        }
+      });
+      
+      if (hasChanges) {
+        setInsuranceSettings(prev => ({ ...prev, ...newInsuranceSettings }));
+      }
+    }
+  }, [shipments.length]);
+
   const handleOpenEditDialog = (shipmentId: string) => {
     setOpenDialogs({
       ...openDialogs,
@@ -285,19 +353,20 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   // Helper function to get insurance settings with defaults
   const getInsuranceSettings = (shipmentId: string) => {
+    const shipment = shipments.find(s => s.id === shipmentId);
+    const enabled = shipment?.details?.insurance_enabled !== false;
+    const value = shipment?.details?.declared_value || 100;
+    
     return insuranceSettings[shipmentId] || {
-      enabled: true,
-      value: 100 // Default $100
+      enabled,
+      value
     };
   };
 
-  // Helper function to calculate insurance cost - dynamic based on declared value
+  // Helper function to calculate insurance cost ($2 per $100)
   const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 1.50;
-    if (declaredValue <= 100) return 2.00;
-    if (declaredValue <= 200) return 3.50;
-    if (declaredValue <= 500) return 7.00;
-    return Math.max(7, declaredValue * 0.015); // 1.5% for higher values, minimum $7
+    if (declaredValue <= 0) return 0;
+    return (declaredValue / 100) * 2; // $2 per $100
   };
 
   // Helper function to get dynamic discount percentage based on rate
@@ -513,7 +582,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {shipments.map((shipment, index) => {
+                {[...shipments].reverse().map((shipment, index) => {
                   const insurance = getInsuranceSettings(shipment.id);
                   const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
                   const insuranceCost = insurance.enabled ? calculateInsuranceCost(insurance.value) : 0;

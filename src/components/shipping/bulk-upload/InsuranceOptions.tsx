@@ -21,29 +21,29 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   onInsuranceToggle,
   onDeclaredValueChange
 }) => {
-  // Calculate insurance cost based on declared value (2% of declared value)
+  // Calculate insurance cost based on declared value ($2 per $100)
   const calculateInsuranceCost = (value: number) => {
     if (!insuranceEnabled || value <= 0) return 0;
-    return Math.max(value * 0.02, 1); // Minimum $1 insurance cost
+    return (value / 100) * 2; // $2 per $100
   };
 
   const insuranceCost = calculateInsuranceCost(declaredValue);
 
   return (
-    <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="space-y-3 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-medium">
-            Insurance
+          <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-semibold text-gray-800">
+            Package Insurance
           </Label>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <Info className="h-4 w-4 text-gray-500" />
+                <Info className="h-4 w-4 text-blue-600" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">
-                  Up to $100 covered by most carriers by default. Additional value insured via EasyPost at 2% of declared amount.
+                  Up to $100 covered by most carriers by default. Additional coverage at $2 per $100 declared value.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -58,7 +58,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
       
       <div className="flex items-center space-x-4">
         <div className="flex-1">
-          <Label htmlFor={`declared-value-${shipmentId}`} className="text-xs text-gray-600">
+          <Label htmlFor={`declared-value-${shipmentId}`} className="text-xs font-medium text-gray-700">
             Declared Value ($)
           </Label>
           <Input
@@ -67,25 +67,30 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
             value={declaredValue}
             onChange={(e) => onDeclaredValueChange(shipmentId, Number(e.target.value))}
             disabled={!insuranceEnabled}
-            className="mt-1"
+            className="mt-1 border-blue-300 focus:border-blue-500"
             min="0"
             step="0.01"
-            placeholder="Enter declared value"
+            placeholder="Enter value"
           />
         </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-600">Insurance Cost</div>
-          <div className="text-sm font-semibold text-green-600">
+        <div className="text-right min-w-[100px]">
+          <div className="text-xs font-medium text-gray-700">Insurance Cost</div>
+          <div className="text-lg font-bold text-green-600">
             ${insuranceCost.toFixed(2)}
           </div>
         </div>
       </div>
       
-      {insuranceEnabled && declaredValue > 0 && (
-        <div className="text-xs text-gray-500">
-          Total Coverage: ${(100 + declaredValue).toFixed(2)} (Base $100 + Additional ${declaredValue.toFixed(2)})
+      <div className="flex items-center justify-between pt-2 border-t border-blue-200">
+        <div className="text-xs font-medium text-blue-700">
+          Rate: $2 per $100 declared value
         </div>
-      )}
+        {insuranceEnabled && declaredValue > 0 && (
+          <div className="text-xs text-gray-600">
+            ${declaredValue.toFixed(2)} × 2% = ${insuranceCost.toFixed(2)}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

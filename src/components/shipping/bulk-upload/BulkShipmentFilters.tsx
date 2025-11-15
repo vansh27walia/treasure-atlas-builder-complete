@@ -156,14 +156,14 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     <div className="flex flex-col gap-3 mb-4">
       {/* Top Row - Search and Quick Actions */}
       <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-grow">
+        <div className="relative w-full md:w-64">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             type="text"
-            placeholder="Search by recipient, address, carrier..."
+            placeholder="Search shipments..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9"
           />
         </div>
         

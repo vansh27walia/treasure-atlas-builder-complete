@@ -15,8 +15,8 @@ import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle, Mail } from 'lucide-react';
+import { toast } from 'sonner';
 import { SavedAddress } from '@/services/AddressService';
-import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 const BulkUpload: React.FC = () => {
@@ -25,6 +25,7 @@ const BulkUpload: React.FC = () => {
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
+  const [hasAutoOpenedAI, setHasAutoOpenedAI] = useState(false);
   const [labelProgress, setLabelProgress] = useState({
     isCreating: false,
     progress: 0,
@@ -87,61 +88,106 @@ const BulkUpload: React.FC = () => {
     setAiPanelOpen(true);
   };
   const handleAIOptimizationChange = (filter: string, shipmentId?: string) => {
+    const reliabilityScores: { [key: string]: number } = {
+      'UPS': 90, 'FEDEX': 88, 'USPS': 85, 'DHL': 82
+    };
+    
+    const applyFilterToShipment = (shipment: any) => {
+      if (!shipment.availableRates || shipment.availableRates.length === 0) return;
+      
+      let selectedRate = null;
+      
+      switch (filter) {
+        case 'cheapest':
+          selectedRate = shipment.availableRates.reduce((min: any, rate: any) => 
+            parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min
+          );
+          break;
+          
+        case 'fastest':
+          selectedRate = shipment.availableRates.reduce((fastest: any, rate: any) => 
+            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
+          );
+          break;
+          
+        case 'balanced':
+          selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
+            const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
+            const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
+            return rateScore > bestScore ? rate : best;
+          });
+          break;
+          
+        case '2-day':
+          selectedRate = shipment.availableRates.find((rate: any) => 
+            rate.delivery_days <= 2
+          ) || shipment.availableRates.reduce((fastest: any, rate: any) => 
+            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
+          );
+          break;
+          
+        case 'express':
+          selectedRate = shipment.availableRates.find((rate: any) => 
+            rate.delivery_days === 1 || rate.service?.toLowerCase().includes('express')
+          ) || shipment.availableRates.reduce((fastest: any, rate: any) => 
+            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
+          );
+          break;
+          
+        case 'most-reliable':
+          selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
+            const rateReliability = reliabilityScores[rate.carrier?.toUpperCase()] || 75;
+            const bestReliability = reliabilityScores[best.carrier?.toUpperCase()] || 75;
+            return rateReliability > bestReliability ? rate : best;
+          });
+          break;
+          
+        case 'ai-recommended':
+          selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
+            const rateScore = (1 / parseFloat(rate.rate.toString())) * 0.4 + 
+                            (1 / (rate.delivery_days || 5)) * 0.3 +
+                            (reliabilityScores[rate.carrier?.toUpperCase()] || 75) / 100 * 0.3;
+            const bestScore = (1 / parseFloat(best.rate.toString())) * 0.4 + 
+                            (1 / (best.delivery_days || 5)) * 0.3 +
+                            (reliabilityScores[best.carrier?.toUpperCase()] || 75) / 100 * 0.3;
+            return rateScore > bestScore ? rate : best;
+          });
+          break;
+          
+        default:
+          selectedRate = shipment.availableRates[0];
+      }
+      
+      if (selectedRate) {
+        handleSelectRate(shipment.id, selectedRate.id);
+      }
+    };
+    
     if (shipmentId) {
-      // Apply optimization to specific shipment
+      // Apply to specific shipment
       const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-      if (shipment && shipment.availableRates) {
-        let selectedRate = null;
-        switch (filter) {
-          case 'cheapest':
-            selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
-            break;
-          case 'fastest':
-            selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
-            break;
-          case 'balanced':
-            selectedRate = shipment.availableRates.reduce((best, rate) => {
-              const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (best.delivery_days || 5);
-              const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
-              return rateScore > bestScore ? rate : best;
-            });
-            break;
-          default:
-            selectedRate = shipment.availableRates[0];
-        }
-        if (selectedRate) {
-          handleSelectRate(shipmentId, selectedRate.id);
-        }
+      if (shipment) {
+        applyFilterToShipment(shipment);
       }
     } else {
-      // Apply optimization to all shipments
+      // Apply to ALL shipments
       results?.processedShipments?.forEach(shipment => {
-        if (shipment.availableRates && shipment.availableRates.length > 0) {
-          let selectedRate = null;
-          switch (filter) {
-            case 'cheapest':
-              selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
-              break;
-            case 'fastest':
-              selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
-              break;
-            case 'balanced':
-              selectedRate = shipment.availableRates.reduce((best, rate) => {
-                const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (best.delivery_days || 5);
-                const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
-                return rateScore > bestScore ? rate : best;
-              });
-              break;
-            default:
-              selectedRate = shipment.availableRates[0];
-          }
-          if (selectedRate) {
-            handleSelectRate(shipment.id, selectedRate.id);
-          }
-        }
+        applyFilterToShipment(shipment);
       });
+      
+      toast.success(`Applied "${filter}" optimization to all ${results?.processedShipments?.length || 0} shipments`);
     }
   };
+
+  // Auto-open AI panel for first shipment when results are available
+  useEffect(() => {
+    if (!hasAutoOpenedAI && results?.processedShipments?.length > 0 && uploadStatus === 'editing') {
+      const firstShipment = results.processedShipments[0];
+      setSelectedShipmentForAI(firstShipment);
+      setAiPanelOpen(true);
+      setHasAutoOpenedAI(true);
+    }
+  }, [results?.processedShipments, uploadStatus, hasAutoOpenedAI]);
 
   // Listen for payment events to auto-close AI panel
   useEffect(() => {
@@ -237,7 +283,7 @@ const BulkUpload: React.FC = () => {
     handleDownloadLabelsClick();
   };
   return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-96' : ''}`}>
+      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
         {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
           <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
@@ -285,10 +331,20 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
-                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
-                      setSortField(field as any);
-                      setSortDirection(direction as any);
-                    }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
+                    <BulkShipmentFilters 
+                      searchTerm={searchTerm} 
+                      onSearchChange={setSearchTerm} 
+                      sortField={sortField} 
+                      sortDirection={sortDirection} 
+                      onSortChange={(field, direction) => {
+                        setSortField(field as any);
+                        setSortDirection(direction as any);
+                      }} 
+                      selectedCarrier={selectedCarrierFilter} 
+                      onCarrierFilterChange={setSelectedCarrierFilter} 
+                      onApplyCarrierToAll={handleBulkApplyCarrier}
+                      onQuickOptimization={handleAIOptimizationChange}
+                    />
                     </div>
                     
                     <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {

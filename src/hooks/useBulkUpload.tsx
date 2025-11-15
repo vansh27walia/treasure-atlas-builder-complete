@@ -496,12 +496,20 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleBulkApplyCarrier = (carrier: string) => {
+  const handleBulkApplyCarrier = (carrier: string, service: string) => {
     if (!results) return;
     
+    console.log(`🔧 Applying carrier ${carrier} with service ${service} to all shipments`);
+    
     const updatedShipments = results.processedShipments.map(shipment => {
-      const carrierRate = shipment.availableRates?.find(rate => rate.carrier === carrier);
+      // Match by both carrier AND service for more precise selection
+      const carrierRate = shipment.availableRates?.find(rate => 
+        rate.carrier.toLowerCase() === carrier.toLowerCase() && 
+        rate.service.toLowerCase().includes(service.toLowerCase())
+      );
+      
       if (carrierRate) {
+        console.log(`✅ Applied ${carrier} ${service} to shipment ${shipment.id}`);
         return {
           ...shipment,
           selectedRateId: carrierRate.id,
@@ -510,6 +518,8 @@ export const useBulkUpload = () => {
           rate: parseFloat(carrierRate.rate)
         };
       }
+      
+      console.log(`⚠️ No matching rate found for ${carrier} ${service} on shipment ${shipment.id}`);
       return shipment;
     });
     
@@ -528,6 +538,9 @@ export const useBulkUpload = () => {
       totalCost,
       totalInsurance
     });
+    
+    toast.success(`Applied ${carrier} ${service} to all shipments`);
+  };
     
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };

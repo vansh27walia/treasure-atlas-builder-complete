@@ -38,7 +38,7 @@ const FreshEditModal = ({
 
   // Determine initial weight from shipment details (stored in ounces)
   const initialWeightOz = (shipment?.details?.weight ?? shipment?.details?.parcel_weight ?? shipment?.weight ?? 0) as number;
-  const [weightUnit, setWeightUnit] = useState<'lb' | 'kg'>('lb'); // Always default to pounds
+  const [weightUnit, setWeightUnit] = useState<'lb' | 'oz' | 'kg'>('lb'); // Default to pounds
 
   // Local state for shipment data - now including address fields
   const [localData, setLocalData] = useState({
@@ -276,7 +276,7 @@ const FreshEditModal = ({
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
             <DialogDescription>
@@ -381,19 +381,32 @@ const FreshEditModal = ({
                     min="0"
                     value={localData.weight}
                     onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-                    placeholder={weightUnit === 'lb' ? 'Weight in pounds' : 'Weight in kilograms'}
+                    placeholder={weightUnit === 'lb' ? 'Weight in pounds' : weightUnit === 'oz' ? 'Weight in ounces' : 'Weight in kilograms'}
                     className="col-span-2"
                   />
                   <Select
                     value={weightUnit}
-                    onValueChange={(val: 'lb' | 'kg') => {
+                    onValueChange={(val: 'lb' | 'oz' | 'kg') => {
                       setWeightUnit((prevUnit) => {
-                        // Convert displayed weight when switching units
-                        if (prevUnit === 'lb' && val === 'kg') {
-                          setLocalData(prev => ({ ...prev, weight: poundsToKg(prev.weight) }));
+                        const currentWeight = localData.weight;
+                        let newWeight = currentWeight;
+                        
+                        // Convert from current unit to new unit
+                        if (prevUnit === 'lb' && val === 'oz') {
+                          newWeight = currentWeight * 16;
+                        } else if (prevUnit === 'lb' && val === 'kg') {
+                          newWeight = poundsToKg(currentWeight);
+                        } else if (prevUnit === 'oz' && val === 'lb') {
+                          newWeight = currentWeight / 16;
+                        } else if (prevUnit === 'oz' && val === 'kg') {
+                          newWeight = ouncesToKg(currentWeight);
                         } else if (prevUnit === 'kg' && val === 'lb') {
-                          setLocalData(prev => ({ ...prev, weight: kgToPounds(prev.weight) }));
+                          newWeight = kgToPounds(currentWeight);
+                        } else if (prevUnit === 'kg' && val === 'oz') {
+                          newWeight = kgToOunces(currentWeight);
                         }
+                        
+                        setLocalData(prev => ({ ...prev, weight: Math.max(0.1, Number(newWeight.toFixed(2))) }));
                         return val;
                       });
                     }}
@@ -403,11 +416,12 @@ const FreshEditModal = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="lb">lb</SelectItem>
+                      <SelectItem value="oz">oz</SelectItem>
                       <SelectItem value="kg">kg</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Weight display defaults to pounds (lb). You can switch to kg if needed.</p>
+                <p className="text-xs text-muted-foreground mt-1">Weight display defaults to pounds (lb). You can switch to oz or kg if needed.</p>
               </div>
 
               <div>

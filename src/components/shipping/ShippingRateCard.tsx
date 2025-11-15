@@ -144,9 +144,9 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           <div className="text-right">
             {hasDiscount ? (
               <div className="space-y-2">
-                {/* Original Price - Strikethrough with Yellow Background */}
+                {/* Original Price - Much Darker and Bigger */}
                 <div className="flex items-center justify-end gap-2">
-                  <span className="text-2xl font-bold line-through decoration-4 bg-yellow-300 text-black px-2 py-1 rounded">
+                  <span className="text-4xl font-black line-through decoration-8 decoration-red-600 text-gray-900 px-3 py-2 rounded">
                     ${parseFloat(originalRate).toFixed(2)}
                   </span>
                 </div>
@@ -158,10 +158,10 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
                   </span>
                 </div>
                 
-                {/* Savings Badge - Prominent */}
+                {/* Savings Badge - RED and Prominent */}
                 <div className="flex items-center justify-end">
-                  <Badge className="bg-green-600 text-white text-base px-4 py-2 font-bold">
-                    💰 Save ${(parseFloat(originalRate) - parseFloat(rate.rate)).toFixed(2)} ({discountPercent}% OFF)
+                  <Badge className="bg-red-600 text-white text-base px-4 py-2 font-bold">
+                    💰 {discountPercent}% OFF - Save ${(parseFloat(originalRate) - parseFloat(rate.rate)).toFixed(2)}
                   </Badge>
                 </div>
               </div>

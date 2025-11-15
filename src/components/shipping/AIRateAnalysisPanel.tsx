@@ -22,9 +22,9 @@ interface AIAnalysis {
   reliabilityScore: number;
   speedScore: number;
   costScore: number;
-  serviceQualityScore: number;
-  trackingScore: number;
+  coverageScore?: number;
   recommendation: string;
+  detailedAnalysis: string;
   labels: {
     isCheapest: boolean;
     isFastest: boolean;
@@ -144,7 +144,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+    <div className="fixed top-0 right-0 h-screen w-72 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -162,36 +162,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
           </Button>
         </CardHeader>
         
-        <CardContent className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* AI Recommended - Moved to top */}
-          {analysis && (
-            <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Brain className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-blue-900">AI Recommended</h3>
-              </div>
-              <div className="text-3xl font-bold text-blue-800 mb-2">{analysis.overallScore}/100</div>
-              <p className="text-xs text-gray-700 mb-3">
-                Our AI analyzed all available rates based on your shipping preferences, package details, 
-                and delivery requirements to find you the optimal balance of cost, speed, and reliability 
-                for this shipment. This recommendation considers carrier performance history, delivery times, 
-                and current pricing trends.
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="w-full"
-                onClick={() => {
-                  const chatbot = document.querySelector('[data-chatbot-trigger]') as HTMLElement;
-                  if (chatbot) chatbot.click();
-                }}
-              >
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Have questions? Ask AI Chatbot
-              </Button>
-            </div>
-          )}
-
+        <CardContent className="flex-1 overflow-y-auto p-3 space-y-3">
           {/* Rate Selector Dropdown */}
           <div className="space-y-2">
             <h4 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
@@ -220,15 +191,15 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </Select>
           </div>
 
-          {/* Selected Rate Info */}
+          {/* Selected Rate Info - Smaller */}
           {selectedRate && (
-            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <CarrierLogo carrier={selectedRate.carrier} className="w-6 h-6" />
-                <h3 className="font-semibold text-blue-900 text-sm">{selectedRate.carrier} {selectedRate.service}</h3>
+            <div className="p-2 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-1.5 mb-1">
+                <CarrierLogo carrier={selectedRate.carrier} className="w-4 h-4" />
+                <h3 className="font-semibold text-blue-900 text-xs">{selectedRate.carrier} {selectedRate.service}</h3>
               </div>
-              <p className="text-xl font-bold text-blue-800">${parseFloat(selectedRate?.rate || 0).toFixed(2)}</p>
-              <p className="text-xs text-blue-600">{selectedRate?.delivery_days} days delivery</p>
+              <p className="text-base font-bold text-blue-800">${parseFloat(selectedRate?.rate || 0).toFixed(2)}</p>
+              <p className="text-[10px] text-blue-600">{selectedRate?.delivery_days} days delivery</p>
             </div>
           )}
 
@@ -240,52 +211,42 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </div>
           ) : analysis ? (
             <div className="space-y-3">
-
-              {/* Consolidated Features - Max 2 badges */}
-              <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-                <h4 className="font-semibold text-gray-900 text-xs mb-2">Key Features</h4>
-                <div className="space-y-1.5">
-                  {analysis.labels.isCheapest && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-base">💰</span>
-                      <div className="flex-1">
-                        <div className="font-semibold text-xs text-green-800">Cheapest Option</div>
-                        <div className="text-[10px] text-gray-600">Lowest cost rate - saves you money on shipping</div>
-                      </div>
-                    </div>
-                  )}
-                  {analysis.labels.isFastest && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-base">⚡</span>
-                      <div className="flex-1">
-                        <div className="font-semibold text-xs text-yellow-800">Fastest Delivery</div>
-                        <div className="text-[10px] text-gray-600">Quickest arrival time for urgent shipments</div>
-                      </div>
-                    </div>
-                  )}
-                  {!analysis.labels.isCheapest && !analysis.labels.isFastest && analysis.labels.isMostReliable && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-base">🛡️</span>
-                      <div className="flex-1">
-                        <div className="font-semibold text-xs text-blue-800">Most Reliable</div>
-                        <div className="text-[10px] text-gray-600">Best on-time delivery record</div>
-                      </div>
-                    </div>
-                  )}
-                  {!analysis.labels.isCheapest && !analysis.labels.isFastest && !analysis.labels.isMostReliable && analysis.labels.isMostEfficient && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-base">✅</span>
-                      <div className="flex-1">
-                        <div className="font-semibold text-xs text-purple-800">Most Efficient</div>
-                        <div className="text-[10px] text-gray-600">Best balance of cost, speed & reliability</div>
-                      </div>
-                    </div>
-                  )}
+              {/* AI Scoring - Large and Prominent */}
+              <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Brain className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-base font-semibold text-blue-900">AI Score</h3>
                 </div>
+                <div className="text-4xl font-bold text-blue-800">{analysis.overallScore}/100</div>
               </div>
 
-              {/* Detailed Scores */}
-              <div className="space-y-2 p-2 bg-gray-50 rounded-lg border">
+              {/* Benefit Badges - Like Bulk */}
+              <div className="space-y-1">
+                {analysis.labels.isCheapest && (
+                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
+                    💰 Cost Effective
+                  </Badge>
+                )}
+                {analysis.labels.isFastest && (
+                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1">
+                    ⚡ Speed Priority
+                  </Badge>
+                )}
+                {analysis.labels.isMostReliable && (
+                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1">
+                    🛡️ Highly Reliable
+                  </Badge>
+                )}
+                {analysis.labels.isMostEfficient && (
+                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1">
+                    ✅ Best Balance
+                  </Badge>
+                )}
+              </div>
+
+              {/* Detailed Score Breakdown - Dynamic 3-4 criteria */}
+              <div className="space-y-2 p-3 bg-gray-50 rounded-lg border">
+                <h4 className="font-semibold text-xs text-gray-900 mb-2">Rating Breakdown</h4>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Shield className="w-3 h-3 text-blue-600" />
@@ -307,18 +268,52 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
+                {analysis.coverageScore && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-orange-600" />
+                      <span className="text-xs">Coverage</span>
+                    </div>
+                    <span className="font-semibold text-xs">{analysis.coverageScore}/100</span>
+                  </div>
+                )}
               </div>
 
-              {/* AI Recommendation */}
-              <div className="p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
-                <div className="flex items-center gap-1 mb-1">
-                  <Brain className="w-3 h-3 text-blue-600" />
-                  <span className="font-medium text-blue-900 text-xs">AI Recommendation</span>
+              {/* AI Explanation - Detailed 3-4 lines */}
+              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-1 mb-2">
+                  <Brain className="w-4 h-4 text-blue-600" />
+                  <span className="font-semibold text-blue-900 text-xs">
+                    {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
+                  </span>
                 </div>
-                <p className="text-xs text-gray-700">{analysis.recommendation}</p>
+                <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                  {analysis.detailedAnalysis || analysis.recommendation}
+                </p>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
+                  onClick={() => {
+                    // Prepare comprehensive context with all rates and analysis
+                    const allRatesInfo = allRates.map(r => 
+                      `${r.carrier} ${r.service}: $${parseFloat(r.rate).toFixed(2)}, ${r.delivery_days} days`
+                    ).join('; ');
+                    
+                    const contextMessage = `Selected: ${selectedRate.carrier} ${selectedRate.service} - $${parseFloat(selectedRate.rate).toFixed(2)}, ${selectedRate.delivery_days} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis}. All available rates: ${allRatesInfo}. Please provide detailed insights.`;
+                    
+                    // Auto-send to chatbot
+                    document.dispatchEvent(new CustomEvent('ai-chat-auto-send', { 
+                      detail: { message: contextMessage } 
+                    }));
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Ask AI About This Rate
+                </Button>
               </div>
 
-              {/* Quick Changes - Moved to bottom */}
+              {/* Quick Changes */}
               <div className="border border-blue-200 rounded-lg p-3 bg-gradient-to-r from-blue-50 to-purple-50">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-xs mb-2">
                   <Zap className="w-3 h-3 text-purple-600" />
