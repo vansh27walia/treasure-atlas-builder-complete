@@ -79,6 +79,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   }, []);
 
   // Initialize insurance settings for all shipments when they load
+  // Programmatically trigger close/open to ensure costs are added automatically
   useEffect(() => {
     if (shipments && shipments.length > 0) {
       const newInsuranceSettings: Record<string, { enabled: boolean; value: number }> = {};
@@ -91,14 +92,26 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           newInsuranceSettings[shipment.id] = { enabled, value };
           hasChanges = true;
           
-          // Calculate and update insurance cost immediately
-          const cost = enabled ? calculateInsuranceCost(value) : 0;
-          if (shipment.insurance_cost !== cost) {
+          // Programmatically toggle insurance off then on to trigger proper state update
+          // This ensures insurance costs are automatically added on first load
+          setTimeout(() => {
+            // First toggle off
             onEditShipment(shipment.id, {
-              insurance_cost: cost,
-              details: { ...shipment.details, insurance_enabled: enabled, declared_value: value }
+              insurance_cost: 0,
+              details: { ...shipment.details, insurance_enabled: false, declared_value: value }
             });
-          }
+            
+            // Then toggle back on if it should be enabled
+            setTimeout(() => {
+              if (enabled) {
+                const cost = calculateInsuranceCost(value);
+                onEditShipment(shipment.id, {
+                  insurance_cost: cost,
+                  details: { ...shipment.details, insurance_enabled: true, declared_value: value }
+                });
+              }
+            }, 50);
+          }, 10);
         }
       });
       
@@ -106,7 +119,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         setInsuranceSettings(prev => ({ ...prev, ...newInsuranceSettings }));
       }
     }
-  }, [shipments.length, insuranceSettings, onEditShipment]);
+  }, [shipments.length]);
 
   const handleOpenEditDialog = (shipmentId: string) => {
     setOpenDialogs({
@@ -325,13 +338,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     };
   };
 
-  // Helper function to calculate insurance cost - dynamic based on declared value (minimum $2)
+  // Helper function to calculate insurance cost ($2 per $100)
   const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 2.00;
-    if (declaredValue <= 100) return 2.50;
-    if (declaredValue <= 200) return 4.00;
-    if (declaredValue <= 500) return 8.00;
-    return Math.max(8, declaredValue * 0.02); // 2% for higher values, minimum $8
+    if (declaredValue <= 0) return 0;
+    return (declaredValue / 100) * 2; // $2 per $100
   };
 
   // Helper function to get dynamic discount percentage based on rate

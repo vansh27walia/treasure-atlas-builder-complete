@@ -40,10 +40,10 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   };
 
   const handleSave = async () => {
-    // Calculate insurance cost based on new declared value (minimum $2)
+    // Calculate insurance cost based on new declared value ($2 per $100)
     const insuranceEnabled = shipment.details?.insurance_enabled !== false;
     const insuranceCost = insuranceEnabled && editData.declared_value > 0 
-      ? Math.max(editData.declared_value * 0.02, 2) 
+      ? (editData.declared_value / 100) * 2
       : 0;
     
     // Apply the changes to the shipment with updated insurance cost
