@@ -166,16 +166,28 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
+  const [mappedData, setMappedData] = useState<{csv: string, file: File} | null>(null);
+
   const handleMappingComplete = async (convertedCsv: string) => {
-    console.log('Header mapping completed, processing CSV...');
+    console.log('Header mapping completed, storing data...');
+    // Store the mapped data but don't proceed automatically
+    if (selectedFile) {
+      const blob = new Blob([convertedCsv], { type: 'text/csv' });
+      const convertedFile = new File([blob], selectedFile.name || 'converted.csv', { type: 'text/csv' });
+      setMappedData({ csv: convertedCsv, file: convertedFile });
+      toast.success('CSV mapping complete! Review and click "Proceed" to process shipments.');
+    }
+  };
+
+  const handleProceedFromMapping = async () => {
+    if (!mappedData) return;
+    
+    console.log('handleProceedFromMapping called');
     setCurrentStep('processing');
     
     try {
-      const blob = new Blob([convertedCsv], { type: 'text/csv' });
-      const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
-      
       if (handleUpload) {
-        await handleUpload(convertedFile);
+        await handleUpload(mappedData.file);
         onUploadSuccess({});
       }
     } catch (error) {
@@ -184,6 +196,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       onUploadFail(errorMessage);
       toast.error(errorMessage);
       setCurrentStep('select');
+      setMappedData(null);
     }
   };
 
@@ -207,6 +220,29 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           onMappingComplete={handleMappingComplete}
           onCancel={handleMappingCancel}
         />
+        
+        {/* Show proceed button after mapping is complete */}
+        {mappedData && (
+          <div className="flex justify-center items-center space-x-4 pt-6">
+            <Button
+              onClick={handleMappingCancel}
+              variant="outline"
+              size="lg"
+              className="px-8"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleProceedFromMapping}
+              size="lg"
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-12 py-6 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300"
+            >
+              <CheckCircle className="mr-2 h-5 w-5" />
+              Proceed to Process Shipments
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
