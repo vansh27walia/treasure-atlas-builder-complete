@@ -25,7 +25,6 @@ const BulkUpload: React.FC = () => {
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
-  const [hasAutoOpenedAI, setHasAutoOpenedAI] = useState(false);
   const [labelProgress, setLabelProgress] = useState({
     isCreating: false,
     progress: 0,
@@ -178,16 +177,6 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Auto-open AI panel for first shipment when results are available
-  useEffect(() => {
-    if (!hasAutoOpenedAI && results?.processedShipments?.length > 0 && uploadStatus === 'editing') {
-      const firstShipment = results.processedShipments[0];
-      setSelectedShipmentForAI(firstShipment);
-      setAiPanelOpen(true);
-      setHasAutoOpenedAI(true);
-    }
-  }, [results?.processedShipments, uploadStatus, hasAutoOpenedAI]);
-
   // Listen for payment events to auto-close AI panel
   useEffect(() => {
     const handlePaymentStart = () => setAiPanelOpen(false);
@@ -282,7 +271,7 @@ const BulkUpload: React.FC = () => {
     handleDownloadLabelsClick();
   };
   return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
+      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-96' : ''}`}>
         {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
           <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />

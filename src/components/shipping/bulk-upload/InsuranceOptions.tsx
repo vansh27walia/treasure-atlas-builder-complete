@@ -21,10 +21,10 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   onInsuranceToggle,
   onDeclaredValueChange
 }) => {
-  // Calculate insurance cost based on declared value (2% of declared value, minimum $2)
+  // Calculate insurance cost based on declared value (2% of declared value)
   const calculateInsuranceCost = (value: number) => {
     if (!insuranceEnabled || value <= 0) return 0;
-    return Math.max(value * 0.02, 2); // Minimum $2 insurance cost
+    return Math.max(value * 0.02, 1); // Minimum $1 insurance cost
   };
 
   const insuranceCost = calculateInsuranceCost(declaredValue);

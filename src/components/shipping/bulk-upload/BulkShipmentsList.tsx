@@ -78,36 +78,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     }
   }, []);
 
-  // Initialize insurance settings for all shipments when they load
-  useEffect(() => {
-    if (shipments && shipments.length > 0) {
-      const newInsuranceSettings: Record<string, { enabled: boolean; value: number }> = {};
-      let hasChanges = false;
-      
-      shipments.forEach(shipment => {
-        if (!insuranceSettings[shipment.id]) {
-          const enabled = shipment.details?.insurance_enabled !== false;
-          const value = shipment.details?.declared_value || 100;
-          newInsuranceSettings[shipment.id] = { enabled, value };
-          hasChanges = true;
-          
-          // Calculate and update insurance cost immediately
-          const cost = enabled ? calculateInsuranceCost(value) : 0;
-          if (shipment.insurance_cost !== cost) {
-            onEditShipment(shipment.id, {
-              insurance_cost: cost,
-              details: { ...shipment.details, insurance_enabled: enabled, declared_value: value }
-            });
-          }
-        }
-      });
-      
-      if (hasChanges) {
-        setInsuranceSettings(prev => ({ ...prev, ...newInsuranceSettings }));
-      }
-    }
-  }, [shipments.length, insuranceSettings, onEditShipment]);
-
   const handleOpenEditDialog = (shipmentId: string) => {
     setOpenDialogs({
       ...openDialogs,
@@ -315,23 +285,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   // Helper function to get insurance settings with defaults
   const getInsuranceSettings = (shipmentId: string) => {
-    const shipment = shipments.find(s => s.id === shipmentId);
-    const enabled = shipment?.details?.insurance_enabled !== false;
-    const value = shipment?.details?.declared_value || 100;
-    
     return insuranceSettings[shipmentId] || {
-      enabled,
-      value
+      enabled: true,
+      value: 100 // Default $100
     };
   };
 
-  // Helper function to calculate insurance cost - dynamic based on declared value (minimum $2)
+  // Helper function to calculate insurance cost - dynamic based on declared value
   const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 2.00;
-    if (declaredValue <= 100) return 2.50;
-    if (declaredValue <= 200) return 4.00;
-    if (declaredValue <= 500) return 8.00;
-    return Math.max(8, declaredValue * 0.02); // 2% for higher values, minimum $8
+    if (declaredValue <= 50) return 1.50;
+    if (declaredValue <= 100) return 2.00;
+    if (declaredValue <= 200) return 3.50;
+    if (declaredValue <= 500) return 7.00;
+    return Math.max(7, declaredValue * 0.015); // 1.5% for higher values, minimum $7
   };
 
   // Helper function to get dynamic discount percentage based on rate
@@ -547,7 +513,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...shipments].reverse().map((shipment, index) => {
+                {shipments.map((shipment, index) => {
                   const insurance = getInsuranceSettings(shipment.id);
                   const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
                   const insuranceCost = insurance.enabled ? calculateInsuranceCost(insurance.value) : 0;

@@ -113,14 +113,14 @@ const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
         {triggerButton || defaultTrigger}
       </DialogTrigger>
       
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader className="flex-shrink-0 pb-4 border-b">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Batch Label Preview - ID: {batchResult?.batchId || 'N/A'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
           {/* Format Selection */}
-          <div className="flex items-center gap-4 px-2">
+          <div className="flex items-center gap-4">
             <label className="text-sm font-medium">Format:</label>
             <Select value={selectedFormat} onValueChange={setSelectedFormat}>
               <SelectTrigger className="w-48">
@@ -138,11 +138,11 @@ const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
 
           {/* PDF Preview */}
           {batchResult?.consolidatedLabelUrls?.pdf && (
-            <div className="border rounded-lg overflow-hidden bg-gray-50 mx-2">
+            <div className="border rounded-lg overflow-hidden bg-gray-50">
               <iframe
                 ref={iframeRef}
                 src={batchResult.consolidatedLabelUrls.pdf}
-                className="w-full min-h-[500px]"
+                className="w-full h-[400px]"
                 title="Batch Label Preview"
                 onLoad={() => console.log('PDF preview loaded')}
               />
@@ -151,8 +151,8 @@ const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
         </div>
 
         {/* Action Buttons - Always Visible at Bottom */}
-        <div className="flex-shrink-0 border-t pt-4 bg-white">
-          <div className="flex justify-between items-center px-2">
+        <div className="flex-shrink-0 border-t pt-4 mt-4 bg-white">
+          <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <Button
                 onClick={() => handleDownload('pdf')}

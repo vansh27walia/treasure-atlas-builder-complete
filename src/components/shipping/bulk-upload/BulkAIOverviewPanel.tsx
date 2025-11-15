@@ -21,9 +21,9 @@ interface AIAnalysis {
   reliabilityScore: number;
   speedScore: number;
   costScore: number;
-  coverageScore?: number;
+  serviceQualityScore: number;
+  trackingScore: number;
   recommendation: string;
-  detailedAnalysis?: string;
   labels: {
     isCheapest: boolean;
     isFastest: boolean;
@@ -233,7 +233,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
   if (!isOpen) return null;
   const currentShipment = analysisMode === 'individual' ? allShipments.find(s => s.id === selectedShipmentId) || selectedShipment : null;
   const currentRates = currentShipment?.availableRates || [];
-  return <div className="fixed top-0 right-0 h-screen w-72 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+  return <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -385,44 +385,29 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
-                {analysis.coverageScore && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-orange-600" />
-                      <span className="text-xs">Coverage</span>
-                    </div>
-                    <span className="font-semibold text-xs">{analysis.coverageScore}/100</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-orange-600" />
+                    <span className="text-xs">Service Quality</span>
                   </div>
-                )}
+                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-red-600" />
+                    <span className="text-xs">Tracking</span>
+                  </div>
+                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
+                </div>
               </div>
 
-              {/* AI Recommendation with detailed analysis */}
-              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-1 mb-2">
-                  <Brain className="w-4 h-4 text-blue-600" />
-                  <span className="font-semibold text-blue-900 text-xs">
-                    {analysis.labels.isAIRecommended ? '✨ AI Recommended' : 'AI Analysis'}
-                  </span>
+              {/* AI Recommendation */}
+              <div className="p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
+                <div className="flex items-center gap-1 mb-1">
+                  <Brain className="w-3 h-3 text-blue-600" />
+                  <span className="font-medium text-blue-900 text-xs">AI Recommendation</span>
                 </div>
-                <p className="text-xs text-gray-700 leading-relaxed mb-2">
-                  {analysis.detailedAnalysis || analysis.recommendation}
-                </p>
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  className="w-full mt-2 h-8 text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-md"
-                  onClick={() => {
-                    const contextMessage = analysisMode === 'individual' && currentShipment 
-                      ? `Selected shipment: ${currentShipment.recipient} - ${currentShipment.carrier} ${currentShipment.service} at $${parseFloat(currentShipment.rate || 0).toFixed(2)}, ${currentShipment.service} days. AI Score: ${analysis.overallScore}/100 (Reliability: ${analysis.reliabilityScore}, Speed: ${analysis.speedScore}, Cost: ${analysis.costScore}${analysis.coverageScore ? `, Coverage: ${analysis.coverageScore}` : ''}). Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide detailed insights about this shipment and compare with other available rates.`
-                      : `Bulk shipment analysis for ${allShipments.length} shipments. Total cost: $${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}. Average AI score: ${analysis.overallScore}/100. Analysis: ${analysis.detailedAnalysis || analysis.recommendation}. Please provide optimization recommendations for the entire batch.`;
-                    
-                    sessionStorage.setItem('ai-chat-prefill', contextMessage);
-                    document.dispatchEvent(new CustomEvent('open-ai-chatbot'));
-                  }}
-                >
-                  <MessageCircle className="h-4 w-4 mr-1" />
-                  Ask AI About This
-                </Button>
+                <p className="text-xs text-gray-700">{analysis.recommendation}</p>
               </div>
             </div> : null}
 

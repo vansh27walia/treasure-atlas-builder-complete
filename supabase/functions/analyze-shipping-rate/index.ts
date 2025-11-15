@@ -47,16 +47,14 @@ serve(async (req) => {
     const speedScore = Math.round(((fastestDelivery / (selectedRate.delivery_days || 5)) * 100));
     const reliabilityScore = carrierReliability;
 
-    // Dynamic 4th score - Coverage (based on carrier network and service type)
-    const coverageScore = selectedRate.service?.toLowerCase().includes('express') || 
-                          selectedRate.service?.toLowerCase().includes('priority') 
-                          ? Math.round(carrierReliability * 0.9 + 10) 
-                          : undefined;
+    // Calculate additional scores
+    const serviceQualityScore = Math.round(carrierReliability * 0.7 + speedScore * 0.3);
+    const trackingScore = Math.round(carrierReliability * 0.6 + 85); // Most carriers have good tracking
     
-    // Overall score calculation - weighted across 3-4 factors dynamically
-    const overallScore = coverageScore 
-      ? Math.round((costScore * 0.25 + speedScore * 0.25 + reliabilityScore * 0.35 + coverageScore * 0.15))
-      : Math.round((costScore * 0.3 + speedScore * 0.3 + reliabilityScore * 0.4));
+    // Overall score calculation - weighted across 5 factors
+    const overallScore = Math.round(
+      (costScore * 0.2 + speedScore * 0.2 + reliabilityScore * 0.3 + serviceQualityScore * 0.15 + trackingScore * 0.15)
+    );
 
     // Determine if it's the most efficient (balance of cost and speed)
     const efficiencyScores = rates.map((rate: any) => {
@@ -77,7 +75,8 @@ Shipment Details:
 - Overall Score: ${overallScore}/100
 - Reliability: ${reliabilityScore}/100
 - Speed: ${speedScore}/100
-- Cost Value: ${costScore}/100${coverageScore ? `\n- Coverage: ${coverageScore}/100` : ''}
+- Service Quality: ${serviceQualityScore}/100
+- Tracking: ${trackingScore}/100
 
 Context:
 - Total options: ${rates.length}
@@ -124,7 +123,8 @@ Focus on shipment quality, delivery reliability, and service value. Keep it conv
       reliabilityScore,
       speedScore,
       costScore,
-      ...(coverageScore && { coverageScore }),
+      serviceQualityScore,
+      trackingScore,
       recommendation: detailedAnalysis.substring(0, 200), // Short version
       detailedAnalysis, // Full version
       labels: {
