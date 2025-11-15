@@ -38,7 +38,7 @@ const FreshEditModal = ({
 
   // Determine initial weight from shipment details (stored in ounces)
   const initialWeightOz = (shipment?.details?.weight ?? shipment?.details?.parcel_weight ?? shipment?.weight ?? 0) as number;
-  const [weightUnit, setWeightUnit] = useState<'lb' | 'oz' | 'kg'>('lb'); // Default to pounds
+  const [weightUnit, setWeightUnit] = useState<'lb' | 'kg'>('lb'); // Always default to pounds
 
   // Local state for shipment data - now including address fields
   const [localData, setLocalData] = useState({
@@ -102,10 +102,8 @@ const FreshEditModal = ({
         email: shipment.email || ''
       };
 
-      // Format parcel data - convert to ounces for backend based on selected unit
-      const weightOz = weightUnit === 'lb'  
-        ? convertPoundsToOunces(localData.weight)
-        : kgToOunces(localData.weight);
+      // Format parcel data - convert to ounces for backend (using pounds only)
+      const weightOz = convertPoundsToOunces(localData.weight);
 
       const parcel = {
         weight: weightOz,
@@ -160,18 +158,13 @@ const FreshEditModal = ({
         return;
       }
 
-      // Calculate insurance cost
-      const insuranceCost = localData.insurance_enabled  
-        ? Math.max(1, localData.declared_value * 0.02)  
+      // Calculate insurance cost ($2 per $100, rounded up)
+      const insuranceCost = localData.insurance_enabled
+        ? (localData.declared_value > 0 ? Math.ceil(localData.declared_value / 100) * 2 : 0)
         : 0;
 
-      // Normalize weight to ounces based on selected unit - FIXED CONVERSION
-      let weightOzToSave;
-      if (weightUnit === 'lb') {
-        weightOzToSave = convertPoundsToOunces(localData.weight);
-      } else {
-        weightOzToSave = kgToOunces(localData.weight);
-      }
+      // Normalize weight to ounces (pounds only)
+      const weightOzToSave = convertPoundsToOunces(localData.weight);
 
       console.log(`🔢 Weight conversion: ${localData.weight} ${weightUnit} = ${weightOzToSave} oz`);
 
@@ -276,7 +269,7 @@ const FreshEditModal = ({
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
             <DialogDescription>
@@ -372,56 +365,17 @@ const FreshEditModal = ({
               </div>
 
               <div>
-                <Label htmlFor="weight">Weight</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <Input
-                    id="weight"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={localData.weight}
-                    onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-                    placeholder={weightUnit === 'lb' ? 'Weight in pounds' : weightUnit === 'oz' ? 'Weight in ounces' : 'Weight in kilograms'}
-                    className="col-span-2"
-                  />
-                  <Select
-                    value={weightUnit}
-                    onValueChange={(val: 'lb' | 'oz' | 'kg') => {
-                      setWeightUnit((prevUnit) => {
-                        const currentWeight = localData.weight;
-                        let newWeight = currentWeight;
-                        
-                        // Convert from current unit to new unit
-                        if (prevUnit === 'lb' && val === 'oz') {
-                          newWeight = currentWeight * 16;
-                        } else if (prevUnit === 'lb' && val === 'kg') {
-                          newWeight = poundsToKg(currentWeight);
-                        } else if (prevUnit === 'oz' && val === 'lb') {
-                          newWeight = currentWeight / 16;
-                        } else if (prevUnit === 'oz' && val === 'kg') {
-                          newWeight = ouncesToKg(currentWeight);
-                        } else if (prevUnit === 'kg' && val === 'lb') {
-                          newWeight = kgToPounds(currentWeight);
-                        } else if (prevUnit === 'kg' && val === 'oz') {
-                          newWeight = kgToOunces(currentWeight);
-                        }
-                        
-                        setLocalData(prev => ({ ...prev, weight: Math.max(0.1, Number(newWeight.toFixed(2))) }));
-                        return val;
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lb">lb</SelectItem>
-                      <SelectItem value="oz">oz</SelectItem>
-                      <SelectItem value="kg">kg</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Weight display defaults to pounds (lb). You can switch to oz or kg if needed.</p>
+                <Label htmlFor="weight">Weight (lb)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={localData.weight}
+                  onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                  placeholder="Weight in pounds"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Weight is entered in pounds (lb).</p>
               </div>
 
               <div>
@@ -486,7 +440,7 @@ const FreshEditModal = ({
               <Label htmlFor="insurance">Enable Insurance</Label>
               {localData.insurance_enabled && (
                 <span className="text-sm text-muted-foreground">
-                  (Cost: ${Math.max(1, localData.declared_value * 0.02).toFixed(2)})
+                  (Cost: ${Math.ceil(localData.declared_value / 100) * 2})
                 </span>
               )}
             </div>
@@ -504,27 +458,45 @@ const FreshEditModal = ({
               <div className="space-y-3">
                 <h4 className="font-semibold">Available Shipping Rates:</h4>
                 <div className="grid gap-2">
-                  {rates.map((rate) => (
-                    <div
-                      key={rate.id}
-                      className={`p-3 border rounded cursor-pointer transition-colors ${
-                        selectedRate?.id === rate.id ? 'border-blue-600 bg-blue-600/5' : 'hover:border-blue-600/50'
-                      }`}
-                      onClick={() => setSelectedRate(rate)}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">{rate.carrier} - {rate.service}</div>
-                          {rate.delivery_days && (
-                            <div className="text-sm text-gray-500">
-                              Delivery: {rate.delivery_days} business days
-                            </div>
-                          )}
+                   {rates.map((rate) => {
+                    const hasDiscount = rate.list_rate || rate.retail_rate;
+                    const originalPrice = hasDiscount ? (rate.list_rate || rate.retail_rate) : null;
+                    const discountPercent = originalPrice ? Math.round((1 - Number(rate.rate) / Number(originalPrice)) * 100) : 0;
+                    
+                    return (
+                      <div
+                        key={rate.id}
+                        className={`p-3 border rounded cursor-pointer transition-colors ${
+                          selectedRate?.id === rate.id ? 'border-blue-600 bg-blue-600/5' : 'hover:border-blue-600/50'
+                        }`}
+                        onClick={() => setSelectedRate(rate)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium">{rate.carrier} - {rate.service}</div>
+                            {rate.delivery_days && (
+                              <div className="text-sm text-gray-500">
+                                Delivery: {rate.delivery_days} business days
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {hasDiscount && discountPercent > 0 && (
+                              <div className="flex flex-col items-end mb-1">
+                                <span className="text-sm text-muted-foreground line-through">
+                                  ${Number(originalPrice).toFixed(2)}
+                                </span>
+                                <span className="text-xs text-red-600 font-semibold">
+                                  Save {discountPercent}%
+                                </span>
+                              </div>
+                            )}
+                            <div className="font-bold text-lg">${Number(rate.rate).toFixed(2)}</div>
+                          </div>
                         </div>
-                        <div className="font-bold">${rate.rate.toFixed(2)}</div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

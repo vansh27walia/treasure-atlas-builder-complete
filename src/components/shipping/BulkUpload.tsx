@@ -88,10 +88,6 @@ const BulkUpload: React.FC = () => {
     setAiPanelOpen(true);
   };
   const handleAIOptimizationChange = (filter: string, shipmentId?: string) => {
-    const reliabilityScores: { [key: string]: number } = {
-      'UPS': 90, 'FEDEX': 88, 'USPS': 85, 'DHL': 82
-    };
-    
     const applyFilterToShipment = (shipment: any) => {
       if (!shipment.availableRates || shipment.availableRates.length === 0) return;
       
@@ -135,6 +131,9 @@ const BulkUpload: React.FC = () => {
           break;
           
         case 'most-reliable':
+          const reliabilityScores: { [key: string]: number } = {
+            'UPS': 90, 'FEDEX': 88, 'USPS': 85, 'DHL': 82
+          };
           selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
             const rateReliability = reliabilityScores[rate.carrier?.toUpperCase()] || 75;
             const bestReliability = reliabilityScores[best.carrier?.toUpperCase()] || 75;
@@ -331,20 +330,10 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
-                    <BulkShipmentFilters 
-                      searchTerm={searchTerm} 
-                      onSearchChange={setSearchTerm} 
-                      sortField={sortField} 
-                      sortDirection={sortDirection} 
-                      onSortChange={(field, direction) => {
-                        setSortField(field as any);
-                        setSortDirection(direction as any);
-                      }} 
-                      selectedCarrier={selectedCarrierFilter} 
-                      onCarrierFilterChange={setSelectedCarrierFilter} 
-                      onApplyCarrierToAll={handleBulkApplyCarrier}
-                      onQuickOptimization={handleAIOptimizationChange}
-                    />
+                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
+                      setSortField(field as any);
+                      setSortDirection(direction as any);
+                    }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
                     <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {
