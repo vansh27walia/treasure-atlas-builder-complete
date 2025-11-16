@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 // 🛑 REMOVED: import { convertOuncesToPounds, convertPoundsToOunces } from "@/utils/weightConversion";
 // The conversion logic is now handled inline using standard 16 oz/lb ratio.
 
-// Local helpers for kg conversion
+// Local helpers for kg conversion (These are kept but unused as we are focusing on LB)
 const poundsToKg = (lb: number) => Number((lb * 0.45359237).toFixed(2));
 const kgToPounds = (kg: number) => Number((kg / 0.45359237).toFixed(2));
 const kgToOunces = (kg: number) => Number((kg * 35.27396195).toFixed(2));
@@ -32,13 +32,11 @@ interface FreshEditModalProps {
   onUpdateShipment: (id: string, updated: any) => void;
 }
 
-// ... keep existing code (component implementation continues)
-
 const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEditModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<any[]>([]);
-  const [selectedRate, setSelectedRate] = useState<any>(null); // Determine initial weight from shipment details (stored in ounces)
+  const [selectedRate, setSelectedRate] = useState<any>(null); // 🎯 Step 1: Determine initial weight in Ounces (OZ) from shipment data
 
   const initialWeightOz = (shipment?.details?.weight ??
     shipment?.details?.parcel_weight ??
@@ -46,7 +44,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
     0) as number;
   const [weightUnit, setWeightUnit] = useState<"lb" | "kg">("lb"); // Always default to pounds
   // Local state for shipment data - now including address fields
-
   const [localData, setLocalData] = useState({
     recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || "",
     phone: shipment.details?.to_phone || shipment.customer_phone || shipment.phone || "",
@@ -109,8 +106,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
         phone: localData.phone || "",
         email: shipment.email || "",
       }; // ✅ CHANGE 2: Send weight in pounds, assuming backend/API can handle it.
-      // If the backend requires ounces, change the next line to: const weightToShip = localData.weight * 16;
-
+      // If the backend requires ounces, the line below would be: const weightToShip = localData.weight * 16;
       const weightToShip = localData.weight;
 
       const parcel = {
@@ -169,7 +165,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
           ? Math.ceil(localData.declared_value / 100) * 2
           : 0
         : 0; // ✅ CHANGE 3: Use localData.weight (pounds) directly for saving
-
       const weightToSave = localData.weight;
 
       console.log(`🔢 Weight value: ${weightToSave} lb`); // Create comprehensive updated shipment with ALL fields properly mapped
@@ -264,14 +259,14 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
           </Button>
                  {" "}
         </DialogTrigger>
-                        {" "}
+               {" "}
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
                    {" "}
           <DialogHeader>
                         <DialogTitle>Edit Shipment Details</DialogTitle>           {" "}
             <DialogDescription>
-                            Update recipient address, package dimensions and weight. Rates will use your saved pickup
-              address.            {" "}
+                            Update recipient address, package dimensions and weight. Rates will use your saved pickup  
+                          address.            {" "}
             </DialogDescription>
                      {" "}
           </DialogHeader>
@@ -291,7 +286,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                 />
                              {" "}
               </div>
-                                          {" "}
+                           {" "}
               <div>
                                 <Label htmlFor="phone">Phone Number</Label>
                                {" "}
@@ -351,7 +346,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                 />
                              {" "}
               </div>
-                                          {" "}
+                           {" "}
               <div>
                                 <Label htmlFor="zip">Zip Code</Label>
                                {" "}
@@ -493,7 +488,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
               <div className="space-y-3">
                                 <h4 className="font-semibold">Available Shipping Rates:</h4>               {" "}
                 <div className="grid gap-2">
-                                     
+                                   {" "}
                   {rates.map((rate) => {
                     const hasDiscount = rate.list_rate || rate.retail_rate;
                     const originalPrice = hasDiscount ? rate.list_rate || rate.retail_rate : null;
@@ -514,7 +509,8 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                           <div>
                                                        {" "}
                             <div className="font-medium">
-                              {rate.carrier} - {rate.service}
+                                                            {rate.carrier} - {rate.service}                         
+                               {" "}
                             </div>
                                                        {" "}
                             {rate.delivery_days && (
@@ -545,7 +541,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                             )}
                                                        {" "}
                             <div className="font-bold text-lg">${Number(rate.rate).toFixed(2)}</div>                   
-                               {" "}
+                                 {" "}
                           </div>
                                                  {" "}
                         </div>
