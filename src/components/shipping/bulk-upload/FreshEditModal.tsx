@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
-import { Edit, RefreshCw } from 'lucide-react';
+import React, { useState } from "react";
+import { Edit, RefreshCw } from "lucide-react";
 
 // Use project UI components and utils instead of inline stubs
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { convertOuncesToPounds, convertPoundsToOunces } from "@/utils/weightConversion";
+// 🛑 REMOVED: import { convertOuncesToPounds, convertPoundsToOunces } from "@/utils/weightConversion";
+// The conversion logic is now handled inline using standard 16 oz/lb ratio.
 
 // Local helpers for kg conversion
 const poundsToKg = (lb: number) => Number((lb * 0.45359237).toFixed(2));
@@ -26,36 +34,34 @@ interface FreshEditModalProps {
 
 // ... keep existing code (component implementation continues)
 
-const FreshEditModal = ({
-  shipment,
-  pickupAddress,
-  onUpdateShipment
-}: FreshEditModalProps) => {
+const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEditModalProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<any[]>([]);
-  const [selectedRate, setSelectedRate] = useState<any>(null);
+  const [selectedRate, setSelectedRate] = useState<any>(null); // Determine initial weight from shipment details (stored in ounces)
 
-  // Determine initial weight from shipment details (stored in ounces)
-  const initialWeightOz = (shipment?.details?.weight ?? shipment?.details?.parcel_weight ?? shipment?.weight ?? 0) as number;
-  const [weightUnit, setWeightUnit] = useState<'lb' | 'kg'>('lb'); // Always default to pounds
-
+  const initialWeightOz = (shipment?.details?.weight ??
+    shipment?.details?.parcel_weight ??
+    shipment?.weight ??
+    0) as number;
+  const [weightUnit, setWeightUnit] = useState<"lb" | "kg">("lb"); // Always default to pounds
   // Local state for shipment data - now including address fields
+
   const [localData, setLocalData] = useState({
-    recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || '',
-    phone: shipment.details?.to_phone || shipment.customer_phone || shipment.phone || '',
-    country: shipment.details?.to_country || shipment.country || 'US',
-    street1: shipment.details?.to_street1 || shipment.customer_address?.street1 || '',
-    street2: shipment.details?.to_street2 || shipment.customer_address?.street2 || '',
-    city: shipment.details?.to_city || shipment.customer_address?.city || '',
-    state: shipment.details?.to_state || shipment.customer_address?.state || '',
-    zip: shipment.details?.to_zip || shipment.customer_address?.zip || '',
-    weight: Math.max(0.1, convertOuncesToPounds(initialWeightOz)), // display in pounds by default, minimum 0.1 lb
+    recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || "",
+    phone: shipment.details?.to_phone || shipment.customer_phone || shipment.phone || "",
+    country: shipment.details?.to_country || shipment.country || "US",
+    street1: shipment.details?.to_street1 || shipment.customer_address?.street1 || "",
+    street2: shipment.details?.to_street2 || shipment.customer_address?.street2 || "",
+    city: shipment.details?.to_city || shipment.customer_address?.city || "",
+    state: shipment.details?.to_state || shipment.customer_address?.state || "",
+    zip: shipment.details?.to_zip || shipment.customer_address?.zip || "", // ✅ CHANGE 1: Convert initial ounces (OZ) to pounds (LB)
+    weight: Math.max(0.1, initialWeightOz / 16), // Initialize state in pounds
     length: (shipment.details?.length ?? shipment.details?.parcel_length ?? shipment.length ?? 0) as number,
     width: (shipment.details?.width ?? shipment.details?.parcel_width ?? shipment.width ?? 0) as number,
     height: (shipment.details?.height ?? shipment.details?.parcel_height ?? shipment.height ?? 0) as number,
     declared_value: shipment.declared_value || 0,
-    insurance_enabled: shipment.insurance_enabled || false
+    insurance_enabled: shipment.insurance_enabled || false,
   });
 
   const fetchRatesFromNormalShipping = async () => {
@@ -65,156 +71,148 @@ const FreshEditModal = ({
 
     try {
       // Log props received by the component for debugging
-      console.log('Component props received:', { shipment, pickupAddress });
-      
-      // Validate pickupAddress (must be provided from parent/hook)
-      if (!pickupAddress || !pickupAddress.street1 || !pickupAddress.city || !pickupAddress.state || !pickupAddress.zip || !pickupAddress.country) {
-        toast.error('Pickup address is missing. Please set your pickup address in Settings.');
+      console.log("Component props received:", { shipment, pickupAddress }); // Validate pickupAddress (must be provided from parent/hook)
+      if (
+        !pickupAddress ||
+        !pickupAddress.street1 ||
+        !pickupAddress.city ||
+        !pickupAddress.state ||
+        !pickupAddress.zip ||
+        !pickupAddress.country
+      ) {
+        toast.error("Pickup address is missing. Please set your pickup address in Settings.");
         setIsLoading(false);
         return;
-      }
+      } // Use provided pickupAddress directly (no fake fallbacks)
 
-      // Use provided pickupAddress directly (no fake fallbacks)
       const fromAddress = {
-        name: pickupAddress.name || pickupAddress.company || 'Sender',
-        company: pickupAddress.company || '',
+        name: pickupAddress.name || pickupAddress.company || "Sender",
+        company: pickupAddress.company || "",
         street1: pickupAddress.street1,
-        street2: pickupAddress.street2 || '',
+        street2: pickupAddress.street2 || "",
         city: pickupAddress.city,
         state: pickupAddress.state,
         zip: pickupAddress.zip,
         country: pickupAddress.country,
-        phone: pickupAddress.phone || '',
-        email: pickupAddress.email || ''
-      };
-      
-      // Use local form data as-is for recipient
+        phone: pickupAddress.phone || "",
+        email: pickupAddress.email || "",
+      }; // Use local form data as-is for recipient
       const toAddress = {
-        name: localData.recipient || 'Recipient',
-        company: shipment.company || '',
+        name: localData.recipient || "Recipient",
+        company: shipment.company || "",
         street1: localData.street1,
-        street2: localData.street2 || '',
+        street2: localData.street2 || "",
         city: localData.city,
         state: localData.state,
         zip: localData.zip,
         country: localData.country,
-        phone: localData.phone || '',
-        email: shipment.email || ''
-      };
+        phone: localData.phone || "",
+        email: shipment.email || "",
+      }; // ✅ CHANGE 2: Send weight in pounds, assuming backend/API can handle it.
+      // If the backend requires ounces, change the next line to: const weightToShip = localData.weight * 16;
 
-      // Format parcel data - convert to ounces for backend (using pounds only)
-      const weightOz = convertPoundsToOunces(localData.weight);
+      const weightToShip = localData.weight;
 
       const parcel = {
-        weight: weightOz,
+        weight: weightToShip, // Now sending pounds (lb)
         length: localData.length,
         width: localData.width,
-        height: localData.height
+        height: localData.height,
       };
-      
       const payload = {
         fromAddress,
         toAddress,
         parcel,
-        declaredValue: localData.declared_value
+        declaredValue: localData.declared_value,
       };
-      console.log('Sending payload to backend (via Supabase):', JSON.stringify(payload, null, 2));
+      console.log("Sending payload to backend (via Supabase):", JSON.stringify(payload, null, 2));
 
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: payload
+      const { data, error } = await supabase.functions.invoke("get-shipping-rates", {
+        body: payload,
       });
 
       if (error) {
-        console.error('Server responded with an error:', error);
-        throw new Error('Failed to fetch rates: ' + (error.message || 'Unknown server error'));
+        console.error("Server responded with an error:", error);
+        throw new Error("Failed to fetch rates: " + (error.message || "Unknown server error"));
       }
 
       if (data && data.rates && data.rates.length > 0) {
         setRates(data.rates);
         toast.success(`Found ${data.rates.length} shipping rates`);
       } else {
-        toast.warning('No rates available for this shipment');
+        toast.warning("No rates available for this shipment");
       }
     } catch (error) {
-      console.error('Error fetching rates:', error);
-      toast.error('Failed to fetch shipping rates');
+      console.error("Error fetching rates:", error);
+      toast.error("Failed to fetch shipping rates");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSaveChanges = async () => {
-    console.log('💾 Saving shipment changes...');
-    
+    console.log("💾 Saving shipment changes...");
     try {
       // Validate required fields
       if (!localData.recipient || !localData.street1 || !localData.city || !localData.state || !localData.zip) {
-        toast.error('Please fill in all required fields (name, address, city, state, zip)');
+        toast.error("Please fill in all required fields (name, address, city, state, zip)");
         return;
       }
 
       if (!localData.weight || localData.weight <= 0) {
-        toast.error('Weight must be greater than 0');
+        toast.error("Weight must be greater than 0");
         return;
-      }
+      } // Calculate insurance cost ($2 per $100, rounded up)
 
-      // Calculate insurance cost ($2 per $100, rounded up)
       const insuranceCost = localData.insurance_enabled
-        ? (localData.declared_value > 0 ? Math.ceil(localData.declared_value / 100) * 2 : 0)
-        : 0;
+        ? localData.declared_value > 0
+          ? Math.ceil(localData.declared_value / 100) * 2
+          : 0
+        : 0; // ✅ CHANGE 3: Use localData.weight (pounds) directly for saving
 
-      // Normalize weight to ounces (pounds only)
-      const weightOzToSave = convertPoundsToOunces(localData.weight);
+      const weightToSave = localData.weight;
 
-      console.log(`🔢 Weight conversion: ${localData.weight} ${weightUnit} = ${weightOzToSave} oz`);
+      console.log(`🔢 Weight value: ${weightToSave} lb`); // Create comprehensive updated shipment with ALL fields properly mapped
 
-      // Create comprehensive updated shipment with ALL fields properly mapped
       const updatedShipment = {
-        ...shipment,
-        // Primary fields
+        ...shipment, // Primary fields
         recipient: localData.recipient.trim(),
         customer_name: localData.recipient.trim(),
         phone: localData.phone.trim(),
         customer_phone: localData.phone.trim(),
-        country: localData.country,
-        
-        // Address structure - multiple formats for compatibility
+        country: localData.country, // Address structure - multiple formats for compatibility
         customer_address: {
           street1: localData.street1.trim(),
           street2: localData.street2.trim(),
           city: localData.city.trim(),
           state: localData.state.trim(),
-          zip: localData.zip.trim()
-        },
-        
-        // Package dimensions and weight
-        weight: weightOzToSave,
+          zip: localData.zip.trim(),
+        }, // Package dimensions and weight
+        weight: weightToSave, // Saving in pounds
         length: localData.length,
         width: localData.width,
         height: localData.height,
         declared_value: localData.declared_value,
         insurance_enabled: localData.insurance_enabled,
-        insurance_cost: insuranceCost,
-        
-        // Rate data - preserve existing unless a new rate is selected
-        ...(selectedRate ? {
-          carrier: selectedRate.carrier,
-          service: selectedRate.service,
-          rate: selectedRate.rate,
-          selectedRateId: selectedRate.id,
-          easypost_id: shipment.easypost_id,
-          availableRates: rates,
-        } : {
-          carrier: shipment.carrier,
-          service: shipment.service,
-          rate: shipment.rate,
-          selectedRateId: shipment.selectedRateId,
-          easypost_id: shipment.easypost_id,
-          availableRates: shipment.availableRates || [],
-        }),
-        status: 'processed' as const,
-        
-        // Comprehensive details object for API calls
+        insurance_cost: insuranceCost, // Rate data - preserve existing unless a new rate is selected
+        ...(selectedRate
+          ? {
+              carrier: selectedRate.carrier,
+              service: selectedRate.service,
+              rate: selectedRate.rate,
+              selectedRateId: selectedRate.id,
+              easypost_id: shipment.easypost_id,
+              availableRates: rates,
+            }
+          : {
+              carrier: shipment.carrier,
+              service: shipment.service,
+              rate: shipment.rate,
+              selectedRateId: shipment.selectedRateId,
+              easypost_id: shipment.easypost_id,
+              availableRates: shipment.availableRates || [],
+            }),
+        status: "processed" as const, // Comprehensive details object for API calls
         details: {
           to_name: localData.recipient.trim(),
           to_phone: localData.phone.trim(),
@@ -227,292 +225,355 @@ const FreshEditModal = ({
           length: localData.length,
           width: localData.width,
           height: localData.height,
-          weight: weightOzToSave,
+          weight: weightToSave, // Saving in pounds
           parcel_length: localData.length,
           parcel_width: localData.width,
           parcel_height: localData.height,
-          parcel_weight: weightOzToSave,
+          parcel_weight: weightToSave, // Saving in pounds
           declared_value: localData.declared_value,
           insurance_enabled: localData.insurance_enabled,
-          insurance_cost: insuranceCost
-        }
+          insurance_cost: insuranceCost,
+        },
       };
 
-      console.log('📦 Complete updated shipment data:', updatedShipment);
+      console.log("📦 Complete updated shipment data:", updatedShipment); // Call parent update function
 
-      // Call parent update function
-      await onUpdateShipment(shipment.id, updatedShipment);
-      
-      // Close modal and show success
+      await onUpdateShipment(shipment.id, updatedShipment); // Close modal and show success
       setOpen(false);
-      toast.success('✅ Shipment saved! Rates will be refreshed automatically.');
-      
+      toast.success("✅ Shipment saved! Rates will be refreshed automatically.");
     } catch (error) {
-      console.error('❌ Error saving shipment:', error);
-      toast.error('Failed to save shipment changes');
+      console.error("❌ Error saving shipment:", error);
+      toast.error("Failed to save shipment changes");
     }
   };
 
   const handleOpenModal = () => {
-    setOpen(true);
-    // REMOVED: Auto-fetch rates when modal opens
+    setOpen(true); // REMOVED: Auto-fetch rates when modal opens
     // This removes the race condition and ensures the "save first, then fetch" flow is enforced by the parent component (BulkUploadView.tsx).
   };
 
   return (
     <>
+           {" "}
       <Dialog open={open} onOpenChange={setOpen}>
+               {" "}
         <DialogTrigger asChild>
+                   {" "}
           <Button variant="outline" size="sm" onClick={handleOpenModal}>
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
+                        <Edit className="h-4 w-4 mr-1" />            Edit          {" "}
           </Button>
+                 {" "}
         </DialogTrigger>
-        
+                        {" "}
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                   {" "}
           <DialogHeader>
-            <DialogTitle>Edit Shipment Details</DialogTitle>
+                        <DialogTitle>Edit Shipment Details</DialogTitle>           {" "}
             <DialogDescription>
-              Update recipient address, package dimensions and weight. Rates will use your saved pickup address.
+                            Update recipient address, package dimensions and weight. Rates will use your saved pickup
+              address.            {" "}
             </DialogDescription>
+                     {" "}
           </DialogHeader>
-
+                   {" "}
           <div className="space-y-6">
-            {/* Shipment Details */}
+                        {/* Shipment Details */}           {" "}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           {" "}
               <div>
-                <Label htmlFor="recipient">Recipient Name</Label>
+                                <Label htmlFor="recipient">Recipient Name</Label>
+                               {" "}
                 <Input
                   id="recipient"
                   value={localData.recipient}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, recipient: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, recipient: e.target.value }))}
                   placeholder="Enter recipient name"
                 />
+                             {" "}
               </div>
-              
+                                          {" "}
               <div>
-                <Label htmlFor="phone">Phone Number</Label>
+                                <Label htmlFor="phone">Phone Number</Label>
+                               {" "}
                 <Input
                   id="phone"
                   value={localData.phone}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, phone: e.target.value }))}
                   placeholder="Enter phone number"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="street1">Street 1</Label>
+                                <Label htmlFor="street1">Street 1</Label>
+                               {" "}
                 <Input
                   id="street1"
                   value={localData.street1}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, street1: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, street1: e.target.value }))}
                   placeholder="Enter street address"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="street2">Street 2</Label>
+                                <Label htmlFor="street2">Street 2</Label>
+                               {" "}
                 <Input
                   id="street2"
                   value={localData.street2}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, street2: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, street2: e.target.value }))}
                   placeholder="Enter apartment or unit"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="city">City</Label>
+                                <Label htmlFor="city">City</Label>
+                               {" "}
                 <Input
                   id="city"
                   value={localData.city}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, city: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, city: e.target.value }))}
                   placeholder="Enter city"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="state">State</Label>
+                                <Label htmlFor="state">State</Label>
+                               {" "}
                 <Input
                   id="state"
                   value={localData.state}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, state: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, state: e.target.value }))}
                   placeholder="Enter state code (e.g., CA)"
                 />
+                             {" "}
               </div>
-              
+                                          {" "}
               <div>
-                <Label htmlFor="zip">Zip Code</Label>
+                                <Label htmlFor="zip">Zip Code</Label>
+                               {" "}
                 <Input
                   id="zip"
                   value={localData.zip}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, zip: e.target.value }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, zip: e.target.value }))}
                   placeholder="Enter zip code"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="country">Country</Label>
-                <Select value={localData.country} onValueChange={(value) => setLocalData(prev => ({ ...prev, country: value }))}>
+                                <Label htmlFor="country">Country</Label>               {" "}
+                <Select
+                  value={localData.country}
+                  onValueChange={(value) => setLocalData((prev) => ({ ...prev, country: value }))}
+                >
+                                   {" "}
                   <SelectTrigger>
-                    <SelectValue placeholder="Select country" />
+                                        <SelectValue placeholder="Select country" />                 {" "}
                   </SelectTrigger>
+                                   {" "}
                   <SelectContent>
-                    <SelectItem value="US">United States</SelectItem>
-                    <SelectItem value="CA">Canada</SelectItem>
-                    <SelectItem value="GB">United Kingdom</SelectItem>
+                                        <SelectItem value="US">United States</SelectItem>                   {" "}
+                    <SelectItem value="CA">Canada</SelectItem>                   {" "}
+                    <SelectItem value="GB">United Kingdom</SelectItem>                 {" "}
                   </SelectContent>
+                                 {" "}
                 </Select>
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="weight">Weight (lb)</Label>
+                                <Label htmlFor="weight">Weight (lb)</Label>
+                               {" "}
                 <Input
                   id="weight"
                   type="number"
                   step="0.1"
                   min="0"
                   value={localData.weight}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
                   placeholder="Weight in pounds"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Weight is entered in pounds (lb).</p>
+                                <p className="text-xs text-muted-foreground mt-1">Weight is entered in pounds (lb).</p> 
+                           {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="length">Length (inches)</Label>
+                                <Label htmlFor="length">Length (inches)</Label>
+                               {" "}
                 <Input
                   id="length"
                   type="number"
                   min="0"
                   value={localData.length}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, length: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, length: parseFloat(e.target.value) || 0 }))}
                   placeholder="Length in inches"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="width">Width (inches)</Label>
+                                <Label htmlFor="width">Width (inches)</Label>
+                               {" "}
                 <Input
                   id="width"
                   type="number"
                   min="0"
                   value={localData.width}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
                   placeholder="Width in inches"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="height">Height (inches)</Label>
+                                <Label htmlFor="height">Height (inches)</Label>
+                               {" "}
                 <Input
                   id="height"
                   type="number"
                   min="0"
                   value={localData.height}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
                   placeholder="Height in inches"
                 />
+                             {" "}
               </div>
-
+                           {" "}
               <div>
-                <Label htmlFor="declared_value">Declared Value ($)</Label>
+                                <Label htmlFor="declared_value">Declared Value ($)</Label>
+                               {" "}
                 <Input
                   id="declared_value"
                   type="number"
                   min="0"
                   step="0.01"
                   value={localData.declared_value}
-                  onChange={(e) => setLocalData(prev => ({ ...prev, declared_value: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setLocalData((prev) => ({ ...prev, declared_value: parseFloat(e.target.value) || 0 }))
+                  }
                   placeholder="Declared value"
                 />
+                             {" "}
               </div>
+                         {" "}
             </div>
-
-            {/* Insurance Option */}
+                        {/* Insurance Option */}           {" "}
             <div className="flex items-center space-x-2">
+                           {" "}
               <input
                 type="checkbox"
                 id="insurance"
                 checked={localData.insurance_enabled}
-                onChange={(e) => setLocalData(prev => ({ ...prev, insurance_enabled: e.target.checked }))}
+                onChange={(e) => setLocalData((prev) => ({ ...prev, insurance_enabled: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="insurance">Enable Insurance</Label>
+                            <Label htmlFor="insurance">Enable Insurance</Label>             {" "}
               {localData.insurance_enabled && (
                 <span className="text-sm text-muted-foreground">
-                  (Cost: ${Math.ceil(localData.declared_value / 100) * 2})
+                                    (Cost: ${Math.ceil(localData.declared_value / 100) * 2})                {" "}
                 </span>
               )}
+                         {" "}
             </div>
-
-            {/* Refresh Rates Button */}
+                        {/* Refresh Rates Button */}           {" "}
             <div className="flex justify-center">
+                           {" "}
               <Button onClick={fetchRatesFromNormalShipping} disabled={isLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Fetching Rates...' : 'Refresh Rates'}
+                                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />             
+                  {isLoading ? "Fetching Rates..." : "Refresh Rates"}             {" "}
               </Button>
+                         {" "}
             </div>
-
-            {/* Shipping Rates */}
+                        {/* Shipping Rates */}           {" "}
             {rates.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-semibold">Available Shipping Rates:</h4>
+                                <h4 className="font-semibold">Available Shipping Rates:</h4>               {" "}
                 <div className="grid gap-2">
-                   {rates.map((rate) => {
+                                     
+                  {rates.map((rate) => {
                     const hasDiscount = rate.list_rate || rate.retail_rate;
-                    const originalPrice = hasDiscount ? (rate.list_rate || rate.retail_rate) : null;
-                    const discountPercent = originalPrice ? Math.round((1 - Number(rate.rate) / Number(originalPrice)) * 100) : 0;
-                    
+                    const originalPrice = hasDiscount ? rate.list_rate || rate.retail_rate : null;
+                    const discountPercent = originalPrice
+                      ? Math.round((1 - Number(rate.rate) / Number(originalPrice)) * 100)
+                      : 0;
                     return (
                       <div
                         key={rate.id}
                         className={`p-3 border rounded cursor-pointer transition-colors ${
-                          selectedRate?.id === rate.id ? 'border-blue-600 bg-blue-600/5' : 'hover:border-blue-600/50'
+                          selectedRate?.id === rate.id ? "border-blue-600 bg-blue-600/5" : "hover:border-blue-600/50"
                         }`}
                         onClick={() => setSelectedRate(rate)}
                       >
+                                               {" "}
                         <div className="flex justify-between items-center">
+                                                   {" "}
                           <div>
-                            <div className="font-medium">{rate.carrier} - {rate.service}</div>
+                                                       {" "}
+                            <div className="font-medium">
+                              {rate.carrier} - {rate.service}
+                            </div>
+                                                       {" "}
                             {rate.delivery_days && (
                               <div className="text-sm text-gray-500">
-                                Delivery: {rate.delivery_days} business days
+                                                                Delivery: {rate.delivery_days} business days            
+                                                 {" "}
                               </div>
                             )}
+                                                     {" "}
                           </div>
+                                                   {" "}
                           <div className="text-right">
+                                                       {" "}
                             {hasDiscount && discountPercent > 0 && (
                               <div className="flex flex-col items-end mb-1">
+                                                               {" "}
                                 <span className="text-sm text-muted-foreground line-through">
-                                  ${Number(originalPrice).toFixed(2)}
+                                                                    ${Number(originalPrice).toFixed(2)}                 
+                                               {" "}
                                 </span>
+                                                               {" "}
                                 <span className="text-xs text-red-600 font-semibold">
-                                  Save {discountPercent}%
+                                                                    Save {discountPercent}%                            
+                                     {" "}
                                 </span>
+                                                             {" "}
                               </div>
                             )}
-                            <div className="font-bold text-lg">${Number(rate.rate).toFixed(2)}</div>
+                                                       {" "}
+                            <div className="font-bold text-lg">${Number(rate.rate).toFixed(2)}</div>                   
+                               {" "}
                           </div>
+                                                 {" "}
                         </div>
+                                             {" "}
                       </div>
                     );
                   })}
+                                 {" "}
                 </div>
+                             {" "}
               </div>
             )}
-
-            {/* Action Buttons */}
+                        {/* Action Buttons */}           {" "}
             <div className="flex justify-end space-x-2 pt-4">
+                           {" "}
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                                Cancel              {" "}
               </Button>
-              <Button onClick={handleSaveChanges}>
-                Save Changes
-              </Button>
+                            <Button onClick={handleSaveChanges}>                Save Changes               </Button>   
+                     {" "}
             </div>
+                     {" "}
           </div>
+                 {" "}
         </DialogContent>
+             {" "}
       </Dialog>
+         {" "}
     </>
   );
 };
