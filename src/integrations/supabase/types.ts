@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -292,6 +292,7 @@ export type Database = {
           tracking_data: Json | null
           tracking_events: Json | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           carrier?: string | null
@@ -304,6 +305,7 @@ export type Database = {
           tracking_data?: Json | null
           tracking_events?: Json | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           carrier?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           tracking_data?: Json | null
           tracking_events?: Json | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -483,8 +486,10 @@ export type Database = {
           label_format: string | null
           label_size: string | null
           label_url: string | null
+          markup_percentage: number | null
           non_delivery_option: string | null
           parcel_json: Json | null
+          png_label_url: string | null
           rate_id: string | null
           service: string | null
           shipment_id: string | null
@@ -515,8 +520,10 @@ export type Database = {
           label_format?: string | null
           label_size?: string | null
           label_url?: string | null
+          markup_percentage?: number | null
           non_delivery_option?: string | null
           parcel_json?: Json | null
+          png_label_url?: string | null
           rate_id?: string | null
           service?: string | null
           shipment_id?: string | null
@@ -547,8 +554,10 @@ export type Database = {
           label_format?: string | null
           label_size?: string | null
           label_url?: string | null
+          markup_percentage?: number | null
           non_delivery_option?: string | null
           parcel_json?: Json | null
+          png_label_url?: string | null
           rate_id?: string | null
           service?: string | null
           shipment_id?: string | null
@@ -814,10 +823,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      user_onboarding_status: {
-        Args: Record<PropertyKey, never> | { user_id: string }
-        Returns: undefined
-      }
+      user_onboarding_status:
+        | { Args: { user_id: string }; Returns: boolean }
+        | { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

@@ -269,7 +269,7 @@ const FreshEditModal = ({
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Shipment Details</DialogTitle>
             <DialogDescription>

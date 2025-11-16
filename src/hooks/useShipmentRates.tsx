@@ -323,15 +323,24 @@ export const useShipmentRates = (
       return shipment;
     });
     
-    // Calculate new total cost
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+    // Recalculate totals including insurance ($2 per $100, rounded up), respecting disabled state
+    const updatedWithInsurance = updatedShipments.map((s) => {
+      const declared = (s as any).declared_value ?? (s as any).details?.declared_value ?? 0;
+      const insuranceCost = (s as any).insurance_enabled === false
+        ? 0
+        : (declared > 0 ? Math.ceil(Number(declared) / 100) * 2 : 0);
+      return { ...s, insurance_cost: insuranceCost } as any;
+    });
+
+    const totalCost = updatedWithInsurance.reduce((sum, shipment) => {
+      const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === shipment.selectedRateId);
+      const rate = Number(selectedRate?.rate ?? shipment.rate ?? 0);
+      return sum + rate + (shipment.insurance_cost || 0);
     }, 0);
     
   updateResults({
     ...(latestResultsRef.current as BulkUploadResult),
-    processedShipments: updatedShipments,
+    processedShipments: updatedWithInsurance,
     totalCost
   });
     
