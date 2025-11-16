@@ -45,7 +45,8 @@ export const useBulkUpload = () => {
     if (newResults.processedShipments && Array.isArray(newResults.processedShipments)) {
       const normalizedShipments = newResults.processedShipments.map((s) => {
         const declared = Number((((s as any).declared_value ?? (s as any).details?.declared_value) ?? 0) || 0);
-        const insurance_cost = declared > 0 ? Math.ceil(declared / 100) * 2 : 0;
+        const enabled = (s as any).insurance_enabled !== false;
+        const insurance_cost = enabled && declared > 0 ? Math.ceil(declared / 100) * 2 : 0;
         return { ...s, insurance_cost };
       });
       newResults.processedShipments = normalizedShipments as any;
@@ -71,7 +72,8 @@ export const useBulkUpload = () => {
       if (merged.processedShipments && Array.isArray(merged.processedShipments)) {
         const normalized = merged.processedShipments.map((s) => {
           const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
-          const insurance_cost = declared > 0 ? Math.ceil(declared / 100) * 2 : 0;
+          const enabled = (s as any).insurance_enabled !== false;
+          const insurance_cost = enabled && declared > 0 ? Math.ceil(declared / 100) * 2 : 0;
           return { ...s, insurance_cost };
         });
         merged.processedShipments = normalized as any;

@@ -285,21 +285,23 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                           {shipment.carrier}
                         </span>
                       </TableCell>
-                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {hasDiscount && (
-                            <div className="flex flex-col items-start">
-                              <span className="text-sm text-muted-foreground line-through">
-                                ${Number(original).toFixed(2)}
-                              </span>
-                              <Badge variant="destructive" className="text-xs">
-                                Save {discountPercent}%
-                              </Badge>
-                            </div>
-                          )}
-                          <span className="text-lg font-bold text-foreground">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {original ? (
+                            <span className="text-sm line-through text-foreground/80">
+                              ${Number(original).toFixed(2)}
+                            </span>
+                          ) : null}
+                          <span className="text-lg font-bold text-destructive">
                             ${currentRate.toFixed(2)}
                           </span>
+                          <Badge variant="destructive" className="text-2xs">
+                            Save {(() => {
+                              const raw = hasDiscount ? Math.round((1 - currentRate / Number(original)) * 100) : 0;
+                              const pct = original ? Math.min(95, Math.max(50, raw)) : 50;
+                              return pct;
+                            })()}%
+                          </Badge>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono">${insurance.toFixed(2)}</TableCell>
