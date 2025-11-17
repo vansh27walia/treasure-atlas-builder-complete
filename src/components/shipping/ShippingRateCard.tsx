@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { getCarrierLogoUrl } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 import PaymentSelectionModal from '@/components/payment/PaymentSelectionModal';
+import { computeDiscountPercent } from '@/utils/discount';
 
 interface ShippingRateCardProps {
   rate: {
@@ -56,11 +57,10 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   const deliveryDays = rate.delivery_days || rate.est_delivery_days;
   const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
   
-  // Calculate discount percentage if available
+  // Calculate discount percentage if available (clamped to 50-95%)
   const originalRate = rate.original_rate || rate.list_rate || rate.retail_rate;
   const hasDiscount = showDiscount && originalRate && Number(originalRate) > Number(rate.rate);
-  const discountPercent = hasDiscount ? 
-    Math.round((1 - (Number(rate.rate) / Number(originalRate))) * 100) : 0;
+  const discountPercent = hasDiscount ? computeDiscountPercent(originalRate as any, rate.rate as any, { clampMin: 50, clampMax: 95 }) : 0;
   
   // Get carrier logo with fallback
   const carrierLogo = getCarrierLogoUrl(rate.carrier);
