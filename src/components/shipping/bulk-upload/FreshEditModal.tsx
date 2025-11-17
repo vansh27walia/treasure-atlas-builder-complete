@@ -170,18 +170,20 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
       console.log(`🔢 Weight value: ${weightToSave} lb`); // Create comprehensive updated shipment with ALL fields properly mapped
 
       const updatedShipment = {
-        ...shipment, // Primary fields
+        ...shipment,
         recipient: localData.recipient.trim(),
         customer_name: localData.recipient.trim(),
         phone: localData.phone.trim(),
         customer_phone: localData.phone.trim(),
-        country: localData.country, // Address structure - multiple formats for compatibility
+        country: localData.country,
+        // Address structure - multiple formats for compatibility
         customer_address: {
           street1: localData.street1.trim(),
           street2: localData.street2.trim(),
           city: localData.city.trim(),
           state: localData.state.trim(),
           zip: localData.zip.trim(),
+        },
         // Package dimensions and weight
         weight: weightOzToSave, // Save in ounces for backend
         length: localData.length,
@@ -189,7 +191,8 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
         height: localData.height,
         declared_value: localData.declared_value,
         insurance_enabled: localData.insurance_enabled,
-        insurance_cost: insuranceCost, // Rate data - preserve existing unless a new rate is selected
+        insurance_cost: insuranceCost,
+        // Rate data - preserve existing unless a new rate is selected
         ...(selectedRate
           ? {
               carrier: selectedRate.carrier,
@@ -207,7 +210,8 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
               easypost_id: shipment.easypost_id,
               availableRates: shipment.availableRates || [],
             }),
-        status: "processed" as const, // Comprehensive details object for API calls
+        status: "processed" as const,
+        // Comprehensive details object for API calls
         details: {
           to_name: localData.recipient.trim(),
           to_phone: localData.phone.trim(),
@@ -231,9 +235,9 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
         },
       };
 
-      console.log("📦 Complete updated shipment data:", updatedShipment); // Call parent update function
+      console.log("📦 Complete updated shipment data:", updatedShipment);
 
-      await onUpdateShipment(shipment.id, updatedShipment); // Close modal and show success
+      await onUpdateShipment(shipment.id, updatedShipment);
       setOpen(false);
       toast.success("✅ Shipment saved! Rates will be refreshed automatically.");
     } catch (error) {
@@ -534,73 +538,52 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                         }`}
                         onClick={() => setSelectedRate(rate)}
                       >
-                                               {" "}
                         <div className="flex justify-between items-center">
-                                                   {" "}
                           <div>
-                                                       {" "}
                             <div className="font-medium">
-                                                            {rate.carrier} - {rate.service}                         
-                               {" "}
+                              {rate.carrier} - {rate.service}
                             </div>
-                                                       {" "}
                             {rate.delivery_days && (
                               <div className="text-sm text-gray-500">
-                                                                Delivery: {rate.delivery_days} business days            
-                                                 {" "}
+                                Delivery: {rate.delivery_days} business days
                               </div>
                             )}
-                                                     {" "}
                           </div>
-                                                   {" "}
                           <div className="text-right">
-                                                       {" "}
                             {hasDiscount && discountPercent > 0 && (
                               <div className="flex flex-col items-end mb-1">
-                                                               {" "}
                                 <span className="text-sm text-muted-foreground line-through">
-                                                                    ${Number(originalPrice).toFixed(2)}                 
-                                               {" "}
+                                  ${Number(originalPrice).toFixed(2)}
                                 </span>
-                                                               {" "}
-                                <span className="text-xs text-red-600 font-semibold">
-                                                                    Save {discountPercent}%                            
-                                     {" "}
+                                <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                                  Save {discountPercent}%
                                 </span>
-                                                             {" "}
                               </div>
                             )}
-                                                       {" "}
-                            <div className="font-bold text-lg">${Number(rate.rate).toFixed(2)}</div>                   
-                                 {" "}
+                            <div className="text-lg font-bold text-green-600">
+                              ${Number(rate.rate).toFixed(2)}
+                            </div>
                           </div>
-                                                 {" "}
                         </div>
-                                             {" "}
                       </div>
                     );
                   })}
-                                 {" "}
                 </div>
-                             {" "}
               </div>
             )}
-                        {/* Action Buttons */}           {" "}
+
+            {/* Action Buttons */}
             <div className="flex justify-end space-x-2 pt-4">
-                           {" "}
               <Button variant="outline" onClick={() => setOpen(false)}>
-                                Cancel              {" "}
+                Cancel
               </Button>
-                            <Button onClick={handleSaveChanges}>                Save Changes               </Button>   
-                     {" "}
+              <Button onClick={handleSaveChanges}>
+                Save Changes
+              </Button>
             </div>
-                     {" "}
           </div>
-                 {" "}
         </DialogContent>
-             {" "}
       </Dialog>
-         {" "}
     </>
   );
 };
