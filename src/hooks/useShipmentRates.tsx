@@ -129,11 +129,10 @@ export const useShipmentRates = (
         },
         toAddress,
         parcel,
-        // Pass insured value (declared value) so insurance can be applied server-side
-        insurance: typeof d.declared_value === 'number' && d.declared_value > 0 ? d.declared_value : undefined,
-        // Include customs info for international shipments when available
-        customs_info: d.customs_info,
-        declaredValue: d.declared_value ?? (shipment as any).declared_value ?? 0,
+        // Pass insured value (declared value) only when insurance is enabled server-side
+        insurance: (d as any).insurance_enabled === false
+          ? undefined
+          : (typeof d.declared_value === 'number' && d.declared_value > 0 ? d.declared_value : undefined),
       };
 
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', { body: payload });
@@ -301,13 +300,18 @@ export const useShipmentRates = (
   };
   
   const handleBulkApplyCarrier = (carrierId: string, serviceId: string) => {
-    if (!initialResults) return;
+    const latest = latestResultsRef.current;
+    if (!latest) return;
     
-    const updatedShipments = initialResults.processedShipments.map(shipment => {
-      // Find a rate that matches the selected carrier and service
-      const matchingRate = shipment.availableRates?.find(
-        rate => rate.carrier === carrierId && rate.service === serviceId
-      );
+    const updatedShipments = latest.processedShipments.map(shipment => {
+      const normalize = (s: string) => (s || '').toLowerCase().trim();
+      const targetCarrier = normalize(carrierId);
+      const targetService = normalize(serviceId);
+      const matchingRate = shipment.availableRates?.find((rate: any) => {
+        const rc = normalize(String(rate.carrier));
+        const rs = normalize(String(rate.service));
+        return (rc === targetCarrier || rc.includes(targetCarrier)) && (rs === targetService || rs.includes(targetService));
+      });
       
       if (matchingRate) {
         return { 
@@ -315,34 +319,32 @@ export const useShipmentRates = (
           selectedRateId: matchingRate.id,
           carrier: matchingRate.carrier,
           service: matchingRate.service,
-          rate: matchingRate.rate
-        };
+          rate: Number(matchingRate.rate)
+        } as any;
       }
       
       // If no matching rate, keep the current selection
-      return shipment;
+      return shipment as any;
     });
     
     // Recalculate totals including insurance ($2 per $100, rounded up), respecting disabled state
-    const updatedWithInsurance = updatedShipments.map((s) => {
-      const declared = (s as any).declared_value ?? (s as any).details?.declared_value ?? 0;
-      const insuranceCost = (s as any).insurance_enabled === false
-        ? 0
-        : (declared > 0 ? Math.ceil(Number(declared) / 100) * 2 : 0);
+    const updatedWithInsurance = updatedShipments.map((s: any) => {
+      const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
+      const insuranceCost = s.insurance_enabled === false ? 0 : (declared > 0 ? Math.ceil(Number(declared) / 100) * 2 : 0);
       return { ...s, insurance_cost: insuranceCost } as any;
     });
 
-    const totalCost = updatedWithInsurance.reduce((sum, shipment) => {
+    const totalCost = updatedWithInsurance.reduce((sum: number, shipment: any) => {
       const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === shipment.selectedRateId);
       const rate = Number(selectedRate?.rate ?? shipment.rate ?? 0);
       return sum + rate + (shipment.insurance_cost || 0);
     }, 0);
     
-  updateResults({
-    ...(latestResultsRef.current as BulkUploadResult),
-    processedShipments: updatedWithInsurance,
-    totalCost
-  });
+    updateResults({
+      ...(latest as BulkUploadResult),
+      processedShipments: updatedWithInsurance,
+      totalCost
+    });
     
     toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
   };

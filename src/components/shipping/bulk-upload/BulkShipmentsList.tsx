@@ -21,6 +21,7 @@ import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import CustomsClearanceButton from './CustomsClearanceButton';
 import { standardizeCarrierName } from '@/utils/carrierUtils';
+import { computeDiscountPercent } from '@/utils/discount';
 
 // Local interface for customs info to avoid conflicts
 interface LocalCustomsInfo {
@@ -332,16 +333,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     return Math.ceil(declaredValue / 100) * 2;
   };
 
-  // Helper function to get REAL discount percentage from API rates
+  // Helper function to get REAL discount percentage from API rates (clamped 50-95%)
   const getDiscountPercentage = (rate: any): number => {
     if (!rate) return 0;
     const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
     const originalRate = rate.retail_rate || rate.list_rate;
-    
-    if (!originalRate || originalRate <= currentRate) return 0;
-    
     const parsedOriginal = typeof originalRate === 'string' ? parseFloat(originalRate) : originalRate;
-    return Math.round(((parsedOriginal - currentRate) / parsedOriginal) * 100);
+    if (!parsedOriginal || parsedOriginal <= currentRate) return 0;
+    return computeDiscountPercent(parsedOriginal, currentRate, { clampMin: 50, clampMax: 95 });
   };
 
   // Helper function to get insurance discount (removed - no discount shown)

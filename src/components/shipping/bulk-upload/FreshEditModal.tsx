@@ -42,7 +42,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
     shipment?.details?.parcel_weight ??
     shipment?.weight ??
     0) as number;
-  const [weightUnit, setWeightUnit] = useState<"lb" | "kg">("lb"); // Always default to pounds
+  const [weightUnit, setWeightUnit] = useState<"lb" | "oz" | "kg">("lb"); // Unit selector
   // Local state for shipment data - now including address fields
   const [localData, setLocalData] = useState({
     recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || "",
@@ -182,8 +182,8 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
           city: localData.city.trim(),
           state: localData.state.trim(),
           zip: localData.zip.trim(),
-        }, // Package dimensions and weight
-        weight: weightToSave, // Saving in pounds
+        // Package dimensions and weight
+        weight: weightOzToSave, // Save in ounces for backend
         length: localData.length,
         width: localData.width,
         height: localData.height,
@@ -220,11 +220,11 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
           length: localData.length,
           width: localData.width,
           height: localData.height,
-          weight: weightToSave, // Saving in pounds
+          weight: weightOzToSave, // Save in ounces
           parcel_length: localData.length,
           parcel_width: localData.width,
           parcel_height: localData.height,
-          parcel_weight: weightToSave, // Saving in pounds
+          parcel_weight: weightOzToSave, // Save in ounces
           declared_value: localData.declared_value,
           insurance_enabled: localData.insurance_enabled,
           insurance_cost: insuranceCost,
@@ -260,7 +260,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                  {" "}
         </DialogTrigger>
                {" "}
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
                    {" "}
           <DialogHeader>
                         <DialogTitle>Edit Shipment Details</DialogTitle>           {" "}
@@ -457,25 +457,43 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                          {" "}
             </div>
                         {/* Insurance Option */}           {" "}
-            <div className="flex items-center space-x-2">
-                           {" "}
-              <input
-                type="checkbox"
-                id="insurance"
-                checked={localData.insurance_enabled}
-                onChange={(e) => setLocalData((prev) => ({ ...prev, insurance_enabled: e.target.checked }))}
-                className="h-4 w-4"
-              />
-                            <Label htmlFor="insurance">Enable Insurance</Label>             {" "}
-              {localData.insurance_enabled && (
-                <span className="text-sm text-muted-foreground">
-                                    (Cost: ${Math.ceil(localData.declared_value / 100) * 2})                {" "}
-                </span>
-              )}
-                         {" "}
+            {/* Weight and Unit */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="weight">Weight</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.01"
+                  min="0.1"
+                  value={localData.weight}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, weight: Number(e.target.value) }))}
+                />
+              </div>
+              <div>
+                <Label>Unit</Label>
+                <Select value={weightUnit} onValueChange={(v) => setWeightUnit(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lb">Pounds (lb)</SelectItem>
+                    <SelectItem value="oz">Ounces (oz)</SelectItem>
+                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Declared Value ($)</Label>
+                <Input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={localData.declared_value}
+                  onChange={(e) => setLocalData((prev) => ({ ...prev, declared_value: Number(e.target.value) }))}
+                />
+              </div>
             </div>
-                        {/* Refresh Rates Button */}           {" "}
-            <div className="flex justify-center">
                            {" "}
               <Button onClick={fetchRatesFromNormalShipping} disabled={isLoading}>
                                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />             
@@ -483,9 +501,22 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
               </Button>
                          {" "}
             </div>
-                        {/* Shipping Rates */}           {" "}
-            {rates.length > 0 && (
-              <div className="space-y-3">
+            {/* Insurance Option */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="insurance"
+                checked={localData.insurance_enabled}
+                onChange={(e) => setLocalData((prev) => ({ ...prev, insurance_enabled: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="insurance">Enable Insurance</Label>
+              {localData.insurance_enabled && (
+                <span className="text-sm text-muted-foreground">
+                  (Cost: ${Math.ceil(localData.declared_value / 100) * 2})
+                </span>
+              )}
+            </div>
                                 <h4 className="font-semibold">Available Shipping Rates:</h4>               {" "}
                 <div className="grid gap-2">
                                    {" "}
