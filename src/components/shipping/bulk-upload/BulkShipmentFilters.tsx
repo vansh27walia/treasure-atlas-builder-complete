@@ -271,75 +271,16 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </Button>
         ))}
       </div>
-        
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              <span className="hidden sm:inline">Filter</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80">
-            <div className="space-y-4">
-              <h4 className="font-medium">Filter by carrier</h4>
-              
-              <RadioGroup 
-                value={selectedCarrier || ''} 
-                onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="" id="all" />
-                  <Label htmlFor="all">All carriers</Label>
-                </div>
-                
-                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
-                  <div className="flex items-center space-x-2" key={carrier.id}>
-                    <RadioGroupItem value={carrier.id} id={carrier.id} />
-                    <Label htmlFor={carrier.id}>{carrier.name}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-          </PopoverContent>
-        </Popover>
-        
-        {/* Quick Optimization Dropdown - Same as AI Overview */}
-        <Select onValueChange={handleQuickOptimization}>
-          <SelectTrigger className="w-[180px] bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-purple-600" />
-              <SelectValue placeholder="Quick Options" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectLabel>Quick Optimization Options</SelectLabel>
-              {OPTIMIZATION_OPTIONS.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{option.icon}</span>
-                    <span>{option.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-      </div>
       
       {/* Bottom Row - Apply to All */}
       <div className="border-t pt-3">
         <div className="flex flex-wrap gap-2 items-center">
           <Select
-            value={selectedCarrierService?.carrierId || ''}
-            onValueChange={(value) => setSelectedCarrierService({
-              carrierId: value,
-              serviceId: ''
-            })}
+            value={selectedBulkCarrier}
+            onValueChange={setSelectedBulkCarrier}
           >
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Choose All Carriers" />
+              <SelectValue placeholder="Choose Carrier" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -352,12 +293,9 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </Select>
           
           <Select
-            value={selectedCarrierService?.serviceId || ''}
-            onValueChange={(value) => setSelectedCarrierService({
-              ...selectedCarrierService!,
-              serviceId: value
-            })}
-            disabled={!selectedCarrierService?.carrierId || availableServices.length === 0}
+            value={selectedBulkService}
+            onValueChange={setSelectedBulkService}
+            disabled={!selectedBulkCarrier}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Select service" />
@@ -365,7 +303,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Services</SelectLabel>
-                {availableServices.map((service) => (
+                {EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedBulkCarrier)?.services.map((service) => (
                   <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
                 ))}
               </SelectGroup>
@@ -374,7 +312,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           
           <Button 
             onClick={handleApplyToAll}
-            disabled={!selectedCarrierService?.carrierId || !selectedCarrierService?.serviceId}
+            disabled={!selectedBulkCarrier || !selectedBulkService}
             size="sm"
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
