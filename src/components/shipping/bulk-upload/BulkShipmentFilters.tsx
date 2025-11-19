@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, SortAsc, SortDesc, Filter, Zap } from 'lucide-react';
+import { Search, SortAsc, SortDesc, Filter, Zap, X, Sparkles } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import CarrierLogo from '../CarrierLogo';
 
 // Extended carrier options with additional carriers
 const EXTENDED_CARRIER_OPTIONS = [
@@ -112,33 +113,13 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   onApplyCarrierToAll,
   onQuickOptimization
 }) => {
-  const [selectedCarrierService, setSelectedCarrierService] = useState<{carrierId: string, serviceId: string} | null>(null);
-  const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([]);
-  
-  // Update available services when carrier changes
-  useEffect(() => {
-    if (selectedCarrierService?.carrierId) {
-      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
-      if (carrier) {
-        setAvailableServices(carrier.services);
-        // Auto select first service if current service doesn't exist in this carrier
-        if (!carrier.services.some(s => s.id === selectedCarrierService.serviceId)) {
-          setSelectedCarrierService({
-            carrierId: selectedCarrierService.carrierId,
-            serviceId: carrier.services[0]?.id || ''
-          });
-        }
-      }
-    } else {
-      setAvailableServices([]);
-    }
-  }, [selectedCarrierService?.carrierId]);
+  const [selectedBulkCarrier, setSelectedBulkCarrier] = useState<string>('');
+  const [selectedBulkService, setSelectedBulkService] = useState<string>('');
 
-  // Handle apply to all button click - Fixed functionality
   const handleApplyToAll = () => {
-    if (selectedCarrierService?.carrierId && selectedCarrierService?.serviceId) {
-      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
-      const service = availableServices.find(s => s.id === selectedCarrierService.serviceId);
+    if (selectedBulkCarrier && selectedBulkService) {
+      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedBulkCarrier);
+      const service = carrier?.services.find(s => s.id === selectedBulkService);
       
       if (carrier && service) {
         onApplyCarrierToAll(carrier.name, service.name);
@@ -146,53 +127,150 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     }
   };
 
-  const handleQuickOptimization = (filterId: string) => {
-    if (onQuickOptimization) {
-      onQuickOptimization(filterId);
-    }
-  };
+  const activeFiltersCount = 
+    (searchTerm ? 1 : 0) + 
+    (selectedCarrier && selectedCarrier !== 'all' ? 1 : 0);
 
   return (
-    <div className="flex flex-col gap-3 mb-4">
-      {/* Top Row - Search and Quick Actions */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+    <div className="bg-gradient-to-r from-white to-gray-50/50 rounded-xl shadow-sm border border-gray-200/60 p-5 space-y-4 transition-all duration-300 hover:shadow-md">
+      {/* Enhanced Header with AI Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+            <Filter className="h-4 w-4 text-white" />
+          </div>
+          <h3 className="font-semibold text-gray-900">Filter & Sort Rates</h3>
+          {onQuickOptimization && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onQuickOptimization('ai-recommended')}
+              className="ml-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+            >
+              <Sparkles className="h-4 w-4 mr-1" />
+              AI Quick Change
+            </Button>
+          )}
+        </div>
+        {activeFiltersCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              onSearchChange('');
+              onCarrierFilterChange(null);
+            }}
+            className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Clear All
+          </Button>
+        )}
+      </div>
+
+      {/* Main Controls Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Enhanced Search */}
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 h-4 w-4 transition-colors duration-200" />
           <Input
             type="text"
-            placeholder="Search shipments..."
+            placeholder="Search carriers or services..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 h-9"
+            className="pl-10 h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-200 bg-white/80 backdrop-blur-sm"
           />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSearchChange('')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-red-50"
+            >
+              <X className="h-3 w-3 text-gray-400 hover:text-red-600" />
+            </Button>
+          )}
         </div>
-        
-        <div className="flex gap-2">
-        <Select
-          value={sortField}
-          onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
+
+        {/* Enhanced Carrier Dropdown */}
+        <Select 
+          value={selectedCarrier || 'all'} 
+          onValueChange={(value) => onCarrierFilterChange(value === 'all' ? null : value)}
         >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Sort by" />
+          <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500/20 bg-white/80 backdrop-blur-sm">
+            <SelectValue placeholder="All Carriers" />
           </SelectTrigger>
           <SelectContent>
-            <SelectGroup>
-              <SelectLabel>Sort by</SelectLabel>
-              <SelectItem value="recipient">Recipient</SelectItem>
-              <SelectItem value="rate">Price</SelectItem>
-              <SelectItem value="carrier">Carrier</SelectItem>
-            </SelectGroup>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">All</Badge>
+                All Carriers
+              </div>
+            </SelectItem>
+            {EXTENDED_CARRIER_OPTIONS.map(carrier => (
+              <SelectItem key={carrier.id} value={carrier.id}>
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-8 flex items-center justify-center">
+                    <CarrierLogo carrier={carrier.name} className="h-4 w-auto" />
+                  </div>
+                  {carrier.name}
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
-          className="border"
-        >
-          {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-        </Button>
+
+        {/* Enhanced Sort Controls */}
+        <div className="flex gap-2">
+          <Select value={sortField} onValueChange={(value: any) => onSortChange(value, sortDirection)}>
+            <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500/20 bg-white/80 backdrop-blur-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recipient">
+                <div className="flex items-center gap-2">
+                  📋 Sort by Recipient
+                </div>
+              </SelectItem>
+              <SelectItem value="rate">
+                <div className="flex items-center gap-2">
+                  💰 Sort by Price
+                </div>
+              </SelectItem>
+              <SelectItem value="carrier">
+                <div className="flex items-center gap-2">
+                  🚚 Sort by Carrier
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
+            className="h-10 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+          >
+            {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      {/* Advanced Filters & Quick Optimization Options */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 pt-2 border-t border-gray-200">
+        {OPTIMIZATION_OPTIONS.slice(0, 10).map(opt => (
+          <Button
+            key={opt.id}
+            variant="outline"
+            size="sm"
+            onClick={() => onQuickOptimization?.(opt.id)}
+            className={`${opt.color} hover:shadow-md transition-all duration-200 text-xs font-medium border-0`}
+          >
+            <span className="mr-1">{opt.icon}</span>
+            {opt.label}
+          </Button>
+        ))}
+      </div>
         
         <Popover>
           <PopoverTrigger asChild>
