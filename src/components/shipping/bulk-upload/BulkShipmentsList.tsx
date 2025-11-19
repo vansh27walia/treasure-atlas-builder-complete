@@ -997,6 +997,8 @@ interface ShipmentEditFormProps {
 }
 
 const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
+  const [weightUnit, setWeightUnit] = useState<"lb" | "oz" | "kg">("lb");
+  
   const form = useForm({
     defaultValues: {
       to_name: shipment.details.to_name,
