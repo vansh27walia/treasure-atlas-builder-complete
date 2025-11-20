@@ -46,9 +46,7 @@ const BulkUploadPage = () => {
           </p>
         </div>
 
-        {/* PROGRESS BAR: MOVED TO THE TOP */}
-        {/* NOTE: You will need to manage the 'value' of the Progress component (e.g., setUploadProgress) from your upload logic */}
-        {/* Placeholder styling for visibility; adjust as needed */}
+        {/* 1. PROGRESS BAR: This block is now structurally placed ABOVE the Tabs component. */}
         {uploadProgress > 0 && uploadProgress < 100 && (
           <div className="max-w-6xl mx-auto px-0 mb-6">
             <h3 className="text-md font-semibold text-blue-600 mb-2">Upload and Processing Progress</h3>
@@ -58,7 +56,7 @@ const BulkUploadPage = () => {
         )}
         {/* END OF PROGRESS BAR */}
 
-        {/* TABS (UPLOAD/TEMPLATE): MOVED BELOW THE PROGRESS BAR */}
+        {/* 2. TABS: This block is now structurally placed BELOW the Progress Bar. */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
             <TabsTrigger
@@ -82,7 +80,7 @@ const BulkUploadPage = () => {
           </TabsContent>
 
           <TabsContent value="template" className="space-y-8">
-            {/* Shipping Integration Notice */}
+            {/* ... Template Content ... */}
             <Alert className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 shadow-sm">
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">
