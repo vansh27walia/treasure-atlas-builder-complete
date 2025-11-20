@@ -38,13 +38,10 @@ const BulkUploadPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div
-        className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? "mr-72" : ""}`}
-      >
-        {/* Progress Bar */}
-        <div className="bg-white shadow-sm border-b rounded-3xl">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
+      {/* Progress Bar */}
+      <div className="bg-white shadow-sm border-b rounded-3xl">
+        <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+      </div>
         {/* END OF STEP PROGRESS BAR */}
 
         <div className="text-center mb-8">
@@ -342,10 +339,10 @@ const BulkUploadPage = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
 
-      {/* Unified AI Chatbot */}
-      <ShipAIChatbot />
+        {/* Unified AI Chatbot */}
+        <ShipAIChatbot />
+      </div>
     </div>
   );
 };
