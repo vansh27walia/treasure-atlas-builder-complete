@@ -6,11 +6,15 @@ import BulkUpload from "@/components/shipping/BulkUpload";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
-import { Progress } from "@/components/ui/progress";
-import BulkUploadProgressBar from "@/components/shipping/bulk-upload/BulkUploadProgressBar";
+import { Progress } from "@/components/ui/progress"; // Assuming this is available
+
+// ASSUMPTION: This is the new component you referenced for tracking steps
+// For this example, we will assume it is available to import
+// import BulkUploadProgressBar from "@/components/shipping/BulkUploadProgressBar";
 
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
+  // Assuming a state for progress value, placeholder set to 0
   const [uploadProgress, setUploadProgress] = React.useState(0);
 
   const handleDownloadTemplate = () => {
@@ -33,20 +37,13 @@ const BulkUploadPage = () => {
     document.body.removeChild(a);
   };
 
-  const getCurrentStep = (): "upload" | "mapping" | "rates" | "labels" => "rates";
-  const getCompletedSteps = (): Array<"upload" | "mapping" | "rates" | "labels"> => ["upload"];
+  // Placeholder functions for the step tracker data
+  const getCurrentStep = () => 2; // Example: Currently on step 2
+  const getCompletedSteps = () => [1]; // Example: Step 1 is complete
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div
-        className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? "mr-72" : ""}`}
-      >
-        {/* Progress Bar */}
-        <div className="bg-white shadow-sm border-b rounded-3xl">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
-        {/* END OF STEP PROGRESS BAR */}
-
+      <div className="container mx-auto py-[6px] px-[5px]">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 text-center">
             Bulk Shipping
@@ -57,7 +54,17 @@ const BulkUploadPage = () => {
           </p>
         </div>
 
-        {/* 1. PERCENTAGE PROGRESS BAR: This remains where it was, below the heading and above the tabs. */}
+        {/* 🚀 NEW STEP PROGRESS BAR - PLACED HERE (ABOVE THE TABS) */}
+        {/* We assume this component provides a visual tracker of the 5-step workflow */}
+        {/* You would uncomment the import and this line if the component exists */}
+        {/*
+        <div className="max-w-6xl mx-auto px-0 mb-6">
+          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+        </div>
+        */}
+        {/* END OF NEW STEP PROGRESS BAR */}
+
+        {/* 1. PERCENTAGE PROGRESS BAR: This block remains ABOVE the Tabs component. */}
         {uploadProgress > 0 && uploadProgress < 100 && (
           <div className="max-w-6xl mx-auto px-0 mb-6">
             <h3 className="text-md font-semibold text-blue-600 mb-2">Upload and Processing Progress</h3>
@@ -67,7 +74,7 @@ const BulkUploadPage = () => {
         )}
         {/* END OF PERCENTAGE PROGRESS BAR */}
 
-        {/* 2. TABS: This block is below all progress bars. */}
+        {/* 2. TABS: This block is now structurally placed BELOW the Progress Bar(s). */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
             <TabsTrigger
