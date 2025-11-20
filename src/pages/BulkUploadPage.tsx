@@ -54,11 +54,6 @@ const BulkUploadPage = () => {
             generation.
           </p>
         </div>
- <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
-        {/* Progress Bar */}
-        <div className="bg-white shadow-sm border-b rounded-3xl">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
         {/* 1. PERCENTAGE PROGRESS BAR: This remains where it was, below the heading and above the tabs. */}
         {uploadProgress > 0 && uploadProgress < 100 && (
           <div className="max-w-6xl mx-auto px-0 mb-6">
