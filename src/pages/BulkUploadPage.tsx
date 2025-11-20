@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
 import { Progress } from "@/components/ui/progress";
-import BulkUploadProgressBar from "@/components/shipping/BulkUploadProgressBar"; // This import is now active
+import BulkUploadProgressBar from "@/components/shipping/bulk-upload/BulkUploadProgressBar";
 
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
@@ -33,8 +33,8 @@ const BulkUploadPage = () => {
     document.body.removeChild(a);
   };
 
-  const getCurrentStep = () => 2;
-  const getCompletedSteps = () => [1];
+  const getCurrentStep = (): 'upload' | 'mapping' | 'rates' | 'labels' => 'rates';
+  const getCompletedSteps = (): Array<'upload' | 'mapping' | 'rates' | 'labels'> => ['upload'];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -347,5 +347,4 @@ const BulkUploadPage = () => {
     </div>
   );
 };
-export default BulkUploadPage;
 export default BulkUploadPage;
