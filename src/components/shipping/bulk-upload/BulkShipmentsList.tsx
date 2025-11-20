@@ -36,6 +36,7 @@ import AIRatePicker from "./AIRatePicker";
 import RateDisplay from "./RateDisplay";
 import CarrierLogo from "../CarrierLogo";
 import { toast } from "@/components/ui/sonner";
+import BatchAIPanel from "./BatchAIPanel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,6 +99,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     >
   >({});
   const [editingShipments, setEditingShipments] = useState<Set<string>>(new Set());
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
 
   // Handle post-payment refresh
   useEffect(() => {
@@ -202,10 +205,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const handleRateSelection = (shipmentId: string, rateId: string) => {
     onSelectRate(shipmentId, rateId);
 
-    // Trigger AI analysis when a rate is selected
+    // Open AI panel when a rate is selected
     const shipment = shipments.find((s) => s.id === shipmentId);
     if (shipment) {
-      onAIAnalysis(shipment);
+      setSelectedShipmentForAI(shipment);
+      setAiPanelOpen(true);
     }
   };
 
