@@ -1,17 +1,139 @@
 import React from "react";
+// Re-importing UI components from the original file path (assuming they are correctly installed in your project)
+// If you run this code without a Next.js/Shadcn-UI environment, you must mock these too.
+// For this change, we'll assume the basic UI components (Card, Tabs, Button, Progress, Alert) are accessible.
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, CheckCircle, Download, Info, Sparkles, Brain } from "lucide-react";
-import BulkUpload from "@/components/shipping/BulkUpload";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
 import { Progress } from "@/components/ui/progress";
-import BulkUploadProgressBar from "@/components/shipping/bulk-upload/BulkUploadProgressBar";
+// Icons from lucide-react
+import { FileText, Upload, CheckCircle, Download, Info, Sparkles, Brain } from "lucide-react";
+
+// --- START: MOCK COMPONENTS TO REPLACE EXTERNAL FILES ---
+
+// 1. Mock BulkUpload component (Replaces "@/components/shipping/BulkUpload")
+// This component now uses the setUploadProgress prop from the parent
+const MockBulkUpload = ({ setUploadProgress }) => {
+  const handleSimulateUpload = () => {
+    // Start progress
+    setUploadProgress(10);
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 20;
+      setUploadProgress(progress);
+      if (progress >= 100) {
+        clearInterval(interval);
+        // Ensure progress is exactly 100 when done
+        setUploadProgress(100);
+      }
+    }, 500);
+  };
+
+  return (
+    <Card className="shadow-2xl border-2 border-blue-200">
+      <CardHeader>
+        <CardTitle className="flex items-center text-blue-700">
+          <Upload className="h-5 w-5 mr-2" /> Upload Your CSV
+        </CardTitle>
+        <CardDescription>Drag and drop your shipping file here, or click to browse.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 p-6">
+        <div className="border-4 border-dashed border-blue-300 rounded-lg p-12 text-center bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer">
+          <Upload className="h-10 w-10 mx-auto text-blue-500 mb-2" />
+          <p className="text-gray-600 font-medium">Click here to upload or drag & drop CSV file.</p>
+          <p className="text-xs text-gray-500 mt-1">Maximum file size: 10MB</p>
+        </div>
+        <Button onClick={handleSimulateUpload} className="w-full bg-blue-600 hover:bg-blue-700">
+          Simulate File Upload & Processing
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+// 2. Mock ShipAIChatbot component (Replaces "@/components/shipping/ShipAIChatbot")
+const MockShipAIChatbot = () => (
+  <div className="fixed bottom-4 right-4 z-50">
+    <Button
+      className="rounded-full h-14 w-14 bg-purple-600 hover:bg-purple-700 shadow-xl"
+      onClick={() => alert("ShipAI Chatbot opened!")} // Added onClick alert for interaction
+    >
+      <Brain className="h-6 w-6" />
+    </Button>
+  </div>
+);
+
+// 3. Mock BulkUploadProgressBar component (Replaces "@/components/shipping/bulk-upload/BulkUploadProgressBar")
+const MockBulkUploadProgressBar = ({ currentStep, completedSteps }) => {
+  const steps = [
+    { key: "upload", title: "Upload" },
+    { key: "mapping", title: "Mapping" },
+    { key: "rates", title: "Rates" },
+    { key: "labels", title: "Labels" },
+  ];
+
+  return (
+    <div className="flex justify-between items-center p-4">
+      {steps.map((step, index) => (
+        <React.Fragment key={step.key}>
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold transition-colors duration-300 
+                ${
+                  completedSteps.includes(step.key)
+                    ? "bg-green-500"
+                    : currentStep === step.key
+                      ? "bg-blue-500"
+                      : "bg-gray-300"
+                }`}
+            >
+              {completedSteps.includes(step.key) ? <CheckCircle className="h-4 w-4" /> : index + 1}
+            </div>
+            <span
+              className={`mt-2 text-xs font-medium text-center ${currentStep === step.key ? "text-blue-600 font-semibold" : "text-gray-500"}`}
+            >
+              {step.title}
+            </span>
+          </div>
+          {index < steps.length - 1 && (
+            <div
+              className={`flex-1 mx-2 h-1 transition-colors duration-300 ${completedSteps.includes(steps[index + 1].key) ? "bg-green-500" : completedSteps.includes(step.key) ? "bg-green-300" : "bg-gray-300"}`}
+            />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
+// --- END: MOCK COMPONENTS ---
+
+// Removed the original external imports
+// import BulkUpload from "@/components/shipping/BulkUpload";
+// import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
+// import BulkUploadProgressBar from "@/components/shipping/bulk-upload/BulkUploadProgressBar";
 
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
   const [uploadProgress, setUploadProgress] = React.useState(0);
+
+  // LOGIC FOR STEP PROGRESS BAR based on current uploadProgress
+  const getCurrentStep = (): "upload" | "mapping" | "rates" | "labels" => {
+    if (uploadProgress === 0) return "upload";
+    if (uploadProgress > 0 && uploadProgress < 100) return "mapping";
+    if (uploadProgress === 100) return "rates";
+    return "labels"; // Placeholder for the final step
+  };
+
+  const getCompletedSteps = (): Array<"upload" | "mapping" | "rates" | "labels"> => {
+    const completed = [];
+    if (uploadProgress > 0) completed.push("upload");
+    if (uploadProgress === 100) completed.push("mapping");
+    // Add 'rates' and 'labels' completion logic here based on actual app state
+    // For now, only mock completion of upload and mapping.
+    return completed;
+  };
 
   const handleDownloadTemplate = () => {
     const csvContent = [
@@ -31,17 +153,16 @@ const BulkUploadPage = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    window.URL.revokeObjectURL(url); // Good practice to clean up
   };
-
-  const getCurrentStep = (): "upload" | "mapping" | "rates" | "labels" => "rates";
-  const getCompletedSteps = (): Array<"upload" | "mapping" | "rates" | "labels"> => ["upload"];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto py-[6px] px-[5px]">
         {/* 🚀 STEP PROGRESS BAR: MOVED TO THE VERY TOP (ABOVE THE HEADING) */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+          {/* Using Mocked Progress Bar */}
+          <MockBulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
         </div>
         {/* END OF STEP PROGRESS BAR */}
 
@@ -54,12 +175,17 @@ const BulkUploadPage = () => {
             generation.
           </p>
         </div>
+
         {/* 1. PERCENTAGE PROGRESS BAR: This remains where it was, below the heading and above the tabs. */}
-        {uploadProgress > 0 && uploadProgress < 100 && (
+        {uploadProgress > 0 && uploadProgress <= 100 && (
           <div className="max-w-6xl mx-auto px-0 mb-6">
-            <h3 className="text-md font-semibold text-blue-600 mb-2">Upload and Processing Progress</h3>
-            <Progress value={uploadProgress} className="w-full h-3" />
-            <p className="text-sm text-gray-500 mt-1">{uploadProgress}% Complete</p>
+            <h3 className="text-md font-semibold text-blue-600 mb-2">
+              {uploadProgress < 100 ? "Upload and Processing Progress" : "Processing Complete"}
+            </h3>
+            <Progress key={uploadProgress} value={uploadProgress} className="w-full h-3" />
+            <p className="text-sm text-gray-500 mt-1">
+              {uploadProgress < 100 ? `${uploadProgress}% Complete` : "100% Complete. Calculating Rates..."}
+            </p>
           </div>
         )}
         {/* END OF PERCENTAGE PROGRESS BAR */}
@@ -84,7 +210,8 @@ const BulkUploadPage = () => {
           </TabsList>
 
           <TabsContent value="upload" className="space-y-0">
-            <BulkUpload />
+            {/* Using Mocked BulkUpload component and passing state setter */}
+            <MockBulkUpload setUploadProgress={setUploadProgress} />
           </TabsContent>
 
           <TabsContent value="template" className="space-y-8">
@@ -342,7 +469,8 @@ const BulkUploadPage = () => {
       </div>
 
       {/* Unified AI Chatbot */}
-      <ShipAIChatbot />
+      {/* Using Mocked ShipAIChatbot component */}
+      <MockShipAIChatbot />
     </div>
   );
 };
