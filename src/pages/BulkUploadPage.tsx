@@ -40,8 +40,6 @@ const BulkUploadPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto py-[6px] px-[5px]">
         {/* 🚀 STEP PROGRESS BAR: MOVED TO THE VERY TOP (ABOVE THE HEADING) */}
-        <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
-        {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
           <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
         </div>
