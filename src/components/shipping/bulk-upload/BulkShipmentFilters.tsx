@@ -166,41 +166,40 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
 
       {/* --- Main Controls Row (Search, Filter, Sort, Quick Change) --- */}
       <div className="flex flex-wrap gap-3 items-center">
-        {/* 3. Quick Change / Optimization Dropdown */}
-        <Select onValueChange={(val) => onQuickOptimization?.(val)}>
-          <SelectTrigger className="w-[200px] h-10 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-purple-600" />
-              <SelectValue placeholder="Quick Options" />
-            </div>
+        {/* 1. Improved Search Bar (Flex Grow) */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
+            placeholder="Search carriers, services, or recipients..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-10 h-10 text-sm border-gray-300 focus:border-blue-500"
+          />
+        </div>
+
+        {/* 2. Carrier Filter Dropdown */}
+        <Select
+          value={selectedCarrier || "all"}
+          onValueChange={(value) => onCarrierFilterChange(value === "all" ? null : value)}
+        >
+          <SelectTrigger className="w-[180px] h-10 border-gray-300">
+            <SelectValue placeholder="All Carriers" />
           </SelectTrigger>
-          <SelectContent className="bg-white border-2 shadow-lg z-50">
-            <SelectGroup>
-              <SelectLabel className="text-xs text-gray-500 uppercase tracking-wider font-semibold px-2 py-1">
-                Auto-Optimize
-              </SelectLabel>
-              {OPTIMIZATION_OPTIONS.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{option.icon}</span>
-                    <span className={option.color}>{option.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectGroup>
+          <SelectContent>
+            <SelectItem value="all">
+              <span className="font-medium">All Carriers</span>
+            </SelectItem>
+            {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
+              <SelectItem key={carrier.id} value={carrier.id}>
+                <div className="flex items-center gap-2">
+                  <CarrierLogo carrier={carrier.name} className="h-4 w-auto" />
+                  {carrier.name}
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-
-        {/* 4. ADDED: Advanced Filter Button */}
-        <Button variant="outline" size="sm" className="h-10 border-gray-300">
-          <Filter className="h-4 w-4 mr-1" />
-          Advanced
-          {activeFiltersCount > 0 && (
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-blue-100 text-blue-800">
-              {activeFiltersCount}
-            </Badge>
-          )}
-        </Button>
 
         {/* 3. Quick Change / Optimization Dropdown (Replaces Button Grid) */}
         <Select onValueChange={(val) => onQuickOptimization?.(val)}>
