@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
 // 👈 NEW: Import the progress bar component and its type
-import BulkUploadProgressBar, { BulkUploadStep } from "@/components/shipping/BulkUploadProgressBar";
+import BulkUploadProgressBar, { BulkUploadStep } from "@/components/shipping/bulk-upload/BulkUploadProgressBar";
 
 const BulkUploadPage = () => {
   // 👈 NEW: Add state for managing the progress bar's current step and completed steps
@@ -337,5 +337,4 @@ const BulkUploadPage = () => {
     </div>
   );
 };
-export default BulkUploadPage;
 export default BulkUploadPage;
