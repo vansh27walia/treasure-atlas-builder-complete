@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import PackageTypeSelector from "../PackageTypeSelector";
 
 const kgToOunces = (kg: number) => Number((kg * 35.27396195).toFixed(2));
 
@@ -32,7 +31,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
 
   const initialWeightOz = (shipment?.details?.weight ?? shipment?.details?.parcel_weight ?? shipment?.weight ?? 0) as number;
   const [weightUnit, setWeightUnit] = useState<"lb" | "oz" | "kg">("lb");
-  const [packageType, setPackageType] = useState<string>(shipment.details?.predefined_package || shipment.predefined_package || "box");
 
   const [localData, setLocalData] = useState({
     recipient: shipment.details?.to_name || shipment.recipient || shipment.customer_name || "",
@@ -93,17 +91,12 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
         weightInOz = kgToOunces(localData.weight);
       }
 
-      const parcel: any = {
+      const parcel = {
         length: localData.length,
         width: localData.width,
         height: localData.height,
         weight: weightInOz,
       };
-
-      // Add predefined package if not custom box/envelope
-      if (!['box', 'envelope'].includes(packageType)) {
-        parcel.predefined_package = packageType;
-      }
 
       const payload: any = { fromAddress, toAddress, parcel };
       if (localData.insurance_enabled) {
@@ -214,12 +207,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Package Type Selector */}
-          <div>
-            <Label>Package Type</Label>
-            <PackageTypeSelector value={packageType} onChange={setPackageType} />
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="recipient">Recipient Name</Label>
