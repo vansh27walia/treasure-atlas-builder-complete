@@ -210,17 +210,19 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             </div>
           </SelectTrigger>
           <SelectContent className="bg-white border-2 shadow-lg z-50">
-            <SelectLabel className="text-xs text-gray-500 uppercase tracking-wider font-semibold px-2 py-1">
-              Auto-Optimize
-            </SelectLabel>
-            {OPTIMIZATION_OPTIONS.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                <div className="flex items-center gap-2">
-                  <span>{option.icon}</span>
-                  <span className={option.color}>{option.label}</span>
-                </div>
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectLabel className="text-xs text-gray-500 uppercase tracking-wider font-semibold px-2 py-1">
+                Auto-Optimize
+              </SelectLabel>
+              {OPTIMIZATION_OPTIONS.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{option.icon}</span>
+                    <span className={option.color}>{option.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 
