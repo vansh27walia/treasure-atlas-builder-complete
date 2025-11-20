@@ -6,7 +6,8 @@ export type BulkUploadStep = "upload" | "mapping" | "rates" | "labels";
 interface BulkUploadProgressBarProps {
   currentStep: BulkUploadStep;
   completedSteps: BulkUploadStep[];
-  className?: string; // Added to accommodate the sticky top positioning wrapper
+  // className is kept to allow external styling, but the sticky style is applied internally
+  className?: string;
 }
 
 const steps = [
@@ -48,15 +49,16 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
   };
 
   return (
-    // Applied sticky top wrapper from the first component
+    // 1. STICKY FIX: Ensure 'sticky top-0' and 'z-50' are here.
+    // 2. TRANSPARENCY FIX: The background opacity (bg-white/30) is key for translucency.
     <div className={`w-full py-4 sticky top-0 z-50 ${className}`}>
       <div className="mx-auto max-w-4xl px-0">
-        {/* Applied Glassy Translucent Container Style */}
+        {/* GLASSY WRAPPER: This container holds the translucent style */}
         <div className="bg-white/30 backdrop-blur-xl shadow-xl border border-white/20 p-4 transition-all duration-300 hover:bg-white/40 mx-0 rounded-3xl">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const status = getStepStatus(step.id);
-              const Icon = status === "completed" ? CheckCircle : step.icon; // Use CheckCircle for completed steps
+              const Icon = status === "completed" ? CheckCircle : step.icon;
 
               const isCompleted = status === "completed";
               const isCurrent = status === "current";
