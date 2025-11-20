@@ -28,7 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
-import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { formatWeightDisplay } from "@/utils/weightConversion";
 import InsuranceOptions from "./InsuranceOptions";
@@ -998,6 +998,7 @@ interface ShipmentEditFormProps {
 
 const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
   const [weightUnit, setWeightUnit] = useState<"lb" | "oz" | "kg">("lb");
+  const [weightValue, setWeightValue] = useState<number>(shipment.details.weight || 1);
 
   const form = useForm({
     defaultValues: {
@@ -1020,7 +1021,18 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
   });
 
   const handleFormSubmit = (data: any) => {
-    onSubmit(data);
+    // Convert weight to ounces based on selected unit
+    let weightInOunces = weightValue;
+    if (weightUnit === "lb") {
+      weightInOunces = weightValue * 16;
+    } else if (weightUnit === "kg") {
+      weightInOunces = weightValue * 35.274;
+    }
+    
+    onSubmit({
+      ...data,
+      weight: weightInOunces,
+    });
   };
 
   return (
@@ -1091,137 +1103,64 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
           Package Details
         </h3>
 
-        <div className="mb-4">
-          <FormField
-            control={form.control}
-            name="packageType"
-            render={({ field }) => (
-              <FormItem>
-                <PackageTypeSelector value={field.value} onChange={field.onChange} />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="space-y-2">
+            <Label htmlFor="length">Length (in) *</Label>
+            <Input
+              id="length"
+              type="number"
+              step="0.1"
+              {...form.register("length", { valueAsNumber: true })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="width">Width (in) *</Label>
+            <Input
+              id="width"
+              type="number"
+              step="0.1"
+              {...form.register("width", { valueAsNumber: true })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="height">Height (in) *</Label>
+            <Input
+              id="height"
+              type="number"
+              step="0.1"
+              {...form.register("height", { valueAsNumber: true })}
+              required
+            />
+          </div>
         </div>
 
-        {/* Show dimensions only for box and envelope, hide for predefined packages */}
-        {(showDimensions || showEnvelopeDimensions) && !isPredefinedPackage && (
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <FormField
-              control={form.control}
-              name="length"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm">Length (in)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      {...field}
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                      className="bg-white"
-                      placeholder="Length"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="weight">Weight *</Label>
+            <Input
+              id="weight"
+              type="number"
+              step="0.1"
+              value={weightValue}
+              onChange={(e) => setWeightValue(parseFloat(e.target.value) || 0)}
+              required
             />
-            <FormField
-              control={form.control}
-              name="width"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm">Width (in)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      {...field}
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                      className="bg-white"
-                      placeholder="Width"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {/* Only show height for box, not envelope */}
-            {showDimensions && (
-              <FormField
-                control={form.control}
-                name="height"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm">Height (in)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                        className="bg-white"
-                        placeholder="Height"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
           </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <FormField
-            control={form.control}
-            name="weightValue"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm">Weight</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    {...field}
-                    value={field.value || ""}
-                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                    className="bg-white"
-                    placeholder="Weight"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="weightUnit"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm">Unit</FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="lb">Pounds (lb)</option>
-                    <option value="oz">Ounces (oz)</option>
-                    <option value="kg">Kilograms (kg)</option>
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <Label htmlFor="weightUnit">Unit</Label>
+            <Select value={weightUnit} onValueChange={(value: "lb" | "oz" | "kg") => setWeightUnit(value)}>
+              <SelectTrigger id="weightUnit">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lb">Pounds (lb)</SelectItem>
+                <SelectItem value="oz">Ounces (oz)</SelectItem>
+                <SelectItem value="kg">Kilograms (kg)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
