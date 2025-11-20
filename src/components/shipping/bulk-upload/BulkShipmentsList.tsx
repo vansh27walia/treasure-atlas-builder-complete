@@ -998,7 +998,7 @@ interface ShipmentEditFormProps {
 
 const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
   const [weightUnit, setWeightUnit] = useState<"lb" | "oz" | "kg">("lb");
-  
+
   const form = useForm({
     defaultValues: {
       to_name: shipment.details.to_name,
@@ -1085,84 +1085,142 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
         <Label htmlFor="reference">Reference/Order #</Label>
         <Input id="reference" {...form.register("reference")} />
       </div>
-      <div className="grid grid-cols-4 gap-4">
-        {/* ... (Length, Width, Height fields remain the same in columns 2-4) ... */}
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Package className="w-5 h-5" />
+          Package Details
+        </h3>
 
-        {/* **MODIFIED WEIGHT INPUT SECTION (Column 1)** */}
-        <div className="space-y-2">
-          <Label htmlFor="weight">Weight *</Label>
-          <div className="flex space-x-2 items-end">
-            {/* **Weight Input Field** */}
-            <div className="flex-1">
-              <Input
-                id="weight"
-                type="number"
-                step="0.1"
-                min="0.1"
-                placeholder={`Enter weight in ${weightUnit}`}
-                {...form.register("weight", {
-                  valueAsNumber: true,
-                })}
-                required
+        <div className="mb-4">
+          <FormField
+            control={form.control}
+            name="packageType"
+            render={({ field }) => (
+              <FormItem>
+                <PackageTypeSelector value={field.value} onChange={field.onChange} />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Show dimensions only for box and envelope, hide for predefined packages */}
+        {(showDimensions || showEnvelopeDimensions) && !isPredefinedPackage && (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <FormField
+              control={form.control}
+              name="length"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm">Length (in)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      className="bg-white"
+                      placeholder="Length"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="width"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm">Width (in)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      className="bg-white"
+                      placeholder="Width"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Only show height for box, not envelope */}
+            {showDimensions && (
+              <FormField
+                control={form.control}
+                name="height"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm">Height (in)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        className="bg-white"
+                        placeholder="Height"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-
-            {/* **Weight Unit Selector Dropdown** */}
-            <Select value={weightUnit} onValueChange={(v) => setWeightUnit(v as "lb" | "oz" | "kg")}>
-              <SelectTrigger className="w-[100px] flex-shrink-0">
-                {/* Show the currently selected unit */}
-                <SelectValue placeholder="Unit" />
-              </SelectTrigger>
-              <SelectContent className="z-50">
-                {/* Added z-50 here to potentially fix the visibility issue in the modal */}
-                <SelectItem value="lb">Pounds (lb)</SelectItem>
-                <SelectItem value="oz">Ounces (oz)</SelectItem>
-                <SelectItem value="kg">Kilograms (kg)</SelectItem>
-              </SelectContent>
-            </Select>
+            )}
           </div>
+        )}
 
-          {/* Dynamic helper text based on selected unit */}
-          <p className="text-xs text-muted-foreground">Current unit: **{weightUnit.toUpperCase()}**</p>
-        </div>
-
-        {/* Dimensions remain in the remaining columns */}
-        <div className="space-y-2">
-          <Label htmlFor="length">Length (in) *</Label>
-          <Input
-            id="length"
-            type="number"
-            step="0.1"
-            {...form.register("length", {
-              valueAsNumber: true,
-            })}
-            required
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <FormField
+            control={form.control}
+            name="weightValue"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Weight</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    {...field}
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                    className="bg-white"
+                    placeholder="Weight"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="width">Width (in) *</Label>
-          <Input
-            id="width"
-            type="number"
-            step="0.1"
-            {...form.register("width", {
-              valueAsNumber: true,
-            })}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="height">Height (in) *</Label>
-          <Input
-            id="height"
-            type="number"
-            step="0.1"
-            {...form.register("height", {
-              valueAsNumber: true,
-            })}
-            required
+          <FormField
+            control={form.control}
+            name="weightUnit"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Unit</FormLabel>
+                <FormControl>
+                  <select
+                    {...field}
+                    className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="lb">Pounds (lb)</option>
+                    <option value="oz">Ounces (oz)</option>
+                    <option value="kg">Kilograms (kg)</option>
+                  </select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
       </div>
