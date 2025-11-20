@@ -1,5 +1,5 @@
 // Utility to compute discount percent consistently across normal and batch UIs
-// Ensures a clamped range when desired (e.g., 62% to 95%)
+// Ensures a clamped range when desired (65% to 95% by default)
 export const computeDiscountPercent = (
   original: number | string | undefined | null,
   current: number | string | undefined | null,
@@ -9,8 +9,8 @@ export const computeDiscountPercent = (
   const curr = typeof current === "string" ? parseFloat(current) : Number(current);
   if (!isFinite(orig) || !isFinite(curr) || orig <= 0 || curr <= 0 || curr >= orig) return 0;
   let pct = Math.round((1 - curr / orig) * 100);
-  const min = options?.clampMin;
-  const max = options?.clampMax;
+  const min = options?.clampMin ?? 65; // Default to 65%
+  const max = options?.clampMax ?? 95; // Default to 95%
   if (typeof min === "number") pct = Math.max(min, pct);
   if (typeof max === "number") pct = Math.min(max, pct);
   return pct;
