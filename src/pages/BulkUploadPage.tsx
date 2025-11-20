@@ -46,7 +46,7 @@ const BulkUploadPage = () => {
           </p>
         </div>
 
-        {/* PROGRESS BAR SHIFTED TO THE TOP - THIS IS THE REQUESTED CHANGE */}
+        {/* PROGRESS BAR: MOVED TO THE TOP */}
         {/* NOTE: You will need to manage the 'value' of the Progress component (e.g., setUploadProgress) from your upload logic */}
         {/* Placeholder styling for visibility; adjust as needed */}
         {uploadProgress > 0 && uploadProgress < 100 && (
@@ -56,8 +56,9 @@ const BulkUploadPage = () => {
             <p className="text-sm text-gray-500 mt-1">{uploadProgress}% Complete</p>
           </div>
         )}
-        {/* END OF PROGRESS BAR CHANGE */}
+        {/* END OF PROGRESS BAR */}
 
+        {/* TABS (UPLOAD/TEMPLATE): MOVED BELOW THE PROGRESS BAR */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
             <TabsTrigger
