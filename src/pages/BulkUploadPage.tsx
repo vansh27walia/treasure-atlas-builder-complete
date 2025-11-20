@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
 import { Progress } from "@/components/ui/progress";
-// FIX: Uncommented the import for the step tracker component
-import BulkUploadProgressBar from "@/components/shipping/BulkUploadProgressBar";
+import BulkUploadProgressBar from "@/components/shipping/BulkUploadProgressBar"; // This import is now active
 
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
@@ -34,14 +33,18 @@ const BulkUploadPage = () => {
     document.body.removeChild(a);
   };
 
-  // Placeholder functions for the step tracker data
-  // These simulate the logic that determines the current step
   const getCurrentStep = () => 2;
   const getCompletedSteps = () => [1];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto py-[6px] px-[5px]">
+        {/* 🚀 STEP PROGRESS BAR: MOVED TO THE VERY TOP (ABOVE THE HEADING) */}
+        <div className="max-w-6xl mx-auto px-0 mb-6">
+          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+        </div>
+        {/* END OF STEP PROGRESS BAR */}
+
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 text-center">
             Bulk Shipping
@@ -52,13 +55,7 @@ const BulkUploadPage = () => {
           </p>
         </div>
 
-        {/* 🚀 STEP PROGRESS BAR FIX: UNCOMMENTED AND NOW ACTIVE (ABOVE THE TABS) */}
-        <div className="max-w-6xl mx-auto px-0 mb-6">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
-        {/* END OF STEP PROGRESS BAR */}
-
-        {/* 1. PERCENTAGE PROGRESS BAR: This remains just below the Step Tracker. */}
+        {/* 1. PERCENTAGE PROGRESS BAR: This remains where it was, below the heading and above the tabs. */}
         {uploadProgress > 0 && uploadProgress < 100 && (
           <div className="max-w-6xl mx-auto px-0 mb-6">
             <h3 className="text-md font-semibold text-blue-600 mb-2">Upload and Processing Progress</h3>
@@ -68,7 +65,7 @@ const BulkUploadPage = () => {
         )}
         {/* END OF PERCENTAGE PROGRESS BAR */}
 
-        {/* 2. TABS: This block is below both progress bars. */}
+        {/* 2. TABS: This block is below all progress bars. */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
             <TabsTrigger
@@ -350,4 +347,5 @@ const BulkUploadPage = () => {
     </div>
   );
 };
+export default BulkUploadPage;
 export default BulkUploadPage;
