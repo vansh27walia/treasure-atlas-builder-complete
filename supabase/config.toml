@@ -79,3 +79,6 @@ port = 9999
 # Configure Edge Functions
 [functions.update-address-encryption]
 verify_jwt = true
+
+[functions.get-google-api-key]
+verify_jwt = false

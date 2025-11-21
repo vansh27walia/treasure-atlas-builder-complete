@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -116,50 +115,9 @@ serve(async (req) => {
       );
     }
 
-    // Define validation schema
-    const LocationSchema = z.object({
-      countryCode: z.string().length(2),
-      portName: z.string().min(1).max(100)
-    });
+    // Get the request body
+    const { origin, destination, loadDetails } = await req.json();
 
-    const LoadSchema = z.object({
-      quantity: z.number().int().positive().max(1000),
-      unitType: z.string().min(1).max(50),
-      weight: z.number().positive().max(100000),
-      totalVolume: z.number().positive().max(10000)
-    });
-
-    const LoadDetailsSchema = z.object({
-      loads: z.array(LoadSchema).min(1).max(50)
-    });
-
-    const FreightRequestSchema = z.object({
-      origin: LocationSchema,
-      destination: LocationSchema,
-      loadDetails: LoadDetailsSchema
-    });
-
-    // Parse and validate the request body
-    const requestBody = await req.json();
-    let validatedData;
-    try {
-      validatedData = FreightRequestSchema.parse(requestBody);
-    } catch (validationError) {
-      if (validationError instanceof z.ZodError) {
-        console.error('Validation error:', validationError.errors);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Validation Error', 
-            message: validationError.errors[0].message,
-            details: validationError.errors 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
-      }
-      throw validationError;
-    }
-
-    const { origin, destination, loadDetails } = validatedData;
     console.log('Freight forwarding request:', { origin, destination, loadDetails });
 
     // Convert port names to UN/LOCODEs

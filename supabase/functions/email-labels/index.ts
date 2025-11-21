@@ -2,7 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,18 +56,7 @@ serve(async (req) => {
 
     console.log('User authenticated successfully:', user.email);
 
-    // Validate input with zod
-    const EmailRequestSchema = z.object({
-      toEmails: z.array(z.string().email()).min(1).max(10),
-      subject: z.string().min(1).max(200),
-      description: z.string().max(1000).optional(),
-      batchResult: z.object({
-        consolidatedLabelUrls: z.record(z.string().url()).optional(),
-        scanFormUrl: z.string().url().optional()
-      }).optional(),
-      selectedFormats: z.array(z.enum(['pdf', 'zpl', 'epl', 'png', 'scanForm'])).default(['pdf'])
-    });
-
+    // Parse request body
     let requestBody;
     try {
       requestBody = await req.json();
@@ -81,26 +69,27 @@ serve(async (req) => {
       });
     }
 
-    let validatedData;
-    try {
-      validatedData = EmailRequestSchema.parse(requestBody);
-    } catch (validationError) {
-      if (validationError instanceof z.ZodError) {
-        console.error('Validation error:', validationError.errors);
-        return new Response(JSON.stringify({ 
-          error: 'Validation Error', 
-          message: validationError.errors[0].message,
-          details: validationError.errors 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
-        });
-      }
-      throw validationError;
-    }
+    const { 
+      toEmails, 
+      subject, 
+      description, 
+      batchResult, 
+      selectedFormats = ['pdf'] 
+    } = requestBody;
 
-    const { toEmails, subject, description, batchResult, selectedFormats } = validatedData;
     console.log('Processing email request for:', { toEmails, subject, selectedFormats });
+
+    // Validate required fields
+    if (!toEmails || toEmails.length === 0 || !subject) {
+      console.error('Missing required fields:', { toEmails, subject });
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields', 
+        details: 'toEmails and subject are required' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
 
     // Check Resend API key
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
