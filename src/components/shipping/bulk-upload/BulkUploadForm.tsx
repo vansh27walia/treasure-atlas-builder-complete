@@ -40,6 +40,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
   const [showAddAddressModal, setShowAddAddressModal] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [fileReadyForMapping, setFileReadyForMapping] = useState(false);
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -130,8 +131,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
       console.log('CSV validation passed, lines:', lines.length);
       setCsvContent(text);
-      setCurrentStep('mapping');
-      toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
+      setFileReadyForMapping(true);
+      toast.success('CSV file loaded! Click "Next Step: AI Header Mapping" to continue.');
       return true;
     } catch (error) {
       console.error('Error reading CSV file:', error);
@@ -191,7 +192,15 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('select');
     setSelectedFile(null);
     setCsvContent('');
+    setFileReadyForMapping(false);
     toast.info('CSV upload cancelled. You can select a new file.');
+  };
+
+  const handleProceedToMapping = () => {
+    if (fileReadyForMapping && csvContent) {
+      setCurrentStep('mapping');
+      toast.info('Analyzing headers with AI...');
+    }
   };
 
   const handleAreaClick = () => {
@@ -393,13 +402,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setCurrentStep('mapping');
+                  handleProceedToMapping();
                 }}
-                disabled={!selectedAddressId || !addressesLoaded}
-                className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-3 text-lg font-bold"
+                disabled={!selectedAddressId || !addressesLoaded || !fileReadyForMapping}
+                className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-3 text-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Brain className="mr-2 h-5 w-5" />
-                Next Step: AI Header Mapping
+                Proceed to AI Header Mapping
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
