@@ -28,7 +28,7 @@ const BulkUploadPage = () => {
   const getCurrentStep = (): "upload" | "mapping" | "rates" | "labels" => "rates";
   const getCompletedSteps = (): Array<"upload" | "mapping" | "rates" | "labels"> => ["upload"];
   return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto py-[6px] px-0">
+      <div className="container mx-auto py-[6px] px-[5px]">
         
         {/* END OF STEP PROGRESS BAR */}
 
