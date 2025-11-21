@@ -6,7 +6,6 @@ import { Package, Truck, ChartBar, Upload, CreditCard, TrendingUp, MapPin, Clock
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
-
 const Index: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -385,7 +384,7 @@ const Index: React.FC = () => {
               <Package className="mr-2 h-6 w-6" />
               Create Single Label
             </Button>
-            <Button size="lg" onClick={() => navigate('/bulk-upload')} variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-blue-600 shadow-xl px-8 py-4 text-lg">
+            <Button size="lg" onClick={() => navigate('/bulk-upload')} variant="outline" className="border-2 border-white hover:bg-white shadow-xl px-8 py-4 text-lg text-sky-700">
               <Upload className="mr-2 h-6 w-6" />
               Batch Processing
             </Button>
