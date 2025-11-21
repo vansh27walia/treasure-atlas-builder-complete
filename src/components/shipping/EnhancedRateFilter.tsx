@@ -5,15 +5,29 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import { Filter, Search, SortAsc, SortDesc, X, Sparkles, Zap, Brain, DollarSign, Truck, Target, Package, Clock, Award } from "lucide-react";
+import {
+  Filter,
+  Search,
+  SortAsc,
+  SortDesc,
+  Brain,
+  X,
+  Sparkles,
+  DollarSign,
+  Zap,
+  Shield,
+  TrendingUp,
+} from "lucide-react";
 import CarrierLogo from "./CarrierLogo";
+import { useToast } from "@/hooks/use-toast";
 
-interface EnhancedRateFilterProps {
+interface EnhancedRateFilterWithAIProps {
   filters: {
     search: string;
     carriers: string[];
     maxPrice?: number;
     maxDays?: number;
+    minPrice?: number;
     features: string[];
     sortBy: "price" | "speed" | "carrier" | "reliability";
     sortOrder: "asc" | "desc";
@@ -22,113 +36,159 @@ interface EnhancedRateFilterProps {
   availableCarriers: string[];
   onFiltersChange: (filters: any) => void;
   onClearFilters: () => void;
+  onAIPoweredAnalysis: () => void;
   rateCount: number;
-  onQuickOptimization?: (type: string) => void;
-  onAIPoweredAnalysis?: () => void;
+  aiEnabled?: boolean;
 }
 
-const OPTIMIZATION_OPTIONS = [
-  { id: "cheapest", label: "Cheapest Option", icon: <DollarSign className="h-4 w-4" /> },
-  { id: "fastest", label: "Fastest Delivery", icon: <Clock className="h-4 w-4" /> },
-  { id: "balanced", label: "Best Value", icon: <Target className="h-4 w-4" /> },
-  { id: "2day", label: "2-Day Delivery", icon: <Truck className="h-4 w-4" /> },
-  { id: "reliable", label: "Most Reliable", icon: <Award className="h-4 w-4" /> },
-];
-
-const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
+const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
   filters,
   availableCarriers,
   onFiltersChange,
   onClearFilters,
-  rateCount,
-  onQuickOptimization,
   onAIPoweredAnalysis,
+  rateCount,
+  aiEnabled = true,
 }) => {
+  const { toast } = useToast();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, filters.maxPrice || 100]);
-  const [daysRange, setDaysRange] = useState(filters.maxDays || 10);
+  const [priceRange, setPriceRange] = useState<[number, number]>([filters.minPrice || 0, filters.maxPrice || 100]);
+  const [daysRange, setDaysRange] = useState<number>(filters.maxDays || 7);
+
+  // Quick optimization options - same as batch and AI Overview
+  const OPTIMIZATION_OPTIONS = [
+    { id: "cheapest", label: "Cheapest", icon: "💰", color: "bg-green-100 text-green-800" },
+    { id: "fastest", label: "Fastest", icon: "⚡", color: "bg-yellow-100 text-yellow-800" },
+    { id: "balanced", label: "Most Efficient", icon: "✅", color: "bg-blue-100 text-blue-800" },
+    { id: "door-delivery", label: "Door Delivery", icon: "📦", color: "bg-purple-100 text-purple-800" },
+    { id: "po-box", label: "PO Box Delivery", icon: "📫", color: "bg-indigo-100 text-indigo-800" },
+    { id: "eco-friendly", label: "Eco Friendly", icon: "🌱", color: "bg-green-100 text-green-800" },
+    { id: "2-day", label: "2-Day Delivery", icon: "🕓", color: "bg-orange-100 text-orange-800" },
+    { id: "express", label: "Express Delivery", icon: "🚀", color: "bg-red-100 text-red-800" },
+    { id: "most-reliable", label: "Most Reliable", icon: "🛡️", color: "bg-gray-100 text-gray-800" },
+    { id: "ai-recommended", label: "AI Recommended", icon: "🧠", color: "bg-pink-100 text-pink-800" },
+  ];
 
   const handleSearchChange = (value: string) => {
-    setIsAnimating(true);
     onFiltersChange({ ...filters, search: value });
-    setTimeout(() => setIsAnimating(false), 200);
   };
 
   const handleCarrierChange = (carrier: string) => {
-    setIsAnimating(true);
     onFiltersChange({ ...filters, selectedCarrier: carrier });
-    setTimeout(() => setIsAnimating(false), 300);
   };
 
   const handleSortChange = (sortBy: string) => {
-    setIsAnimating(true);
     onFiltersChange({ ...filters, sortBy });
-    setTimeout(() => setIsAnimating(false), 200);
   };
 
   const handleSortOrderToggle = () => {
-    setIsAnimating(true);
     onFiltersChange({
       ...filters,
       sortOrder: filters.sortOrder === "asc" ? "desc" : "asc",
     });
-    setTimeout(() => setIsAnimating(false), 200);
   };
 
-  const handlePriceRangeChange = (value: [number, number]) => {
-    setPriceRange(value);
-    onFiltersChange({ ...filters, maxPrice: value[1] });
+  const handlePriceRangeChange = (value: number[]) => {
+    setPriceRange([value[0], value[1]]);
+    onFiltersChange({
+      ...filters,
+      minPrice: value[0],
+      maxPrice: value[1],
+    });
   };
 
   const handleDaysChange = (value: number[]) => {
     setDaysRange(value[0]);
-    onFiltersChange({ ...filters, maxDays: value[0] });
+    onFiltersChange({
+      ...filters,
+      maxDays: value[0],
+    });
   };
 
   const handleFeatureToggle = (feature: string) => {
-    const newFeatures = filters.features.includes(feature)
-      ? filters.features.filter(f => f !== feature)
+    const updatedFeatures = filters.features.includes(feature)
+      ? filters.features.filter((f) => f !== feature)
       : [...filters.features, feature];
-    onFiltersChange({ ...filters, features: newFeatures });
+    onFiltersChange({ ...filters, features: updatedFeatures });
   };
 
-  const handleQuickOptimization = (type: string) => {
-    if (onQuickOptimization) {
-      onQuickOptimization(type);
+  const handleQuickOptimization = (optimizationType: string) => {
+    let updatedFilters = { ...filters };
+
+    switch (optimizationType) {
+      case "cheapest":
+        updatedFilters = { ...updatedFilters, sortBy: "price", sortOrder: "asc" };
+        break;
+      case "fastest":
+        updatedFilters = { ...updatedFilters, sortBy: "speed", sortOrder: "asc" };
+        break;
+      case "most-reliable":
+        updatedFilters = { ...updatedFilters, sortBy: "reliability", sortOrder: "desc" };
+        break;
+      case "balanced":
+        updatedFilters = { ...updatedFilters, sortBy: "price", sortOrder: "asc", features: ["Tracking"] };
+        break;
+      case "door-delivery":
+        updatedFilters = { ...updatedFilters, features: [...updatedFilters.features, "Dropoff"] };
+        break;
+      case "po-box":
+        updatedFilters = { ...updatedFilters, features: [...updatedFilters.features, "Dropoff"] };
+        break;
+      case "eco-friendly":
+        updatedFilters = { ...updatedFilters, sortBy: "speed", sortOrder: "desc" };
+        break;
+      case "2-day":
+        updatedFilters = { ...updatedFilters, maxDays: 2, sortBy: "price", sortOrder: "asc" };
+        break;
+      case "express":
+        updatedFilters = {
+          ...updatedFilters,
+          features: [...updatedFilters.features, "Express"],
+          sortBy: "speed",
+          sortOrder: "asc",
+        };
+        break;
+      case "ai-recommended":
+        onAIPoweredAnalysis();
+        return;
     }
+
+    onFiltersChange(updatedFilters);
+    toast({
+      title: "Filter Applied",
+      description: `Showing ${OPTIMIZATION_OPTIONS.find((o) => o.id === optimizationType)?.label || optimizationType} rates`,
+    });
   };
 
   const activeFiltersCount =
     (filters.search ? 1 : 0) +
     (filters.selectedCarrier && filters.selectedCarrier !== "all" ? 1 : 0) +
-    (filters.maxPrice ? 1 : 0) +
-    (filters.maxDays ? 1 : 0);
+    (filters.maxPrice && filters.maxPrice < 100 ? 1 : 0) +
+    (filters.minPrice && filters.minPrice > 0 ? 1 : 0) +
+    (filters.maxDays && filters.maxDays < 7 ? 1 : 0) +
+    filters.features.length;
 
   return (
-    <div className="bg-gradient-to-r from-white to-gray-50/50 rounded-xl shadow-sm border border-gray-200/60 p-5 space-y-4 transition-all duration-300 hover:shadow-md">
-      {/* Enhanced Header */}
+    <div className="bg-white rounded-lg shadow-md border-2 border-gray-200 p-5 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-            <Filter className="h-4 w-4 text-white" />
-          </div>
-          <h3 className="font-semibold text-gray-900">Filter & Sort Rates</h3>
-        </div>
+        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <Filter className="w-5 h-5 text-blue-600" />
+          Filter & Sort Rates
+        </h3>
         {activeFiltersCount > 0 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onClearFilters}
-            className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
           >
-            <X className="h-4 w-4 mr-1" />
-            Clear All
+            <X className="w-4 h-4 mr-1" />
+            Clear All ({activeFiltersCount})
           </Button>
         )}
       </div>
 
-      {/* Main Controls Row */}
       {/* Main Controls Row */}
       <div className="flex flex-wrap gap-3 items-center">
         {/* Search */}
@@ -286,41 +346,33 @@ const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
         </Select>
 
         {/* AI Powered Analysis Button */}
-        {onAIPoweredAnalysis && (
-          <Button onClick={onAIPoweredAnalysis} variant="default" className="h-10 px-4 flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            <Sparkles className="w-3 h-3" />
-            AI Analysis
-          </Button>
-        )}
+        <Button onClick={onAIPoweredAnalysis} variant="default" className="h-10 px-4 flex items-center gap-2">
+          <Brain className="w-4 h-4" />
+          <Sparkles className="w-3 h-3" />
+          AI Analysis
+        </Button>
       </div>
-      {/* Enhanced Results Count with Animation */}
-      <div
-        className={`flex items-center justify-between transition-all duration-300 ${isAnimating ? "opacity-60 scale-95" : "opacity-100 scale-100"}`}
-      >
+
+      {/* Results Count and Active Filters */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-200">
         <div className="flex items-center gap-2">
-          <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-            {rateCount} rate{rateCount !== 1 ? "s" : ""} found
-          </div>
-          {isAnimating && (
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-            </div>
+          <span className="text-sm font-medium text-gray-700">
+            Showing {rateCount} rate{rateCount !== 1 ? "s" : ""}
+          </span>
+          {activeFiltersCount > 0 && (
+            <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border border-blue-200">
+              {activeFiltersCount} filter{activeFiltersCount !== 1 ? "s" : ""} active
+            </Badge>
           )}
         </div>
 
-        {activeFiltersCount > 0 && (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs border-purple-300 text-purple-700 bg-purple-50">
-              {activeFiltersCount} filter{activeFiltersCount !== 1 ? "s" : ""} active
-            </Badge>
-          </div>
+        {filters.sortBy !== "price" && (
+          <span className="text-xs text-gray-500">
+            Sorted by: <span className="font-medium capitalize">{filters.sortBy}</span>
+          </span>
         )}
       </div>
     </div>
   );
 };
-
 export default EnhancedRateFilter;
