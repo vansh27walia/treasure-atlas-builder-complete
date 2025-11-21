@@ -32,6 +32,7 @@ import FreshEditModal from './FreshEditModal';
 import IndependentPrintPreview from '../IndependentPrintPreview';
 import BulkAIOverviewPanel from './BulkAIOverviewPanel';
 import { Sparkles } from 'lucide-react';
+import { computeDiscountPercent } from '@/utils/discount';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -297,7 +298,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                           </span>
                           <Badge variant="destructive" className="text-2xs">
                             Save {(() => {
-                              const raw = hasDiscount ? Math.round((1 - currentRate / Number(original)) * 100) : 0;
+                              const raw = hasDiscount ? computeDiscountPercent(original, currentRate, { clampMin: 60, clampMax: 90 }) : 0;
                               const pct = original ? Math.min(95, Math.max(50, raw)) : 50;
                               return pct;
                             })()}%

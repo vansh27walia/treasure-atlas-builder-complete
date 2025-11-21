@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { computeDiscountPercent } from "@/utils/discount";
 
 const kgToOunces = (kg: number) => Number((kg * 35.27396195).toFixed(2));
 
@@ -294,7 +295,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
                 {rates.map((rate) => {
                   const hasDiscount = rate.list_rate || rate.retail_rate;
                   const originalPrice = hasDiscount ? rate.list_rate || rate.retail_rate : null;
-                  const discountPercent = originalPrice ? Math.round((1 - Number(rate.rate) / Number(originalPrice)) * 100) : 0;
+                  const discountPercent = originalPrice ? computeDiscountPercent(originalPrice, rate.rate, { clampMin: 60, clampMax: 90 }) : 0;
                   return (
                     <div key={rate.id} className={`p-3 border rounded cursor-pointer transition-colors ${selectedRate?.id === rate.id ? "border-blue-600 bg-blue-600/5" : "hover:border-blue-600/50"}`} onClick={() => setSelectedRate(rate)}>
                       <div className="flex justify-between items-center">

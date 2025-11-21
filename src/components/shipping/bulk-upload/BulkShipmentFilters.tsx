@@ -338,18 +338,18 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </PopoverContent>
         </Popover>
 
-        {/* 4. Quick Change / Optimization Dropdown */}
+        {/* 4. Quick Change Dropdown */}
         <Select onValueChange={(val) => onQuickOptimization?.(val)}>
           <SelectTrigger className="w-[180px] h-10 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-purple-600" />
-              <SelectValue placeholder="Quick Options" />
+              <SelectValue placeholder="Quick Change" />
             </div>
           </SelectTrigger>
           <SelectContent className="bg-white border-2 shadow-lg z-50">
             <SelectGroup>
               <SelectLabel className="text-xs text-gray-500 uppercase tracking-wider font-semibold px-2 py-1">
-                Auto-Optimize
+                Quick Change
               </SelectLabel>
               {OPTIMIZATION_OPTIONS.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
