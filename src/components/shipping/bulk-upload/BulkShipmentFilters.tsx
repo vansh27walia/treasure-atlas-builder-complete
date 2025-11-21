@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { Search, SortAsc, SortDesc, Filter, Zap, X, Sparkles, Brain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import CarrierLogo from "../CarrierLogo";
@@ -104,6 +106,13 @@ interface BulkShipmentFiltersProps {
   onCarrierFilterChange: (carrier: string | null) => void;
   onApplyCarrierToAll: (carrier: string, service: string) => void;
   onQuickOptimization?: (filterId: string) => void;
+  // New Optional Props for Advanced Filtering
+  onAdvancedFilterChange?: (filters: {
+    minPrice: number;
+    maxPrice: number;
+    maxDays: number;
+    features: string[];
+  }) => void;
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
@@ -116,17 +125,23 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   onCarrierFilterChange,
   onApplyCarrierToAll,
   onQuickOptimization,
+  onAdvancedFilterChange,
 }) => {
   const [selectedBulkCarrier, setSelectedBulkCarrier] = useState<string>("");
   const [selectedBulkService, setSelectedBulkService] = useState<string>("");
 
+  // --- Advanced Filter State (from EnhancedRateFilterWithAI) ---
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
+  const [daysRange, setDaysRange] = useState<number>(7);
+  const [features, setFeatures] = useState<string[]>([]);
+
+  // Handle applying bulk carrier/service to all rows
   const handleApplyToAll = () => {
     if (selectedBulkCarrier && selectedBulkService) {
       const carrier = EXTENDED_CARRIER_OPTIONS.find((c) => c.id === selectedBulkCarrier);
       const service = carrier?.services.find((s) => s.id === selectedBulkService);
 
-      // Passing the Name strings to match Code 1 logic,
-      // but we derived them from IDs to ensure accuracy
       if (carrier && service) {
         onApplyCarrierToAll(carrier.name, service.name);
       }
@@ -135,10 +150,56 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
 
   const handleBulkCarrierChange = (carrierId: string) => {
     setSelectedBulkCarrier(carrierId);
-    setSelectedBulkService(""); // Reset service when carrier changes to prevent bugs
+    setSelectedBulkService("");
   };
 
-  const activeFiltersCount = (searchTerm ? 1 : 0) + (selectedCarrier && selectedCarrier !== "all" ? 1 : 0);
+  // --- Advanced Filter Handlers ---
+  const handlePriceRangeChange = (value: number[]) => {
+    const newRange: [number, number] = [value[0], value[1]];
+    setPriceRange(newRange);
+    triggerAdvancedUpdate(newRange, daysRange, features);
+  };
+
+  const handleDaysChange = (value: number[]) => {
+    const newDays = value[0];
+    setDaysRange(newDays);
+    triggerAdvancedUpdate(priceRange, newDays, features);
+  };
+
+  const handleFeatureToggle = (feature: string) => {
+    const updatedFeatures = features.includes(feature) ? features.filter((f) => f !== feature) : [...features, feature];
+    setFeatures(updatedFeatures);
+    triggerAdvancedUpdate(priceRange, daysRange, updatedFeatures);
+  };
+
+  const triggerAdvancedUpdate = (pRange: [number, number], dRange: number, feats: string[]) => {
+    if (onAdvancedFilterChange) {
+      onAdvancedFilterChange({
+        minPrice: pRange[0],
+        maxPrice: pRange[1],
+        maxDays: dRange,
+        features: feats,
+      });
+    }
+  };
+
+  const handleClearAll = () => {
+    onSearchChange("");
+    onCarrierFilterChange(null);
+    // Reset Advanced
+    setPriceRange([0, 100]);
+    setDaysRange(7);
+    setFeatures([]);
+    triggerAdvancedUpdate([0, 100], 7, []);
+  };
+
+  // Calculate active filters count including advanced options
+  const activeFiltersCount =
+    (searchTerm ? 1 : 0) +
+    (selectedCarrier && selectedCarrier !== "all" ? 1 : 0) +
+    (priceRange[1] < 100 || priceRange[0] > 0 ? 1 : 0) +
+    (daysRange < 7 ? 1 : 0) +
+    features.length;
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 space-y-4">
@@ -152,10 +213,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              onSearchChange("");
-              onCarrierFilterChange(null);
-            }}
+            onClick={handleClearAll}
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
           >
             <X className="w-4 h-4 mr-1" />
@@ -164,9 +222,9 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
         )}
       </div>
 
-      {/* --- Main Controls Row (Search, Filter, Sort, Quick Change) --- */}
+      {/* --- Main Controls Row --- */}
       <div className="flex flex-wrap gap-3 items-center">
-        {/* 1. Improved Search Bar (Flex Grow) */}
+        {/* 1. Search Bar */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -178,12 +236,12 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           />
         </div>
 
-        {/* 2. Carrier Filter Dropdown */}
+        {/* 2. Carrier Filter */}
         <Select
           value={selectedCarrier || "all"}
           onValueChange={(value) => onCarrierFilterChange(value === "all" ? null : value)}
         >
-          <SelectTrigger className="w-[180px] h-10 border-gray-300">
+          <SelectTrigger className="w-[160px] h-10 border-gray-300">
             <SelectValue placeholder="All Carriers" />
           </SelectTrigger>
           <SelectContent>
@@ -201,9 +259,88 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </SelectContent>
         </Select>
 
-        {/* 3. Quick Change / Optimization Dropdown (Replaces Button Grid) */}
+        {/* 3. NEW: Advanced Filter Popover (Implemented from EnhancedRateFilterWithAI) */}
+        <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-10 border-gray-300 bg-white text-gray-700">
+              <Filter className="h-4 w-4 mr-1" />
+              Advanced
+              {(features.length > 0 || daysRange < 7 || priceRange[1] < 100) && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-blue-100 text-blue-800">
+                  {features.length + (daysRange < 7 ? 1 : 0) + (priceRange[1] < 100 ? 1 : 0)}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-4 bg-white z-50" align="end">
+            <div className="space-y-4">
+              {/* Price Range */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Price Range ($)</label>
+                <div className="flex items-center gap-3 mb-2">
+                  <Input
+                    type="number"
+                    value={priceRange[0]}
+                    onChange={(e) => handlePriceRangeChange([parseFloat(e.target.value) || 0, priceRange[1]])}
+                    className="w-20 h-8 text-sm"
+                    min="0"
+                  />
+                  <span className="text-gray-500">to</span>
+                  <Input
+                    type="number"
+                    value={priceRange[1]}
+                    onChange={(e) => handlePriceRangeChange([priceRange[0], parseFloat(e.target.value) || 100])}
+                    className="w-20 h-8 text-sm"
+                    min="0"
+                  />
+                </div>
+                <Slider
+                  value={[priceRange[0], priceRange[1]]}
+                  onValueChange={handlePriceRangeChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="mt-2"
+                />
+              </div>
+
+              {/* Max Delivery Days */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Max Delivery Days: {daysRange}</label>
+                <Slider
+                  value={[daysRange]}
+                  onValueChange={handleDaysChange}
+                  min={1}
+                  max={10}
+                  step={1}
+                  className="mt-2"
+                />
+              </div>
+
+              {/* Features */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Features</label>
+                <div className="space-y-2">
+                  {["Express", "Insurance", "Tracking", "Signature", "Weekend"].map((feature) => (
+                    <Button
+                      key={feature}
+                      variant={features.includes(feature) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleFeatureToggle(feature)}
+                      className="w-full justify-start"
+                    >
+                      {feature}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* 4. Quick Change / Optimization Dropdown */}
         <Select onValueChange={(val) => onQuickOptimization?.(val)}>
-          <SelectTrigger className="w-[200px] h-10 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+          <SelectTrigger className="w-[180px] h-10 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-purple-600" />
               <SelectValue placeholder="Quick Options" />
@@ -226,10 +363,10 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </SelectContent>
         </Select>
 
-        {/* 4. Sort Controls */}
+        {/* 5. Sort Controls */}
         <div className="flex gap-2">
           <Select value={sortField} onValueChange={(value: any) => onSortChange(value, sortDirection)}>
-            <SelectTrigger className="w-[140px] h-10 border-gray-300">
+            <SelectTrigger className="w-[130px] h-10 border-gray-300">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
