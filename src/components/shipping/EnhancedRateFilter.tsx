@@ -375,4 +375,4 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
     </div>
   );
 };
-export default EnhancedRateFilter;
+export default EnhancedRateFilterWithAI;
