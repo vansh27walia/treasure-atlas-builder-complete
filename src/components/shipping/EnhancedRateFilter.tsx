@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Filter, Search, SortAsc, SortDesc, X, Sparkles } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Filter, Search, SortAsc, SortDesc, X, Sparkles, Zap, Brain, DollarSign, Truck, Target, Package, Clock, Award } from "lucide-react";
 import CarrierLogo from "./CarrierLogo";
 
 interface EnhancedRateFilterProps {
@@ -22,7 +23,17 @@ interface EnhancedRateFilterProps {
   onFiltersChange: (filters: any) => void;
   onClearFilters: () => void;
   rateCount: number;
+  onQuickOptimization?: (type: string) => void;
+  onAIPoweredAnalysis?: () => void;
 }
+
+const OPTIMIZATION_OPTIONS = [
+  { id: "cheapest", label: "Cheapest Option", icon: <DollarSign className="h-4 w-4" /> },
+  { id: "fastest", label: "Fastest Delivery", icon: <Clock className="h-4 w-4" /> },
+  { id: "balanced", label: "Best Value", icon: <Target className="h-4 w-4" /> },
+  { id: "2day", label: "2-Day Delivery", icon: <Truck className="h-4 w-4" /> },
+  { id: "reliable", label: "Most Reliable", icon: <Award className="h-4 w-4" /> },
+];
 
 const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
   filters,
@@ -30,9 +41,13 @@ const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
   onFiltersChange,
   onClearFilters,
   rateCount,
+  onQuickOptimization,
+  onAIPoweredAnalysis,
 }) => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, filters.maxPrice || 100]);
+  const [daysRange, setDaysRange] = useState(filters.maxDays || 10);
 
   const handleSearchChange = (value: string) => {
     setIsAnimating(true);
@@ -59,6 +74,29 @@ const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
       sortOrder: filters.sortOrder === "asc" ? "desc" : "asc",
     });
     setTimeout(() => setIsAnimating(false), 200);
+  };
+
+  const handlePriceRangeChange = (value: [number, number]) => {
+    setPriceRange(value);
+    onFiltersChange({ ...filters, maxPrice: value[1] });
+  };
+
+  const handleDaysChange = (value: number[]) => {
+    setDaysRange(value[0]);
+    onFiltersChange({ ...filters, maxDays: value[0] });
+  };
+
+  const handleFeatureToggle = (feature: string) => {
+    const newFeatures = filters.features.includes(feature)
+      ? filters.features.filter(f => f !== feature)
+      : [...filters.features, feature];
+    onFiltersChange({ ...filters, features: newFeatures });
+  };
+
+  const handleQuickOptimization = (type: string) => {
+    if (onQuickOptimization) {
+      onQuickOptimization(type);
+    }
   };
 
   const activeFiltersCount =
@@ -248,11 +286,13 @@ const EnhancedRateFilter: React.FC<EnhancedRateFilterProps> = ({
         </Select>
 
         {/* AI Powered Analysis Button */}
-        <Button onClick={onAIPoweredAnalysis} variant="default" className="h-10 px-4 flex items-center gap-2">
-          <Brain className="w-4 h-4" />
-          <Sparkles className="w-3 h-3" />
-          AI Analysis
-        </Button>
+        {onAIPoweredAnalysis && (
+          <Button onClick={onAIPoweredAnalysis} variant="default" className="h-10 px-4 flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            <Sparkles className="w-3 h-3" />
+            AI Analysis
+          </Button>
+        )}
       </div>
       {/* Enhanced Results Count with Animation */}
       <div
