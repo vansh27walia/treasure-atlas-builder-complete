@@ -1,14 +1,6 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-// Input validation schema
-const TrackingRequestSchema = z.object({
-  tracking_number: z.string()
-    .min(1, 'Tracking number is required')
-    .max(100, 'Tracking number too long')
-    .regex(/^[A-Z0-9\-]+$/i, 'Invalid tracking number format')
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -66,21 +58,13 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    
-    // Validate input
-    const validationResult = TrackingRequestSchema.safeParse(body);
-    if (!validationResult.success) {
-      return new Response(JSON.stringify({ 
-        error: 'Invalid input', 
-        details: validationResult.error.errors 
-      }), {
+    const { tracking_number } = await req.json();
+    if (!tracking_number) {
+      return new Response(JSON.stringify({ error: 'Missing tracking_number' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       });
     }
-    
-    const { tracking_number } = validationResult.data;
 
     logStep("Creating tracker for tracking number", { tracking_number, userId: user.id });
 

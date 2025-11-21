@@ -1,20 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-// Input validation schema
-const BulkUploadRequestSchema = z.object({
-  csvContent: z.string()
-    .min(1, 'CSV content is required')
-    .max(5000000, 'CSV file too large (max 5MB)'),
-  pickupAddress: z.object({
-    street1: z.string().max(200),
-    city: z.string().max(100),
-    state: z.string().max(50),
-    zip: z.string().max(20),
-    country: z.string().max(2)
-  }).optional()
-});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -211,36 +196,17 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    console.log('Request body keys:', Object.keys(body));
+    const requestBody = await req.json();
+    console.log('Request body keys:', Object.keys(requestBody));
     
-    // Validate input
-    const validationResult = BulkUploadRequestSchema.safeParse(body);
-    if (!validationResult.success) {
+    const { csvContent, pickupAddress } = requestBody;
+    
+    if (!csvContent) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid bulk upload data', 
-          details: validationResult.error.errors 
-        }),
+        JSON.stringify({ error: 'Missing CSV content' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-    
-    const { csvContent, pickupAddress } = validationResult.data;
-    
-    // Validate input
-    const validationResult = BulkUploadRequestSchema.safeParse(body);
-    if (!validationResult.success) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid bulk upload data', 
-          details: validationResult.error.errors 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    const { csvContent, pickupAddress } = validationResult.data;
 
     if (!pickupAddress) {
       return new Response(

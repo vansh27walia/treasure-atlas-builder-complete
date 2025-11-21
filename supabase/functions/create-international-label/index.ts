@@ -1,17 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-// Input validation schema
-const InternationalLabelRequestSchema = z.object({
-  shipmentId: z.string().min(1, 'Shipment ID is required').max(200),
-  rateId: z.string().min(1, 'Rate ID is required').max(200),
-  options: z.object({
-    label_format: z.enum(['PDF', 'PNG', 'ZPL']).optional(),
-    label_size: z.string().optional()
-  }).optional()
-});
 
 // Set up CORS headers
 const corsHeaders = {
@@ -67,22 +56,17 @@ serve(async (req) => {
       );
     }
 
-    // Parse and validate request body
-    const body = await req.json();
+    // Parse the request body
+    const requestData = await req.json();
+    const { shipmentId, rateId, options = {} } = requestData;
     
-    const validationResult = InternationalLabelRequestSchema.safeParse(body);
-    if (!validationResult.success) {
-      console.error('Validation failed', validationResult.error.errors);
+    if (!shipmentId || !rateId) {
+      console.error('Missing required parameters', { shipmentId, rateId });
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid request data', 
-          details: validationResult.error.errors 
-        }),
+        JSON.stringify({ error: 'Missing required parameters' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-    
-    const { shipmentId, rateId, options = {} } = validationResult.data;
 
     console.log(`Creating international label for shipment ${shipmentId} with rate ${rateId}`);
 

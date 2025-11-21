@@ -1,34 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { UPSService } from "../_shared/ups-service.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-// Input validation schemas
-const AddressSchema = z.object({
-  street1: z.string().min(1).max(200),
-  street2: z.string().max(200).optional(),
-  city: z.string().min(1).max(100),
-  state: z.string().min(2).max(50),
-  zip: z.string().min(3).max(20),
-  country: z.string().length(2).default('US'),
-  name: z.string().max(100).optional(),
-  phone: z.string().max(20).optional(),
-  email: z.string().email().optional()
-});
-
-const ParcelSchema = z.object({
-  length: z.number().positive().max(1000),
-  width: z.number().positive().max(1000),
-  height: z.number().positive().max(1000),
-  weight: z.number().positive().max(10000)
-});
-
-const ShippingRatesRequestSchema = z.object({
-  fromAddress: AddressSchema,
-  toAddress: AddressSchema,
-  parcel: ParcelSchema,
-  carriers: z.array(z.string()).optional()
-});
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
@@ -170,22 +142,15 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    console.log('Request data received:', JSON.stringify(body, null, 2));
-    
-    // Validate input
-    const validationResult = ShippingRatesRequestSchema.safeParse(body);
-    if (!validationResult.success) {
-      return new Response(JSON.stringify({ 
-        error: 'Invalid shipping request data', 
-        details: validationResult.error.errors 
-      }), {
+    const requestData = await req.json();
+    console.log('Request data received:', JSON.stringify(requestData, null, 2));
+
+    if (!requestData.fromAddress || !requestData.toAddress || !requestData.parcel) {
+      return new Response(JSON.stringify({ error: 'Missing required address or parcel data' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       });
     }
-    
-    const requestData = validationResult.data;
 
     const fromCountry = requestData.fromAddress.country || 'US';
     const toCountry = requestData.toAddress.country || 'US';
