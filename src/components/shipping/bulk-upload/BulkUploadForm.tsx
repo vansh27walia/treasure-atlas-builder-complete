@@ -174,18 +174,36 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       const blob = new Blob([convertedCsv], { type: 'text/csv' });
       const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
       
-      if (handleUpload) {
-        await handleUpload(convertedFile);
-        onUploadSuccess({});
-      }
-    } catch (error) {
-      console.error('Upload failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      onUploadFail(errorMessage);
-      toast.error(errorMessage);
-      setCurrentStep('select');
-    }
-  };
+     const handleMappingComplete = async (convertedCsv: string) => {
+    console.log('Header mapping completed, processing CSV...');
+    // REMOVE OR COMMENT OUT THIS LINE TO AVOID AUTOMATIC START:
+    // setCurrentStep('processing'); 
+    
+    // Instead, just set a flag to show the final "Start Upload" button
+    // Example: setUploadReady(true); 
+
+    try {
+      const blob = new Blob([convertedCsv], { type: 'text/csv' });
+      const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
+      
+      // The actual upload logic (handleUpload) should be moved
+      // to a separate function triggered by a new final "Upload" button.
+
+      // Keep this block only if you want the upload to start immediately:
+      /*
+      if (handleUpload) {
+        await handleUpload(convertedFile);
+        onUploadSuccess({});
+      }
+      */
+    } catch (error) {
+      console.error('Upload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      onUploadFail(errorMessage);
+      toast.error(errorMessage);
+      setCurrentStep('select');
+    }
+  };
 
   const handleMappingCancel = () => {
     setCurrentStep('select');
