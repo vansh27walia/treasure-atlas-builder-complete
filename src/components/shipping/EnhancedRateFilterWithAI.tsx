@@ -189,21 +189,14 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
         {/* Carrier Dropdown */}
         <Select value={filters.selectedCarrier || 'all'} onValueChange={handleCarrierChange}>
           <SelectTrigger className="w-44 h-10 border-gray-300">
-            <SelectValue>
-              <div className="flex items-center gap-2">
-                {(!filters.selectedCarrier || filters.selectedCarrier === 'all') ? (
-                  'All Carriers'
-                ) : (
-                  <>
-                    <CarrierLogo carrier={filters.selectedCarrier} className="w-4 h-4" />
-                    {filters.selectedCarrier.toUpperCase()}
-                  </>
-                )}
-              </div>
-            </SelectValue>
+            <SelectValue placeholder="All Carriers" />
           </SelectTrigger>
           <SelectContent className="bg-white z-50">
-            <SelectItem value="all">All Carriers</SelectItem>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                All Carriers
+              </div>
+            </SelectItem>
             {availableCarriers.map(carrier => (
               <SelectItem key={carrier} value={carrier}>
                 <div className="flex items-center gap-2">
