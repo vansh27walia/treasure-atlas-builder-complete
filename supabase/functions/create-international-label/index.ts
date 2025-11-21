@@ -83,16 +83,6 @@ serve(async (req) => {
     }
     
     const { shipmentId, rateId, options = {} } = validationResult.data;
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid request data', 
-          details: validationResult.error.errors 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    const { shipmentId, rateId, options = {} } = validationResult.data;
 
     console.log(`Creating international label for shipment ${shipmentId} with rate ${rateId}`);
 
