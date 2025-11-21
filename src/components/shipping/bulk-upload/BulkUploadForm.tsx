@@ -439,6 +439,38 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           } catch (e) {
             console.error(e);
           }
+          // ... (This is the existing Alert code around line 430-442)
+      <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 p-4">
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Sparkles className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <AlertDescription className="text-blue-800 leading-relaxed">
+              <strong className="font-bold">Smart CSV Processing:</strong> Our AI automatically analyzes and maps your CSV headers to the correct shipping format. 
+              No manual field mapping required - just upload and let our intelligence handle the complex work!
+            </AlertDescription>
+          </div>
+        </div>
+      </Alert>
+
+      {/* 👇 INSERT THIS NEW CODE BLOCK HERE 👇 */}
+      <div className="flex justify-end mt-6 pb-4">
+        <Button
+          onClick={() => setCurrentStep('mapping')}
+          disabled={!selectedFile || !selectedAddressId}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg shadow-lg rounded-xl flex items-center"
+        >
+          Next Step
+          <ArrowRight className="ml-2 h-5 w-5" />
+        </Button>
+      </div>
+      {/* 👆 END OF NEW CODE BLOCK 👆 */}
+
+      {/* Add Address Modal */}
+      <AddAddressDialog
+        open={showAddAddressModal}
+// ... (Rest of your existing code)
         }}
         isSaving={isSavingAddress}
         setIsSaving={setIsSavingAddress}
