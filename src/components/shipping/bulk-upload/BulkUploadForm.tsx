@@ -396,11 +396,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   setCurrentStep('mapping');
                 }}
                 disabled={!selectedAddressId || !addressesLoaded}
-                className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-6 py-2"
+                className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-3 text-lg font-bold"
               >
-                <Brain className="mr-2 h-4 w-4" />
-                Continue with AI Mapping
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <Brain className="mr-2 h-5 w-5" />
+                Next Step: AI Header Mapping
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
           )}

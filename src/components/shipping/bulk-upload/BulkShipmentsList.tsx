@@ -95,8 +95,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           };
           hasChanges = true;
 
-          // Calculate and update insurance cost immediately
-          const cost = enabled ? calculateInsuranceCost(value) : 0;
+          // Calculate and update insurance cost immediately - ensure 0 when disabled
+          const cost = calculateInsuranceCost(value, enabled);
           if (shipment.insurance_cost !== cost) {
             onEditShipment(shipment.id, {
               insurance_cost: cost,
@@ -306,13 +306,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Insurance calculation: Exactly $2 per $100 of declared value (rounds up to nearest $100)
-  const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 0) return 0;
+  const calculateInsuranceCost = (declaredValue: number, enabled: boolean = true): number => {
+    // When insurance is disabled, backend should receive 0
+    if (!enabled || declaredValue <= 0) return 0;
     // Round up to nearest $100, then multiply by $2
     return Math.ceil(declaredValue / 100) * 2;
   };
 
-  // Helper function to get REAL discount percentage from API rates (clamped 50-95%)
+  // Helper function to get REAL discount percentage from API rates (clamped 60-90%)
   const getDiscountPercentage = (rate: any): number => {
     if (!rate) return 0;
     const currentRate = typeof rate.rate === "string" ? parseFloat(rate.rate) : rate.rate;
@@ -320,8 +321,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     const parsedOriginal = typeof originalRate === "string" ? parseFloat(originalRate) : originalRate;
     if (!parsedOriginal || parsedOriginal <= currentRate) return 0;
     return computeDiscountPercent(parsedOriginal, currentRate, {
-      clampMin: 50,
-      clampMax: 95
+      clampMin: 60,
+      clampMax: 90
     });
   };
 
@@ -515,7 +516,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   {[...shipments].reverse().map((shipment, index) => {
                 const insurance = getInsuranceSettings(shipment.id);
                 const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
-                const insuranceCost = insurance.enabled ? calculateInsuranceCost(insurance.value) : 0;
+                const insuranceCost = calculateInsuranceCost(insurance.value, insurance.enabled);
                 const shippingCost = selectedRate ? parseFloat(formatRate(selectedRate.rate)) : 0;
                 const totalCost = shippingCost + insuranceCost;
                 const isEditing = editingShipments.has(shipment.id);
@@ -641,7 +642,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             handleInsuranceToggle(shipment.id, enabled);
                             // Persist to results so totals include insurance
                             const declared = insurance.value || 0;
-                            const cost = enabled ? calculateInsuranceCost(declared) : 0;
+                            const cost = calculateInsuranceCost(declared, enabled);
                             onEditShipment(shipment.id, {
                               details: {
                                 ...shipment.details,
@@ -664,7 +665,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <input type="number" value={insurance.value} onChange={e => {
                             const val = parseFloat(e.target.value) || 0;
                             handleDeclaredValueChange(shipment.id, val);
-                            const cost = insurance.enabled ? calculateInsuranceCost(val) : 0;
+                            const cost = calculateInsuranceCost(val, insurance.enabled);
                             onEditShipment(shipment.id, {
                               details: {
                                 ...shipment.details,
