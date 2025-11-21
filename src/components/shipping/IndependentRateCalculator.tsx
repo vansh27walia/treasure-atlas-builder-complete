@@ -655,6 +655,7 @@ const IndependentRateCalculator: React.FC = () => {
                       carriers: [],
                       maxPrice: undefined,
                       maxDays: undefined,
+                      minPrice: undefined,
                       features: [],
                       sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
                       sortOrder: 'asc',
@@ -668,6 +669,9 @@ const IndependentRateCalculator: React.FC = () => {
                     onClearFilters={() => {
                       setCarrierFilter('all');
                       setSortOrder('price');
+                    }}
+                    onAIPoweredAnalysis={() => {
+                      console.log('AI powered analysis triggered');
                     }}
                     rateCount={sortedRates.length}
                   />
