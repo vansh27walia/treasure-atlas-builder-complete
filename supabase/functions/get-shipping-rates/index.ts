@@ -26,35 +26,36 @@ const isInternationalShipment = (fromCountry: string, toCountry: string): boolea
   return fromCountry !== 'US' || toCountry !== 'US';
 };
 
-// Carrier-specific discount configurations
+// Carrier-specific discount configurations - Updated to 60-90% range
 const getCarrierDiscountConfig = (carrier: string, service: string) => {
   const carrierUpper = carrier.toUpperCase();
   const serviceUpper = service.toUpperCase();
   
+  // All carriers use 60-90% discount range for consistency
   switch (carrierUpper) {
     case 'USPS':
       if (serviceUpper.includes('EXPRESS') || serviceUpper.includes('PRIORITY')) {
-        return { minDiscount: 68, maxDiscount: 86, inflationMultiplier: 2.8 };
+        return { minDiscount: 70, maxDiscount: 90, inflationMultiplier: 2.8 };
       }
-      return { minDiscount: 45, maxDiscount: 75, inflationMultiplier: 2.5 };
+      return { minDiscount: 60, maxDiscount: 80, inflationMultiplier: 2.5 };
       
     case 'UPS':
       if (serviceUpper.includes('NEXT DAY') || serviceUpper.includes('EXPRESS')) {
-        return { minDiscount: 77, maxDiscount: 82, inflationMultiplier: 3.2 };
+        return { minDiscount: 75, maxDiscount: 90, inflationMultiplier: 3.2 };
       }
-      return { minDiscount: 74.3, maxDiscount: 77, inflationMultiplier: 3.0 };
+      return { minDiscount: 65, maxDiscount: 85, inflationMultiplier: 3.0 };
       
     case 'FEDEX':
       if (serviceUpper.includes('OVERNIGHT') || serviceUpper.includes('EXPRESS')) {
-        return { minDiscount: 75, maxDiscount: 85, inflationMultiplier: 3.5 };
+        return { minDiscount: 75, maxDiscount: 90, inflationMultiplier: 3.5 };
       }
-      return { minDiscount: 70, maxDiscount: 80, inflationMultiplier: 2.8 };
+      return { minDiscount: 65, maxDiscount: 85, inflationMultiplier: 2.8 };
       
     case 'DHL':
-      return { minDiscount: 72, maxDiscount: 85, inflationMultiplier: 3.0 };
+      return { minDiscount: 70, maxDiscount: 90, inflationMultiplier: 3.0 };
       
     default:
-      return { minDiscount: 60, maxDiscount: 75, inflationMultiplier: 2.0 };
+      return { minDiscount: 60, maxDiscount: 80, inflationMultiplier: 2.0 };
   }
 };
 

@@ -33,6 +33,7 @@ import IndependentPrintPreview from '../IndependentPrintPreview';
 import BulkAIOverviewPanel from './BulkAIOverviewPanel';
 import { Sparkles } from 'lucide-react';
 import { computeDiscountPercent } from '@/utils/discount';
+import BulkShipmentFilters from './BulkShipmentFilters';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -131,9 +132,10 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     return 'Address not available';
   };
 
-  // Insurance: Exactly $2 per $100 of declared value (rounds up to nearest $100, then multiply by 2)
-  const calcInsurance = (declared: number) => {
-    if (declared <= 0) return 0;
+  // Insurance: Exactly $2 per $100 of declared value - MUST BE 0 when disabled
+  const calcInsurance = (declared: number, enabled: boolean = true) => {
+    // CRITICAL: Return 0 if disabled or no declared value
+    if (!enabled || declared <= 0) return 0;
     // Always round up to nearest $100, then multiply by 2
     return Math.ceil(declared / 100) * 2;
   };
@@ -219,29 +221,41 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             </Button>
           </div>
 
-          {/* Filters and Shipments List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              type="text"
-              placeholder="Search by recipient or carrier..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="carrierFilter" className="text-sm">Filter by Carrier:</Label>
-              <Select onValueChange={setSelectedCarrierFilter}>
-                <SelectTrigger id="carrierFilter" className="w-[180px]">
-                  <SelectValue placeholder="All Carriers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Carriers</SelectItem>
-                  {Array.from(new Set(results.processedShipments.map(s => s.carrier))).map((carrier: any) => (
-                    <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Filters */}
+          <BulkShipmentFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSortChange={(field, direction) => {
+              setSortField(field);
+              setSortDirection(direction);
+            }}
+            selectedCarrier={selectedCarrierFilter}
+            onCarrierFilterChange={setSelectedCarrierFilter}
+            onApplyCarrierToAll={handleBulkApplyCarrier}
+            onQuickOptimization={(filterId) => {
+              // Apply optimization logic based on filter
+              filteredShipments.forEach(shipment => {
+                if (shipment.availableRates && shipment.availableRates.length > 0) {
+                  let selectedRate = shipment.availableRates[0];
+                  
+                  if (filterId === 'cheapest') {
+                    selectedRate = shipment.availableRates.reduce((prev, curr) => 
+                      Number(curr.rate) < Number(prev.rate) ? curr : prev
+                    );
+                  } else if (filterId === 'fastest') {
+                    selectedRate = shipment.availableRates.reduce((prev, curr) => 
+                      (curr.delivery_days || 99) < (prev.delivery_days || 99) ? curr : prev
+                    );
+                  }
+                  
+                  handleSelectRate(shipment.id, selectedRate.id);
+                }
+              });
+            }}
+          />
+
 
           {/* Notice: Insurance is auto-calculated */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -339,7 +353,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     ${(() => {
                       const actualTotal = filteredShipments.reduce((sum, shipment) => {
                         const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
-                        const insurance = calcInsurance(declared);
+                        const insuranceEnabled = shipment.insurance_enabled !== false;
+                        const insurance = calcInsurance(declared, insuranceEnabled);
                         const rate = Number(shipment.rate ?? 0);
                         return sum + rate + insurance;
                       }, 0);
@@ -356,13 +371,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             successfulCount={filteredShipments.length}
             totalCost={filteredShipments.reduce((sum, s: any) => {
               const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
-              const insurance = calcInsurance(declared);
+              const insuranceEnabled = s.insurance_enabled !== false;
+              const insurance = calcInsurance(declared, insuranceEnabled);
               const rate = Number(s.rate ?? 0);
               return sum + rate + insurance;
             }, 0)}
             totalInsurance={filteredShipments.reduce((sum, s: any) => {
               const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
-              return sum + calcInsurance(declared);
+              const insuranceEnabled = s.insurance_enabled !== false;
+              return sum + calcInsurance(declared, insuranceEnabled);
             }, 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}
