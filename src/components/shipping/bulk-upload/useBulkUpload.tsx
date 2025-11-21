@@ -121,11 +121,13 @@ export const useBulkUpload = () => {
     sortField,
     sortDirection,
     selectedCarrierFilter,
+    advancedFilters,
     filteredShipments,
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    setAdvancedFilters
   } = useShipmentFiltering(results);
 
   useEffect(() => {
@@ -540,6 +542,7 @@ export const useBulkUpload = () => {
     sortField,
     sortDirection,
     selectedCarrierFilter,
+    advancedFilters,
     filteredShipments,
     pickupAddress,
     batchError,
@@ -569,6 +572,7 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
+    setAdvancedFilters,
     handlePaymentSuccess,
     handleAddPaymentMethod,
   };

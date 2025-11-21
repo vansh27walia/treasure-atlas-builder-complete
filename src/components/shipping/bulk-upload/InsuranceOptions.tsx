@@ -52,7 +52,11 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
         <Switch
           id={`insurance-${shipmentId}`}
           checked={insuranceEnabled}
-          onCheckedChange={(checked) => onInsuranceToggle(shipmentId, checked)}
+          onCheckedChange={(checked) => {
+            onInsuranceToggle(shipmentId, checked);
+            // Auto-close is not needed for Switch component
+            // Switch already closes automatically when toggled
+          }}
         />
       </div>
       
