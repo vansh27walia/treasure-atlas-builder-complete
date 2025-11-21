@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
@@ -260,17 +261,60 @@ serve(async (req) => {
       );
     }
 
-    // Parse the request body
+    // Define validation schema
+    const CustomsItemSchema = z.object({
+      description: z.string().min(1).max(200),
+      quantity: z.number().int().positive().max(10000),
+      weight: z.number().positive().max(10000),
+      value: z.number().positive().max(1000000),
+      hs_tariff_number: z.string().max(20).optional(),
+      origin_country: z.string().length(2)
+    });
+
+    const CustomsInfoSchema = z.object({
+      contents_type: z.string().max(50).optional(),
+      contents_explanation: z.string().max(500).optional(),
+      customs_certify: z.boolean().optional(),
+      customs_signer: z.string().min(1).max(100).optional(),
+      non_delivery_option: z.string().max(50).optional(),
+      restriction_type: z.string().max(50).optional(),
+      restriction_comments: z.string().max(500).optional(),
+      eel_pfc: z.string().max(50).optional(),
+      phone_number: z.string().max(20).optional(),
+      customs_items: z.array(CustomsItemSchema).min(1).max(100)
+    });
+
+    const LabelRequestSchema = z.object({
+      shipmentId: z.string().min(1).max(100),
+      rateId: z.string().min(1).max(100),
+      options: z.object({
+        label_format: z.enum(['PDF', 'PNG', 'ZPL', 'EPL2']).optional(),
+        label_size: z.enum(['4x6', '4x8']).optional()
+      }).optional(),
+      customsInfo: CustomsInfoSchema.optional()
+    });
+
+    // Parse and validate the request body
     const requestData = await req.json();
-    const { shipmentId, rateId, options = {}, customsInfo } = requestData;
-    
-    if (!shipmentId || !rateId) {
-      console.error('Missing required parameters', { shipmentId, rateId });
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    let validatedData;
+    try {
+      validatedData = LabelRequestSchema.parse(requestData);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        console.error('Validation error:', validationError.errors);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Validation Error', 
+            message: validationError.errors[0].message,
+            details: validationError.errors 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+      throw validationError;
     }
+
+    const { shipmentId, rateId, options = {}, customsInfo } = validatedData;
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
 
