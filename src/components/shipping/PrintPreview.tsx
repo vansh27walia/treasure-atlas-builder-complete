@@ -663,21 +663,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                           <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                           <p>A batch PDF is needed for preview.</p>
                         </div>
-                      ) : (
-                        <div className="text-center">
-                          <Package className="h-16 w-16 mb-4 text-gray-400" />
-                          <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
-                          <p className="text-sm text-center">
-                            {currentPreviewUrl 
-                              ? 'Loading preview...' 
-                              : 'Label preview is not available. You can still download the label below.'
-                            }
-                          </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+                      ) : (
+                        <div className="text-center">
+                          <Package className="h-16 w-16 mb-4 text-gray-400" />
+                          <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
+                          <p className="text-sm text-center">
+                            {currentPreviewUrl 
+                              ? 'Loading preview...' 
+                              : 'Label preview is not available. You can still download the label below.'
+                            }
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Print Button - Only in Preview Tab */}
               <div className="pt-4 border-t mt-4">
