@@ -189,14 +189,21 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
         {/* Carrier Dropdown */}
         <Select value={filters.selectedCarrier || 'all'} onValueChange={handleCarrierChange}>
           <SelectTrigger className="w-44 h-10 border-gray-300">
-            <SelectValue placeholder="All Carriers" />
+            <SelectValue>
+              <div className="flex items-center gap-2">
+                {(!filters.selectedCarrier || filters.selectedCarrier === 'all') ? (
+                  'All Carriers'
+                ) : (
+                  <>
+                    <CarrierLogo carrier={filters.selectedCarrier} className="w-4 h-4" />
+                    {filters.selectedCarrier.toUpperCase()}
+                  </>
+                )}
+              </div>
+            </SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-white z-50">
-            <SelectItem value="all">
-              <div className="flex items-center gap-2">
-                All Carriers
-              </div>
-            </SelectItem>
+            <SelectItem value="all">All Carriers</SelectItem>
             {availableCarriers.map(carrier => (
               <SelectItem key={carrier} value={carrier}>
                 <div className="flex items-center gap-2">
@@ -239,11 +246,11 @@ const EnhancedRateFilterWithAI: React.FC<EnhancedRateFilterWithAIProps> = ({
             <Button variant="outline" size="sm" className="h-10 border-gray-300">
               <Filter className="h-4 w-4 mr-1" />
               Advanced
-              {activeFiltersCount > 0 ? (
+              {activeFiltersCount > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-blue-100 text-blue-800">
                   {activeFiltersCount}
                 </Badge>
-              ) : null}
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80 p-4 bg-white z-50" align="end">

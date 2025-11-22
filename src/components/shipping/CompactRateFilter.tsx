@@ -132,11 +132,11 @@ const CompactRateFilter: React.FC<CompactRateFilterProps> = ({
             <Button variant="outline" size="sm" className="h-8 text-xs">
               <Filter className="h-3 w-3 mr-1" />
               More
-              {activeFiltersCount > 0 ? (
+              {activeFiltersCount > 0 && (
                 <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
                   {activeFiltersCount}
                 </Badge>
-              ) : null}
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-56 p-3 bg-white">
