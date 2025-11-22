@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartBar, Upload, CreditCard, Package } from 'lucide-react';
 import ShippingHistorySummary from '@/components/shipping/ShippingHistorySummary';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 const Dashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,11 +28,10 @@ const Dashboard: React.FC = () => {
       replace: true
     });
   };
-  return <div className="min-h-screen flex flex-col">
+  return (
+    <div className="min-h-screen flex flex-col">
       <main className="flex-1 container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">Shipping Dashboard</h1>
-        
-        
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6">
@@ -59,6 +59,10 @@ const Dashboard: React.FC = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>;
+      
+      <ShipAIChatbot />
+    </div>
+  );
 };
+
 export default Dashboard;
