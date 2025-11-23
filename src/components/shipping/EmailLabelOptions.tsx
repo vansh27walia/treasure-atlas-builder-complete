@@ -81,25 +81,32 @@ const EmailLabelOptions: React.FC<EmailLabelOptionsProps> = ({
     try {
       const { data, error } = await supabase.functions.invoke('email-labels', {
         body: {
-          recipientEmail: emailData.recipientEmail,
+          email: emailData.recipientEmail,
           subject: emailData.subject,
-          message: emailData.message,
-          labelUrl: mode === 'single' ? labelUrl : null,
-          batchLabels: mode === 'bulk' ? batchLabels : null,
+          description: emailData.message,
+          labelUrl: mode === 'single' ? labelUrl : (batchLabels?.[0]?.url || null),
           trackingCode: trackingCode,
-          mode: mode
+          isBatch: mode === 'bulk',
+          batchResult: mode === 'bulk' && batchLabels && batchLabels.length > 0 ? {
+            consolidatedLabelUrls: {
+              pdf: batchLabels[0]?.url || ''
+            }
+          } : null
         }
       });
 
       if (error) {
+        console.error('Supabase function error:', error);
         throw error;
       }
 
+      console.log('Email sent successfully:', data);
       toast.success(`Email sent successfully to ${emailData.recipientEmail}`);
       onClose();
     } catch (error) {
       console.error('Error sending email:', error);
-      toast.error('Failed to send email. Please check your email settings.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send email. Please check your email settings.';
+      toast.error(errorMessage);
     } finally {
       setIsSending(false);
     }
