@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
 import { PDFDocument } from 'pdf-lib';
+import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
@@ -803,7 +804,19 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </Tabs>
         </div>
 
-        <DialogFooter className="flex-shrink-0 sm:justify-start pt-3 border-t">
+        <DialogFooter className="flex-shrink-0 sm:justify-between pt-3 border-t gap-2">
+          <div className="flex gap-2">
+            {!isBatchPreview && shipmentId && trackingCode && shipmentDetails && (
+              <CancelLabelDialog
+                shipmentId={shipmentId}
+                trackingCode={trackingCode}
+                carrier={shipmentDetails.carrier}
+                service={shipmentDetails.service}
+                fromAddress={shipmentDetails.fromAddress}
+                toAddress={shipmentDetails.toAddress}
+              />
+            )}
+          </div>
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
               Close

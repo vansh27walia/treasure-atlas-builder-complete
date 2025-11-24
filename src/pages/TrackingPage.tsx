@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Package, Truck, MapPin, Clock, ExternalLink, RefreshCw, Download } from 'lucide-react';
+import { Search, Package, Truck, MapPin, Clock, ExternalLink, RefreshCw, Download, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import TrackingDashboard from '@/components/tracking/TrackingDashboard';
@@ -18,6 +18,8 @@ interface TrackingInfo {
   estimated_delivery: string;
   current_location: string;
   label_url?: string;
+  shipment_id?: string;
+  created_at?: string;
   tracking_events: Array<{
     date: string;
     time: string;
@@ -35,6 +37,7 @@ const TrackingPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showFullDashboard, setShowFullDashboard] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     // Check for tracking number in URL params
@@ -148,9 +151,53 @@ const TrackingPage = () => {
     setShowFullDashboard(true);
     setTrackingInfo(null);
     setTrackingNumber('');
-    // Clear URL params
-    window.history.pushState({}, document.title, window.location.pathname);
+    navigate('/tracking');
   };
+
+  const handleCancelLabel = async () => {
+    if (!trackingInfo?.shipment_id) {
+      toast.error('No shipment ID available');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to cancel this label? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-label', {
+        body: { shipment_id: trackingInfo.shipment_id }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || 'Label cancelled successfully');
+        // Refresh tracking info
+        await handleTrackingSearch(trackingInfo.tracking_code);
+      } else {
+        throw new Error(data?.error || 'Failed to cancel label');
+      }
+    } catch (error: any) {
+      console.error('Error cancelling label:', error);
+      toast.error(error.message || 'Failed to cancel label');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Calculate hours since shipment creation for time-based UI logic
+  const getHoursSinceCreation = () => {
+    if (!trackingInfo?.created_at) return 0;
+    const createdAt = new Date(trackingInfo.created_at);
+    const now = new Date();
+    return (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+  };
+
+  const hoursSinceCreation = trackingInfo ? getHoursSinceCreation() : 0;
+  const showCancelAtTop = hoursSinceCreation <= 24;
+  const showCancelAtBottom = hoursSinceCreation > 24;
 
   if (showFullDashboard && !trackingInfo) {
     return (
@@ -266,6 +313,16 @@ const TrackingPage = () => {
                       </a>
                     </Button>
                   )}
+                  {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'delivered' && showCancelAtTop && (
+                    <Button
+                      onClick={handleCancelLabel}
+                      variant="destructive"
+                      size="sm"
+                      disabled={isCancelling}
+                    >
+                      {isCancelling ? 'Cancelling...' : 'Cancel Label'}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -373,6 +430,15 @@ const TrackingPage = () => {
                       <Download className="h-4 w-4 mr-2" />
                       Download Label
                     </a>
+                  </Button>
+                )}
+                {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'delivered' && showCancelAtBottom && (
+                  <Button
+                    onClick={handleCancelLabel}
+                    variant="destructive"
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? 'Cancelling...' : 'Cancel Label'}
                   </Button>
                 )}
               </div>
