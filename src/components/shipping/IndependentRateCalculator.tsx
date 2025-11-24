@@ -50,6 +50,8 @@ const IndependentRateCalculator: React.FC = () => {
   const [destZip, setDestZip] = useState('');
   const [originCountry, setOriginCountry] = useState('US');
   const [destCountry, setDestCountry] = useState('US');
+  const [originPhone, setOriginPhone] = useState('');
+  const [destPhone, setDestPhone] = useState('');
   const [packageType, setPackageType] = useState('box');
   const [dimensions, setDimensions] = useState({
     length: '',
@@ -190,7 +192,7 @@ const IndependentRateCalculator: React.FC = () => {
         return;
       }
       
-      const parseGoogleAddress = (result: any, country: string) => {
+      const parseGoogleAddress = (result: any, country: string, phone: string) => {
         const components = result.address_components;
         return {
           name: 'Rate Calculator',
@@ -200,12 +202,19 @@ const IndependentRateCalculator: React.FC = () => {
           state: components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name || '',
           zip: components.find((c: any) => c.types.includes('postal_code'))?.long_name || '',
           country: country,
-          phone: ''
+          phone: phone || '5555555555' // Use provided phone or default
         };
       };
       
-      const fromAddress = parseGoogleAddress(originData.results[0], originCountry);
-      const toAddress = parseGoogleAddress(destData.results[0], destCountry);
+      // Validate phone numbers
+      if (!originPhone || !destPhone) {
+        toast.error('Please enter phone numbers for both sender and recipient');
+        setIsLoading(false);
+        return;
+      }
+      
+      const fromAddress = parseGoogleAddress(originData.results[0], originCountry, originPhone);
+      const toAddress = parseGoogleAddress(destData.results[0], destCountry, destPhone);
       
       let parcel: any = {
         weight: convertWeight(parseFloat(dimensions.weight) || 1, weightUnit)
@@ -383,6 +392,13 @@ const IndependentRateCalculator: React.FC = () => {
                     ))}
                   </select>
                 </div>
+                <Input 
+                  value={originPhone} 
+                  onChange={e => setOriginPhone(e.target.value)} 
+                  placeholder="Sender Phone (Required)" 
+                  className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
+                  required
+                />
               </div>
               
               {/* Destination */}
@@ -412,6 +428,13 @@ const IndependentRateCalculator: React.FC = () => {
                     ))}
                   </select>
                 </div>
+                <Input 
+                  value={destPhone} 
+                  onChange={e => setDestPhone(e.target.value)} 
+                  placeholder="Recipient Phone (Required)" 
+                  className="h-12 text-base border-2 border-gray-200 focus:border-blue-500" 
+                  required
+                />
               </div>
             </div>
           </CardContent>
