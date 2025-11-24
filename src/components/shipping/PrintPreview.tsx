@@ -516,6 +516,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               Print Preview
             </Button>
           </DialogTrigger>
+          {!isBatchPreview && shipmentId && trackingCode && shipmentDetails && (
+            <CancelLabelDialog
+              shipmentId={shipmentId}
+              trackingCode={trackingCode}
+              carrier={shipmentDetails.carrier}
+              service={shipmentDetails.service}
+              fromAddress={shipmentDetails.fromAddress}
+              toAddress={shipmentDetails.toAddress}
+            />
+          )}
         </div>
       )}
 
@@ -666,24 +676,46 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons - Print and Download */}
-              <div className="flex-shrink-0 grid grid-cols-2 gap-3 pt-4 border-t">
-                <Button
-                  onClick={handlePrint}
-                  disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold rounded-lg shadow-md"
-                >
-                  <Printer className="h-5 w-5 mr-2" />
-                  Print Label
-                </Button>
-                <Button
-                  onClick={() => handleDownload('pdf')}
-                  disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
-                >
-                  <Download className="h-5 w-5 mr-2" />
-                  Download
-                </Button>
+              {/* Action Buttons - Print, Download, Email, Cancel */}
+              <div className="flex-shrink-0 space-y-3 pt-4 border-t">
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    onClick={handlePrint}
+                    disabled={isRegeneratingLabel || !currentPreviewUrl}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  >
+                    <Printer className="h-5 w-5 mr-2" />
+                    Print
+                  </Button>
+                  <Button
+                    onClick={() => handleDownload('pdf')}
+                    disabled={isRegeneratingLabel || !currentPreviewUrl}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  >
+                    <Download className="h-5 w-5 mr-2" />
+                    Download
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab('email')}
+                    disabled={isRegeneratingLabel || !currentPreviewUrl}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  >
+                    <Mail className="h-5 w-5 mr-2" />
+                    Email
+                  </Button>
+                </div>
+                {!isBatchPreview && shipmentId && trackingCode && shipmentDetails && (
+                  <div className="flex justify-center">
+                    <CancelLabelDialog
+                      shipmentId={shipmentId}
+                      trackingCode={trackingCode}
+                      carrier={shipmentDetails.carrier}
+                      service={shipmentDetails.service}
+                      fromAddress={shipmentDetails.fromAddress}
+                      toAddress={shipmentDetails.toAddress}
+                    />
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -804,19 +836,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </Tabs>
         </div>
 
-        <DialogFooter className="flex-shrink-0 sm:justify-between pt-3 border-t gap-2">
-          <div className="flex gap-2">
-            {!isBatchPreview && shipmentId && trackingCode && shipmentDetails && (
-              <CancelLabelDialog
-                shipmentId={shipmentId}
-                trackingCode={trackingCode}
-                carrier={shipmentDetails.carrier}
-                service={shipmentDetails.service}
-                fromAddress={shipmentDetails.fromAddress}
-                toAddress={shipmentDetails.toAddress}
-              />
-            )}
-          </div>
+        <DialogFooter className="flex-shrink-0 pt-3 border-t">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
               Close

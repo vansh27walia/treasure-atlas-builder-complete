@@ -63,6 +63,38 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
       });
 
       if (error) {
+        // Display detailed error in yellow/warning style
+        const errorMessage = error.message || 'Unknown error occurred';
+        
+        // Check for specific error types and provide clear messages
+        if (errorMessage.includes('PHONENUMBER.EMPTY') || errorMessage.includes('phone')) {
+          toast.error('Phone number is required for both sender and recipient addresses. Please add phone numbers to your addresses in Settings.', {
+            duration: 10000,
+            style: {
+              background: '#fef3c7',
+              color: '#92400e',
+              border: '1px solid #fbbf24'
+            }
+          });
+        } else if (errorMessage.includes('SHIPMENT.POSTAGE.FAILURE')) {
+          toast.error(`Label creation failed: ${errorMessage}. Please check all required fields and try again.`, {
+            duration: 10000,
+            style: {
+              background: '#fef3c7',
+              color: '#92400e',
+              border: '1px solid #fbbf24'
+            }
+          });
+        } else {
+          toast.error(`Failed to create label: ${errorMessage}`, {
+            duration: 10000,
+            style: {
+              background: '#fef3c7',
+              color: '#92400e',
+              border: '1px solid #fbbf24'
+            }
+          });
+        }
         throw new Error(error.message);
       }
 
