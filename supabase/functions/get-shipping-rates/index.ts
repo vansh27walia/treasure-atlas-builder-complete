@@ -328,9 +328,26 @@ serve(async (req) => {
 
     if (!easypostResponse.ok) {
       console.error('EasyPost API error (Status: ' + easypostResponse.status + '):', easyPostData);
+      
+      // Extract meaningful error message
+      let errorMessage = 'Failed to get shipping rates from EasyPost';
+      if (easyPostData.error?.message) {
+        errorMessage = easyPostData.error.message;
+        
+        // Check for phone number errors
+        if (errorMessage.includes('PHONENUMBER.EMPTY') || errorMessage.includes('phone')) {
+          errorMessage = 'Phone number is required. Please add phone numbers to both pickup and delivery addresses in your settings.';
+        } else if (errorMessage.includes('ADDRESS')) {
+          errorMessage = 'Address validation failed. Please verify all address fields are correct and complete.';
+        }
+      }
+      
       const duration = Date.now() - startTime;
       console.log(`--- Request End: EasyPost Error (Duration: ${duration}ms) ---`);
-      return new Response(JSON.stringify({ error: 'Failed to get shipping rates from EasyPost', details: easyPostData }), {
+      return new Response(JSON.stringify({ 
+        error: errorMessage, 
+        details: easyPostData 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: easypostResponse.status
       });
@@ -369,11 +386,21 @@ serve(async (req) => {
       // Continue with EasyPost rates if UPS fails
     }
 
-    // 8. Filter and Process Rates
-    // Filter out any rates that came back with null or missing price data
+    // 8. Filter and Process Rates - NEVER filter by carrier name, ALWAYS return ALL rates
+    // Only filter out rates with invalid pricing data
     const validRates = allRates.filter((rate: any) => 
       rate.rate !== null && rate.rate !== undefined && parseFloat(rate.rate) > 0
     );
+    
+    console.log(`Total rates before filtering: ${allRates.length}, Valid rates after filtering: ${validRates.length}`);
+    
+    // Log carrier distribution
+    const carrierCounts: { [key: string]: number } = {};
+    validRates.forEach((rate: any) => {
+      const carrier = (rate.carrier || 'Unknown').toUpperCase();
+      carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
+    });
+    console.log('Rates by carrier:', carrierCounts);
 
     if (validRates.length === 0) {
       const duration = Date.now() - startTime;
@@ -381,7 +408,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         rates: [],
         shipmentId: easyPostData.id,
-        message: 'No rates available for this shipment after filtering'
+        message: 'No rates available. Please check weight, dimensions, and address details.'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });

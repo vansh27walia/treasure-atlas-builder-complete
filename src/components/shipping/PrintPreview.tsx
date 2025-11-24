@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail, Plus, Trash2 } from 'lucide-react';
+import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail, Plus, Trash2, XCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -705,16 +705,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   </Button>
                 </div>
                 {!isBatchPreview && shipmentId && trackingCode && shipmentDetails && (
-                  <div className="flex justify-center">
-                    <CancelLabelDialog
-                      shipmentId={shipmentId}
-                      trackingCode={trackingCode}
-                      carrier={shipmentDetails.carrier}
-                      service={shipmentDetails.service}
-                      fromAddress={shipmentDetails.fromAddress}
-                      toAddress={shipmentDetails.toAddress}
-                    />
-                  </div>
+                  <CancelLabelDialog
+                    shipmentId={shipmentId}
+                    trackingCode={trackingCode}
+                    carrier={shipmentDetails.carrier}
+                    service={shipmentDetails.service}
+                    fromAddress={shipmentDetails.fromAddress}
+                    toAddress={shipmentDetails.toAddress}
+                    trigger={
+                      <Button
+                        variant="outline"
+                        className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground h-12 font-semibold rounded-lg shadow-md"
+                      >
+                        <XCircle className="h-5 w-5 mr-2" />
+                        Cancel Label
+                      </Button>
+                    }
+                  />
                 )}
               </div>
             </TabsContent>
