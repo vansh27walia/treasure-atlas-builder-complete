@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Printer, Download, Eye, Mail, XCircle } from 'lucide-react';
+import { Printer, Download, Eye, Mail } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
-import { CancelLabelDialog } from './CancelLabelDialog';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer' },
@@ -19,14 +18,6 @@ interface IndependentPrintPreviewProps {
     batchId: string;
     consolidatedLabelUrls: ConsolidatedLabelUrls;
     scanFormUrl: string | null;
-    shipments?: Array<{
-      shipmentId: string;
-      trackingCode: string;
-      carrier: string;
-      service?: string;
-      fromAddress: string;
-      toAddress: string;
-    }>;
   };
   triggerButton?: React.ReactNode;
   onDownloadComplete?: () => void;
@@ -207,31 +198,6 @@ const IndependentPrintPreview: React.FC<IndependentPrintPreviewProps> = ({
                 <Mail className="h-4 w-4 mr-2" />
                 Email
               </Button>
-
-              {/* Cancel Label for Batch - Shows first shipment or modal for multiple */}
-              {batchResult?.shipments && batchResult.shipments.length > 0 && (
-                <CancelLabelDialog
-                  shipmentId={batchResult.shipments[0].shipmentId}
-                  trackingCode={batchResult.shipments[0].trackingCode}
-                  carrier={batchResult.shipments[0].carrier}
-                  service={batchResult.shipments[0].service || ''}
-                  fromAddress={batchResult.shipments[0].fromAddress}
-                  toAddress={batchResult.shipments[0].toAddress}
-                  onSuccess={() => {
-                    toast.success('Batch label cancelled');
-                    setIsOpen(false);
-                  }}
-                  trigger={
-                    <Button
-                      variant="outline"
-                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Cancel Label
-                    </Button>
-                  }
-                />
-              )}
             </div>
           </div>
         </div>

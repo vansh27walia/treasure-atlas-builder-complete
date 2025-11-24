@@ -308,27 +308,8 @@ serve(async (req) => {
     // Check for API errors
     if (!response.ok) {
       console.error('EasyPost API error:', JSON.stringify(data, null, 2));
-      
-      // Extract meaningful error message
-      let errorMessage = 'Failed to create label';
-      if (data.error?.message) {
-        errorMessage = data.error.message;
-        
-        // Check for specific errors
-        if (errorMessage.includes('PHONENUMBER.EMPTY') || errorMessage.includes('phone')) {
-          errorMessage = 'Carrier requires a phone number. Please add phone numbers to both pickup and delivery addresses.';
-        } else if (errorMessage.includes('ADDRESS')) {
-          errorMessage = 'Address validation failed. Please verify all address fields are correct and complete.';
-        } else if (errorMessage.includes('CUSTOMS')) {
-          errorMessage = 'Customs information is incomplete or invalid. Please check all customs fields.';
-        }
-      }
-      
       return new Response(
-        JSON.stringify({ 
-          error: errorMessage, 
-          details: data 
-        }),
+        JSON.stringify({ error: 'Failed to create label', details: data }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
       );
     }

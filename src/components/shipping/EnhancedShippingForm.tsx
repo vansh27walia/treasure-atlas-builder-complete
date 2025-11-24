@@ -12,7 +12,7 @@ import * as z from 'zod';
 import AddressSelector from './AddressSelector';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
-import { Search, Package, MapPin, FileText, Shield, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Search, Package, MapPin, FileText, Shield, AlertTriangle } from 'lucide-react';
 import CustomsDocumentationModal from './CustomsDocumentationModal';
 import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
@@ -20,7 +20,6 @@ import HazmatSelector from './HazmatSelector';
 import ToggleableInsuranceCalculator from './ToggleableInsuranceCalculator';
 import ToggleableCustomsClearance from './ToggleableCustomsClearance';
 import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 const shippingFormSchema = z.object({
   packageType: z.string().min(1, "Please select a package type"),
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
@@ -45,7 +44,6 @@ const EnhancedShippingForm: React.FC = () => {
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [insuranceAmount, setInsuranceAmount] = useState(100);
   const [insuranceCost, setInsuranceCost] = useState(2);
-  const [rateError, setRateError] = useState<string | null>(null);
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
   const form = useForm<ShippingFormValues>({
@@ -260,20 +258,9 @@ const EnhancedShippingForm: React.FC = () => {
       } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload
       });
-      
       if (error) {
-        const errorMsg = error.message || 'Failed to get shipping rates';
-        setRateError(errorMsg);
-        throw new Error(`Error fetching rates: ${errorMsg}`);
+        throw new Error(`Error fetching rates: ${error.message}`);
       }
-      
-      // Check if data contains error details from edge function
-      if (data?.error) {
-        const errorMsg = data.details?.error?.message || data.error;
-        setRateError(errorMsg);
-        throw new Error(errorMsg);
-      }
-      
       if (data.rates && Array.isArray(data.rates)) {
         // Process rates without insurance cost during rate fetching
         const processedRates = data.rates.map(rate => ({
@@ -311,9 +298,7 @@ const EnhancedShippingForm: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
-      const errorMsg = error instanceof Error ? error.message : "Failed to get shipping rates";
-      setRateError(errorMsg);
-      toast.error(errorMsg);
+      toast.error(error instanceof Error ? error.message : "Failed to get shipping rates");
     } finally {
       setIsLoading(false);
     }
@@ -501,18 +486,8 @@ const EnhancedShippingForm: React.FC = () => {
                   </div>}
               </div>}
               
-            {/* Submit Section with Error Display */}
-            <div className="p-6 bg-muted/50 space-y-4">
-              {/* Error Display */}
-              {rateError && (
-                <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
-                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                    <strong>Unable to get rates:</strong> {rateError}
-                  </AlertDescription>
-                </Alert>
-              )}
-              
+            {/* Submit Section */}
+            <div className="p-6 bg-muted/50">
               <Button type="submit" className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
                 {isLoading ? <Search className="w-5 h-5 mr-2 animate-spin" /> : <Search className="w-5 h-5 mr-2" />}
                 Get Shipping Rates
