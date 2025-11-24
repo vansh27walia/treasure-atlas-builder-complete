@@ -2,7 +2,6 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink } from 'lucide-react';
-import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
 
 interface TrackingEvent {
   id: string;
@@ -232,19 +231,6 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
             >
               <ExternalLink className="mr-1 h-4 w-4" /> View Online
             </a>
-            <CancelLabelDialog
-              shipmentId={item.shipment_id}
-              trackingCode={item.tracking_code}
-              carrier={item.carrier}
-              service={item.package_details.service}
-              fromAddress="Pickup Address"
-              toAddress={item.recipient_address}
-              trigger={
-                <button className="flex items-center px-3 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 text-sm">
-                  Cancel Label
-                </button>
-              }
-            />
           </>
         )}
       </div>

@@ -262,42 +262,30 @@ serve(async (req) => {
     }
 
     // 5. Construct EasyPost Shipment Request Body
-    const fromAddress: any = {
-      name: requestData.fromAddress.name,
-      company: requestData.fromAddress.company || '',
-      street1: requestData.fromAddress.street1,
-      street2: requestData.fromAddress.street2 || '',
-      city: requestData.fromAddress.city,
-      state: requestData.fromAddress.state,
-      zip: requestData.fromAddress.zip,
-      country: requestData.fromAddress.country
-    };
-    
-    // Only include phone if it has a value (EasyPost rejects empty strings)
-    if (requestData.fromAddress.phone && requestData.fromAddress.phone.trim() !== '') {
-      fromAddress.phone = requestData.fromAddress.phone;
-    }
-
-    const toAddress: any = {
-      name: requestData.toAddress.name,
-      company: requestData.toAddress.company || '',
-      street1: requestData.toAddress.street1,
-      street2: requestData.toAddress.street2 || '',
-      city: requestData.toAddress.city,
-      state: requestData.toAddress.state,
-      zip: requestData.toAddress.zip,
-      country: requestData.toAddress.country
-    };
-    
-    // Only include phone if it has a value (EasyPost rejects empty strings)
-    if (requestData.toAddress.phone && requestData.toAddress.phone.trim() !== '') {
-      toAddress.phone = requestData.toAddress.phone;
-    }
-
     const shipmentRequest = {
       shipment: {
-        from_address: fromAddress,
-        to_address: toAddress,
+        from_address: {
+          name: requestData.fromAddress.name,
+          company: requestData.fromAddress.company || '',
+          street1: requestData.fromAddress.street1,
+          street2: requestData.fromAddress.street2 || '',
+          city: requestData.fromAddress.city,
+          state: requestData.fromAddress.state,
+          zip: requestData.fromAddress.zip,
+          country: requestData.fromAddress.country,
+          phone: requestData.fromAddress.phone || ''
+        },
+        to_address: {
+          name: requestData.toAddress.name,
+          company: requestData.toAddress.company || '',
+          street1: requestData.toAddress.street1,
+          street2: requestData.toAddress.street2 || '',
+          city: requestData.toAddress.city,
+          state: requestData.toAddress.state,
+          zip: requestData.toAddress.zip,
+          country: requestData.toAddress.country,
+          phone: requestData.toAddress.phone || ''
+        },
         parcel: parcelData,
         options: requestData.options || {}
       }

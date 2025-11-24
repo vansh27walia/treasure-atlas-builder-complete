@@ -229,7 +229,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: fromAddress.state,
           zip: fromAddress.zip,
           country: fromAddress.country || 'US',
-          phone: fromAddress.phone // Phone is optional, backend handles omission
+          phone: fromAddress.phone || ''
         },
         toAddress: {
           name: toAddress.name,
@@ -240,7 +240,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: toAddress.state,
           zip: toAddress.zip,
           country: toAddress.country || 'US',
-          phone: toAddress.phone // Phone is optional, backend handles omission
+          phone: toAddress.phone || ''
         },
         parcel: parcelData,
         options: {},

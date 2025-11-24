@@ -65,37 +65,6 @@ serve(async (req) => {
       throw new Error("Payment method not found or doesn't belong to user");
     }
 
-    // Verify and fix payment method customer association in Stripe
-    try {
-      const paymentMethod = await stripe.paymentMethods.retrieve(
-        paymentMethodRecord.stripe_payment_method_id
-      );
-
-      // If payment method belongs to a different customer, re-attach it
-      if (paymentMethod.customer && paymentMethod.customer !== profile.stripe_customer_id) {
-        console.log(`Re-attaching payment method ${paymentMethod.id} from customer ${paymentMethod.customer} to ${profile.stripe_customer_id}`);
-        
-        // Detach from old customer
-        await stripe.paymentMethods.detach(paymentMethod.id);
-        
-        // Attach to current customer
-        await stripe.paymentMethods.attach(paymentMethod.id, {
-          customer: profile.stripe_customer_id,
-        });
-        
-        console.log("Payment method successfully re-attached to current customer");
-      } else if (!paymentMethod.customer) {
-        // If not attached to any customer, attach it now
-        console.log(`Attaching unattached payment method ${paymentMethod.id} to ${profile.stripe_customer_id}`);
-        await stripe.paymentMethods.attach(paymentMethod.id, {
-          customer: profile.stripe_customer_id,
-        });
-      }
-    } catch (pmError) {
-      console.error("Error verifying/fixing payment method:", pmError);
-      throw new Error("Invalid payment method. Please re-add your payment method.");
-    }
-
     // Create and confirm payment intent off-session  
     // Limit metadata to avoid Stripe's 500 character limit
     let limitedShippingDetails = null;
