@@ -179,17 +179,6 @@ const EnhancedShippingForm: React.FC = () => {
       return;
     }
 
-    // Validate phone numbers
-    if (!fromAddress.phone || fromAddress.phone.trim() === '') {
-      toast.error("Sender phone number is required. Please edit the pickup address and add a phone number.");
-      return;
-    }
-    
-    if (!toAddress.phone || toAddress.phone.trim() === '') {
-      toast.error("Recipient phone number is required. Please edit the delivery address and add a phone number.");
-      return;
-    }
-
     // For international shipping, customs info is required
     if (isInternational && !customsInfo) {
       toast.error("Please complete customs documentation for international shipments");
@@ -240,7 +229,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: fromAddress.state,
           zip: fromAddress.zip,
           country: fromAddress.country || 'US',
-          phone: fromAddress.phone // Already validated above
+          phone: fromAddress.phone // Phone is optional, backend handles omission
         },
         toAddress: {
           name: toAddress.name,
@@ -251,7 +240,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: toAddress.state,
           zip: toAddress.zip,
           country: toAddress.country || 'US',
-          phone: toAddress.phone // Already validated above
+          phone: toAddress.phone // Phone is optional, backend handles omission
         },
         parcel: parcelData,
         options: {},
