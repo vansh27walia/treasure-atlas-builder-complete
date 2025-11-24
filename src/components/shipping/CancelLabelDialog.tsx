@@ -79,7 +79,7 @@ export const CancelLabelDialog: React.FC<CancelLabelDialogProps> = ({
           variant="destructive" 
           size="sm"
           onClick={() => setIsOpen(true)}
-          className="gap-2"
+          className="gap-2 w-full"
         >
           <XCircle className="h-4 w-4" />
           Cancel Label
