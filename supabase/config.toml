@@ -82,6 +82,3 @@ verify_jwt = true
 
 [functions.get-google-api-key]
 verify_jwt = false
-
-[functions.cancel-label]
-verify_jwt = true
