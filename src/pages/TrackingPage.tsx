@@ -76,23 +76,28 @@ const TrackingPage = () => {
         .single();
 
       if (shipmentData && !shipmentError) {
+        // Check if label is canceled
+        const isCanceled = shipmentData.status === 'cancelled' || shipmentData.status === 'refund_pending';
+        
         // Convert our data to the expected format
         const trackingData: TrackingInfo = {
           tracking_code: shipmentData.tracking_code,
           carrier: shipmentData.carrier || 'Unknown',
-          status: shipmentData.status || 'In Transit',
+          status: isCanceled ? 'Canceled' : (shipmentData.status || 'In Transit'),
           estimated_delivery: shipmentData.est_delivery_date || 'Unknown',
           current_location: 'In Transit',
           label_url: shipmentData.label_url || undefined,
+          shipment_id: shipmentData.shipment_id || undefined,
+          created_at: shipmentData.created_at || undefined,
           tracking_events: shipmentData.tracking_details ? 
             (shipmentData.tracking_details as any).events || [] : 
             [
               {
                 date: new Date().toLocaleDateString(),
                 time: new Date().toLocaleTimeString(),
-                status: 'Label Created',
+                status: isCanceled ? 'Label Canceled' : 'Label Created',
                 location: 'Origin Facility',
-                description: 'Shipping label has been created'
+                description: isCanceled ? 'Label has been canceled and refund is being processed' : 'Shipping label has been created'
               }
             ]
         };
@@ -132,6 +137,9 @@ const TrackingPage = () => {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
+      case 'canceled':
+      case 'cancelled':
+        return 'bg-red-500 text-white';
       case 'delivered':
         return 'bg-green-100 text-green-800';
       case 'in transit':
@@ -287,6 +295,20 @@ const TrackingPage = () => {
         {/* Tracking Results */}
         {trackingInfo && (
           <div className="space-y-6">
+            {/* Canceled Label Warning */}
+            {(trackingInfo.status?.toLowerCase() === 'canceled' || trackingInfo.status?.toLowerCase() === 'cancelled') && (
+              <Card className="p-6 bg-red-50 border-2 border-red-500">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-red-600 mb-2">
+                    Label Has Been Canceled
+                  </h2>
+                  <p className="text-red-500">
+                    This label can no longer be used for shipping. The refund will be processed within 48 hours.
+                  </p>
+                </div>
+              </Card>
+            )}
+            
             {/* Status Overview */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -300,7 +322,7 @@ const TrackingPage = () => {
                   <Badge className={getStatusColor(trackingInfo.status)}>
                     {trackingInfo.status}
                   </Badge>
-                  {trackingInfo.label_url && (
+                  {trackingInfo.label_url && trackingInfo.status?.toLowerCase() !== 'canceled' && trackingInfo.status?.toLowerCase() !== 'cancelled' && (
                     <Button size="sm" variant="outline" asChild>
                       <a 
                         href={trackingInfo.label_url} 
@@ -313,7 +335,7 @@ const TrackingPage = () => {
                       </a>
                     </Button>
                   )}
-                  {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'delivered' && showCancelAtTop && (
+                  {trackingInfo.status?.toLowerCase() !== 'cancelled' && trackingInfo.status?.toLowerCase() !== 'canceled' && trackingInfo.status !== 'delivered' && showCancelAtTop && (
                     <Button
                       onClick={handleCancelLabel}
                       variant="destructive"
@@ -350,8 +372,8 @@ const TrackingPage = () => {
                 </div>
               </div>
 
-              {/* Display Tracking URL if available */}
-              {trackingInfo.label_url && (
+              {/* Display Tracking URL if available and not canceled */}
+              {trackingInfo.label_url && trackingInfo.status?.toLowerCase() !== 'canceled' && trackingInfo.status?.toLowerCase() !== 'cancelled' && (
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>

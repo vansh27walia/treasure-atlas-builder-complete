@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Eye, Download, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import PrintPreview from './PrintPreview';
+import { CancelLabelDialog } from './CancelLabelDialog';
 
 interface NormalShippingLabelOptionsProps {
   labelUrl: string;
@@ -169,6 +170,18 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
           Email
         </Button>
       </div>
+
+      {/* Cancel Label Option */}
+      {shipmentId && shipmentDetails && (
+        <CancelLabelDialog
+          shipmentId={shipmentId}
+          trackingCode={trackingCode || ''}
+          carrier={shipmentDetails.carrier}
+          service={shipmentDetails.service}
+          fromAddress={shipmentDetails.fromAddress}
+          toAddress={shipmentDetails.toAddress}
+        />
+      )}
     </div>
   );
 };
