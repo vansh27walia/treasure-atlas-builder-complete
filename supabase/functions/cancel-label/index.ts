@@ -137,11 +137,23 @@ serve(async (req) => {
     const refundData = await refundResponse.json();
     logStep("Refund requested successfully", { refund_status: refundData.refund_status });
 
+    // Get shipment details before updating
+    const { data: shipmentDetails, error: fetchError } = await supabaseClient
+      .from('shipment_records')
+      .select('*')
+      .eq('shipment_id', shipment_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError) {
+      logStep("Error fetching shipment details", { error: fetchError.message });
+    }
+
     // Update the shipment record in database
     const { error: dbError } = await supabaseClient
       .from('shipment_records')
       .update({ 
-        status: refundData.refund_status === 'refunded' ? 'cancelled' : 'refund_pending',
+        status: 'cancelled',
         updated_at: new Date().toISOString()
       })
       .eq('shipment_id', shipment_id)
@@ -156,9 +168,8 @@ serve(async (req) => {
       success: true,
       refund_status: refundData.refund_status,
       shipment_id: shipment_id,
-      message: refundData.refund_status === 'submitted' 
-        ? 'Refund request submitted successfully' 
-        : 'Label cancelled and refunded'
+      shipment_details: shipmentDetails,
+      message: 'Label cancelled successfully. Refund will be processed within 48 hours.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200

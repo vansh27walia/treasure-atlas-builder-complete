@@ -140,10 +140,23 @@ const TrackingPage = () => {
       case 'exception':
       case 'delivery failed':
         return 'bg-red-100 text-red-800';
+      case 'cancelled':
+      case 'canceled':
+        return 'bg-red-100 text-red-800';
       case 'label created':
         return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'cancelled':
+      case 'canceled':
+        return <span className="text-red-600 font-bold text-xl">✕</span>;
+      default:
+        return <Clock className="h-5 w-5 text-green-600" />;
     }
   };
 
@@ -174,6 +187,30 @@ const TrackingPage = () => {
 
       if (data?.success) {
         toast.success(data.message || 'Label cancelled successfully');
+        
+        // Send cancellation email if we have shipment details
+        if (data.shipment_details) {
+          const fromAddress = data.shipment_details.from_address_json || {};
+          const toAddress = data.shipment_details.to_address_json || {};
+          const recipientEmail = toAddress.email || fromAddress.email;
+
+          if (recipientEmail) {
+            try {
+              await supabase.functions.invoke('email-labels', {
+                body: {
+                  email: recipientEmail,
+                  subject: 'Shipping Label Cancellation Notification',
+                  message: `Your shipping label has been canceled.\n\nTracking Number: ${trackingInfo.tracking_code}\nCarrier: ${data.shipment_details.carrier || trackingInfo.carrier}\nCanceled At: ${new Date().toLocaleString()}\n\nPickup Address:\n${fromAddress.name || ''}\n${fromAddress.street1 || ''}\n${fromAddress.city || ''}, ${fromAddress.state || ''} ${fromAddress.zip || ''}\n\nDelivery Address:\n${toAddress.name || ''}\n${toAddress.street1 || ''}\n${toAddress.city || ''}, ${toAddress.state || ''} ${toAddress.zip || ''}\n\nThis action cannot be reversed. Your refund will be processed and returned to your payment method within 48 hours.\n\nTwo-way payment (credit card or debit card) and terms and conditions apply.`,
+                  labelUrls: []
+                }
+              });
+            } catch (emailError) {
+              console.error('Failed to send cancellation email:', emailError);
+              // Don't fail the whole operation if email fails
+            }
+          }
+        }
+        
         // Refresh tracking info
         await handleTrackingSearch(trackingInfo.tracking_code);
       } else {
@@ -300,7 +337,7 @@ const TrackingPage = () => {
                   <Badge className={getStatusColor(trackingInfo.status)}>
                     {trackingInfo.status}
                   </Badge>
-                  {trackingInfo.label_url && (
+                  {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && (
                     <Button size="sm" variant="outline" asChild>
                       <a 
                         href={trackingInfo.label_url} 
@@ -313,7 +350,7 @@ const TrackingPage = () => {
                       </a>
                     </Button>
                   )}
-                  {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'delivered' && showCancelAtTop && (
+                  {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'delivered' && showCancelAtTop && (
                     <Button
                       onClick={handleCancelLabel}
                       variant="destructive"
@@ -325,33 +362,44 @@ const TrackingPage = () => {
                   )}
                 </div>
               </div>
+              
+              {(trackingInfo.status === 'cancelled' || trackingInfo.status === 'canceled') && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-600 font-bold text-2xl">✕</span>
+                    <p className="text-red-800 font-semibold text-lg">This label has been canceled</p>
+                  </div>
+                </div>
+              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-3">
-                  <MapPin className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Current Location</p>
-                    <p className="font-medium">{trackingInfo.current_location}</p>
+              {(trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled') && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <MapPin className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm text-gray-600">Current Location</p>
+                      <p className="font-medium">{trackingInfo.current_location}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    {getStatusIcon(trackingInfo.status)}
+                    <div>
+                      <p className="text-sm text-gray-600">Estimated Delivery</p>
+                      <p className="font-medium">{trackingInfo.estimated_delivery}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Truck className="h-5 w-5 text-purple-600" />
+                    <div>
+                      <p className="text-sm text-gray-600">Carrier</p>
+                      <p className="font-medium">{trackingInfo.carrier}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Clock className="h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Estimated Delivery</p>
-                    <p className="font-medium">{trackingInfo.estimated_delivery}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Truck className="h-5 w-5 text-purple-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Carrier</p>
-                    <p className="font-medium">{trackingInfo.carrier}</p>
-                  </div>
-                </div>
-              </div>
+              )}
 
-              {/* Display Tracking URL if available */}
-              {trackingInfo.label_url && (
+              {/* Display Tracking URL if available and not canceled */}
+              {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && (
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
@@ -377,31 +425,33 @@ const TrackingPage = () => {
               )}
             </Card>
 
-            {/* Tracking Timeline */}
-            <Card className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Tracking History</h3>
-              <div className="space-y-4">
-                {trackingInfo.tracking_events.map((event, index) => (
-                  <div key={index} className="flex space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className={`w-3 h-3 rounded-full ${
-                        index === 0 ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}></div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900">{event.status}</h4>
-                        <span className="text-sm text-gray-500">
-                          {event.date} {event.time}
-                        </span>
+            {/* Tracking Timeline - Only show if not canceled */}
+            {(trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled') && (
+              <Card className="p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Tracking History</h3>
+                <div className="space-y-4">
+                  {trackingInfo.tracking_events.map((event, index) => (
+                    <div key={index} className="flex space-x-4">
+                      <div className="flex-shrink-0">
+                        <div className={`w-3 h-3 rounded-full ${
+                          index === 0 ? 'bg-blue-600' : 'bg-gray-300'
+                        }`}></div>
                       </div>
-                      <p className="text-gray-600">{event.description}</p>
-                      <p className="text-sm text-gray-500">{event.location}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-gray-900">{event.status}</h4>
+                          <span className="text-sm text-gray-500">
+                            {event.date} {event.time}
+                          </span>
+                        </div>
+                        <p className="text-gray-600">{event.description}</p>
+                        <p className="text-sm text-gray-500">{event.location}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Actions */}
             <Card className="p-6">
@@ -419,7 +469,7 @@ const TrackingPage = () => {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   View All Tracking
                 </Button>
-                {trackingInfo.label_url && (
+                {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && (
                   <Button variant="outline" asChild>
                     <a 
                       href={trackingInfo.label_url} 
@@ -432,7 +482,7 @@ const TrackingPage = () => {
                     </a>
                   </Button>
                 )}
-                {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'delivered' && showCancelAtBottom && (
+                {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'delivered' && showCancelAtBottom && (
                   <Button
                     onClick={handleCancelLabel}
                     variant="destructive"
