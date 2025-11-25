@@ -38,6 +38,7 @@ interface TrackingInfo {
   package_details: PackageDetails;
   estimated_delivery: EstimatedDelivery | null;
   tracking_events?: TrackingEvent[];
+  is_canceled?: boolean;
 }
 
 interface TrackingListItemProps {
@@ -65,7 +66,11 @@ const TrackingListItem: React.FC<TrackingListItemProps> = ({
   isSelected, 
   onSelect 
 }) => {
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, isCanceled?: boolean) => {
+    if (isCanceled) {
+      return <Badge className="bg-red-500">Canceled</Badge>;
+    }
+    
     switch(status) {
       case 'delivered': 
         return <Badge className="bg-green-500">Delivered</Badge>;
@@ -110,7 +115,7 @@ const TrackingListItem: React.FC<TrackingListItemProps> = ({
               To: {item.recipient} • {item.recipient_address}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              {getStatusBadge(item.status)}
+              {getStatusBadge(item.status, item.is_canceled)}
               <span className="text-sm text-gray-500">
                 {getEstimatedDeliveryText(item)}
               </span>
@@ -146,6 +151,18 @@ interface TrackingDetailsProps {
 export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
   return (
     <div className="px-4 pb-4 pt-2 border-t bg-gray-50">
+      {/* Show canceled message if label is canceled */}
+      {item.is_canceled && (
+        <div className="mb-4 p-4 bg-red-50 border-2 border-red-500 rounded-lg">
+          <p className="text-lg font-bold text-red-600 text-center">
+            Label Has Been Canceled
+          </p>
+          <p className="text-sm text-red-500 text-center mt-1">
+            This label can no longer be used for shipping
+          </p>
+        </div>
+      )}
+      
       <div className="grid gap-4 md:grid-cols-3 mb-4">
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500">Package Details</p>
@@ -168,8 +185,8 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         </div>
       </div>
 
-      {/* Display Label URL if available */}
-      {item.label_url && (
+      {/* Display Label URL if available and not canceled */}
+      {item.label_url && !item.is_canceled && (
         <div className="mb-4 p-3 bg-blue-50 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
@@ -213,41 +230,45 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         ))}
       </div>
       
-      <div className="flex justify-end mt-4 gap-2">
-        {item.label_url && (
-          <>
-            <a 
-              href={item.label_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            >
-              <Download className="mr-1 h-4 w-4" /> Download Label
-            </a>
-            <a 
-              href={item.label_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-            >
-              <ExternalLink className="mr-1 h-4 w-4" /> View Online
-            </a>
-            <CancelLabelDialog
-              shipmentId={item.shipment_id}
-              trackingCode={item.tracking_code}
-              carrier={item.carrier}
-              service={item.package_details.service}
-              fromAddress="Pickup Address"
-              toAddress={item.recipient_address}
-              trigger={
-                <button className="flex items-center px-3 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 text-sm">
-                  Cancel Label
-                </button>
-              }
-            />
-          </>
-        )}
-      </div>
+      {/* Only show action buttons if label is not canceled */}
+      {!item.is_canceled && (
+        <div className="flex justify-end mt-4 gap-2">
+          {item.label_url && (
+            <>
+              <a 
+                href={item.label_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+              >
+                <Download className="mr-1 h-4 w-4" /> Download Label
+              </a>
+              <a 
+                href={item.label_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+              >
+                <ExternalLink className="mr-1 h-4 w-4" /> View Online
+              </a>
+              <CancelLabelDialog
+                shipmentId={item.shipment_id}
+                trackingCode={item.tracking_code}
+                carrier={item.carrier}
+                service={item.package_details.service}
+                fromAddress="Pickup Address"
+                toAddress={item.recipient_address}
+                onSuccess={() => window.location.reload()}
+                trigger={
+                  <button className="flex items-center px-3 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 text-sm">
+                    Cancel Label
+                  </button>
+                }
+              />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
