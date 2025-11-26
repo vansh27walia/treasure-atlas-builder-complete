@@ -28,9 +28,11 @@ export const CancelLabelDialog: React.FC<CancelLabelDialogProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleCancel = async () => {
     setIsCancelling(true);
+    setErrorMessage(null);
     try {
       const { data, error } = await supabase.functions.invoke('cancel-label', {
         body: { shipment_id: shipmentId }
@@ -38,7 +40,13 @@ export const CancelLabelDialog: React.FC<CancelLabelDialogProps> = ({
 
       if (error) {
         console.error('Cancel label error:', error);
-        toast.error('Failed to cancel label. Please try again.');
+        const message = error.message || 'Failed to cancel label. Please try again.';
+        setErrorMessage(message);
+        return;
+      }
+
+      if (data?.error) {
+        setErrorMessage(data.error);
         return;
       }
 
@@ -60,9 +68,9 @@ export const CancelLabelDialog: React.FC<CancelLabelDialogProps> = ({
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cancelling label:', error);
-      toast.error('An error occurred while cancelling the label.');
+      setErrorMessage(error.message || 'An error occurred while cancelling the label.');
     } finally {
       setIsCancelling(false);
     }
@@ -167,6 +175,15 @@ export const CancelLabelDialog: React.FC<CancelLabelDialogProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="bg-gray-100 border border-gray-300 rounded-lg p-3">
+              <p className="text-sm text-gray-700">
+                <strong>Error:</strong> {errorMessage}
+              </p>
+            </div>
+          )}
         </div>
 
         <AlertDialogFooter className="gap-2">

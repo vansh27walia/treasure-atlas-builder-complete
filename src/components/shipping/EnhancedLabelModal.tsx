@@ -23,6 +23,8 @@ import {
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
+import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
+
 interface EnhancedLabelModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -349,6 +351,19 @@ const EnhancedLabelModal: React.FC<EnhancedLabelModalProps> = ({
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t">
+          <CancelLabelDialog
+            shipmentId={labelData.shipmentId}
+            trackingCode={labelData.trackingCode}
+            carrier={labelData.carrier || 'Unknown'}
+            service={labelData.service}
+            fromAddress={labelData.fromAddress ? `${labelData.fromAddress.street1}, ${labelData.fromAddress.city}` : 'Unknown'}
+            toAddress={labelData.toAddress ? `${labelData.toAddress.street1}, ${labelData.toAddress.city}` : 'Unknown'}
+            trigger={
+              <Button variant="destructive">
+                Cancel Label
+              </Button>
+            }
+          />
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
