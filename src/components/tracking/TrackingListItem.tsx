@@ -63,6 +63,12 @@ const getStatusIcon = (status: string) => {
   }
 };
 
+// Helper function to check if label can be cancelled
+const canCancelLabel = (status: string) => {
+  const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
+  return !ineligibleStatuses.includes(status.toLowerCase());
+};
+
 const TrackingListItem: React.FC<TrackingListItemProps> = ({ 
   item, 
   isSelected, 
@@ -79,9 +85,16 @@ const TrackingListItem: React.FC<TrackingListItemProps> = ({
       case 'cancelled':
       case 'canceled':
         return <Badge className="bg-red-500">Canceled</Badge>;
+      case 'refund_pending':
+        return <Badge className="bg-orange-500">Refund Pending</Badge>;
       default: 
         return <Badge className="bg-gray-500">Processing</Badge>;
     }
+  };
+
+  const canCancelLabel = (status: string) => {
+    const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
+    return !ineligibleStatuses.includes(status.toLowerCase());
   };
 
   const getEstimatedDeliveryText = (item: TrackingInfo) => {
@@ -189,6 +202,19 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         </div>
       )}
 
+      {/* Display refund pending message */}
+      {item.status === 'refund_pending' && (
+        <div className="mb-4 p-4 bg-orange-100 border border-orange-300 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Clock className="h-6 w-6 text-orange-600" />
+            <div>
+              <p className="text-orange-800 font-semibold text-lg">Refund in Progress</p>
+              <p className="text-orange-700 text-sm mt-1">Your refund has been submitted and will be processed within 48 hours.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Display Label URL if available and not canceled */}
       {!isCanceled && item.label_url && (
         <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -212,8 +238,8 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         </div>
       )}
       
-      {!isCanceled && <h4 className="text-sm font-semibold mb-3">Tracking History</h4>}
-      {!isCanceled && (
+      {!isCanceled && item.status !== 'refund_pending' && <h4 className="text-sm font-semibold mb-3">Tracking History</h4>}
+      {!isCanceled && item.status !== 'refund_pending' && (
         <div className="relative">
           <div className="absolute top-0 bottom-0 left-[16px] w-[2px] bg-gray-200"></div>
           {item.tracking_events?.map((event, index) => (
@@ -237,7 +263,7 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
       )}
       
       <div className="flex justify-end mt-4 gap-2">
-        {!isCanceled && item.label_url && (
+      {!isCanceled && item.status !== 'refund_pending' && item.label_url && (
           <>
             <a 
               href={item.label_url} 
@@ -257,7 +283,7 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
             </a>
           </>
         )}
-        {item.label_url && (
+        {canCancelLabel(item.status) && item.label_url && (
           <CancelLabelDialog
             shipmentId={item.shipment_id}
             trackingCode={item.tracking_code}
