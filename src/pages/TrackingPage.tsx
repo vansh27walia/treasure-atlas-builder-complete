@@ -143,11 +143,19 @@ const TrackingPage = () => {
       case 'cancelled':
       case 'canceled':
         return 'bg-red-100 text-red-800';
+      case 'refund_pending':
+        return 'bg-orange-100 text-orange-800';
       case 'label created':
+      case 'created':
         return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const canCancelLabel = (status: string) => {
+    const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
+    return !ineligibleStatuses.includes(status.toLowerCase());
   };
 
   const getStatusIcon = (status: string) => {
@@ -337,7 +345,7 @@ const TrackingPage = () => {
                   <Badge className={getStatusColor(trackingInfo.status)}>
                     {trackingInfo.status}
                   </Badge>
-                  {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && (
+                  {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'refund_pending' && (
                     <Button size="sm" variant="outline" asChild>
                       <a 
                         href={trackingInfo.label_url} 
@@ -350,7 +358,7 @@ const TrackingPage = () => {
                       </a>
                     </Button>
                   )}
-                  {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'delivered' && showCancelAtTop && (
+                  {canCancelLabel(trackingInfo.status) && showCancelAtTop && (
                     <Button
                       onClick={handleCancelLabel}
                       variant="destructive"
@@ -368,6 +376,18 @@ const TrackingPage = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-red-600 font-bold text-2xl">✕</span>
                     <p className="text-red-800 font-semibold text-lg">This label has been canceled</p>
+                  </div>
+                </div>
+              )}
+
+              {trackingInfo.status === 'refund_pending' && (
+                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-6 w-6 text-orange-600" />
+                    <div>
+                      <p className="text-orange-800 font-semibold text-lg">Refund in Progress</p>
+                      <p className="text-orange-700 text-sm mt-1">Your refund has been submitted and will be processed within 48 hours.</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -425,8 +445,8 @@ const TrackingPage = () => {
               )}
             </Card>
 
-            {/* Tracking Timeline - Only show if not canceled */}
-            {(trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled') && (
+            {/* Tracking Timeline - Only show if not canceled or refund pending */}
+            {(trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'refund_pending') && (
               <Card className="p-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Tracking History</h3>
                 <div className="space-y-4">
@@ -469,7 +489,7 @@ const TrackingPage = () => {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   View All Tracking
                 </Button>
-                {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && (
+                {trackingInfo.label_url && trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'refund_pending' && (
                   <Button variant="outline" asChild>
                     <a 
                       href={trackingInfo.label_url} 
@@ -482,7 +502,7 @@ const TrackingPage = () => {
                     </a>
                   </Button>
                 )}
-                {trackingInfo.status !== 'cancelled' && trackingInfo.status !== 'canceled' && trackingInfo.status !== 'delivered' && showCancelAtBottom && (
+                {canCancelLabel(trackingInfo.status) && showCancelAtBottom && (
                   <Button
                     onClick={handleCancelLabel}
                     variant="destructive"
