@@ -46,7 +46,25 @@ export const CancelLabelDialog: React.FC<CancelLabelDialogProps> = ({
       }
 
       if (data?.error) {
-        setErrorMessage(data.error);
+        // Extract exact error message from backend with all context
+        let fullErrorMessage = data.error;
+        
+        // Add refund status if present
+        if (data.refund_status) {
+          fullErrorMessage = `${data.error} (Refund status: ${data.refund_status})`;
+        }
+        
+        // Add shipment status if present
+        if (data.status) {
+          fullErrorMessage = `${data.error} (Shipment status: ${data.status})`;
+        }
+        
+        // Add additional details if present
+        if (data.details) {
+          fullErrorMessage = `${data.error}. Details: ${data.details}`;
+        }
+        
+        setErrorMessage(fullErrorMessage);
         return;
       }
 
