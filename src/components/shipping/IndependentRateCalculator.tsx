@@ -60,6 +60,19 @@ const IndependentRateCalculator: React.FC = () => {
   const [weightUnit, setWeightUnit] = useState('lbs');
   const [rates, setRates] = useState<RateResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [filters, setFilters] = useState({
+    search: '',
+    carriers: [] as string[],
+    maxPrice: undefined as number | undefined,
+    maxDays: undefined as number | undefined,
+    minPrice: undefined as number | undefined,
+    features: [] as string[],
+    sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
+    sortOrder: 'asc' as 'asc' | 'desc',
+    selectedCarrier: 'all'
+  });
+  
+  // Legacy state for backward compatibility
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
   
@@ -317,8 +330,13 @@ const IndependentRateCalculator: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">      
-      <div className="container mx-auto px-6 py-8 max-w-6xl">
+    <div className="flex w-full relative">
+      {/* Main Content - Shifts left when AI panel is open */}
+      <div 
+        className={`transition-all duration-300 ${showAIPanel ? 'mr-[288px]' : 'mr-0'} w-full`}
+      >
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">      
+          <div className="container mx-auto px-6 py-8 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -650,28 +668,37 @@ const IndependentRateCalculator: React.FC = () => {
                     Filter & Sort Options
                   </h3>
                   <EnhancedRateFilter
-                    filters={{
-                      search: '',
-                      carriers: [],
-                      maxPrice: undefined,
-                      maxDays: undefined,
-                      minPrice: undefined,
-                      features: [],
-                      sortBy: sortOrder === 'price' ? 'price' : sortOrder === 'speed' ? 'speed' : 'carrier',
-                      sortOrder: 'asc',
-                      selectedCarrier: carrierFilter
-                    }}
+                    filters={filters}
                     availableCarriers={uniqueCarriers}
                     onFiltersChange={(newFilters) => {
+                      setFilters(newFilters);
+                      // Update legacy state for backward compatibility
                       setCarrierFilter(newFilters.selectedCarrier);
-                      setSortOrder(newFilters.sortBy);
+                      setSortOrder(newFilters.sortBy as 'price' | 'speed' | 'carrier');
                     }}
                     onClearFilters={() => {
+                      const clearedFilters = {
+                        search: '',
+                        carriers: [],
+                        maxPrice: undefined,
+                        maxDays: undefined,
+                        minPrice: undefined,
+                        features: [],
+                        sortBy: 'price' as 'price' | 'speed' | 'carrier' | 'reliability',
+                        sortOrder: 'asc' as 'asc' | 'desc',
+                        selectedCarrier: 'all'
+                      };
+                      setFilters(clearedFilters);
                       setCarrierFilter('all');
                       setSortOrder('price');
                     }}
-                    onAIPoweredAnalysis={() => {
-                      console.log('AI powered analysis triggered');
+                     onAIPoweredAnalysis={() => {
+                      if (rates.length > 0) {
+                        setSelectedRateForAI(rates[0]);
+                        setShowAIPanel(true);
+                      } else {
+                        toast.error('Please fetch rates first');
+                      }
                     }}
                     rateCount={sortedRates.length}
                   />
@@ -784,9 +811,11 @@ const IndependentRateCalculator: React.FC = () => {
           </Card>
           </>
         )}
+        </div>
+      </div>
       </div>
       
-      {/* AI Rate Analysis Panel */}
+      {/* AI Rate Analysis Panel - Fixed position */}
       {showAIPanel && selectedRateForAI && (
         <AIRateAnalysisPanel
           selectedRate={selectedRateForAI}
@@ -794,6 +823,9 @@ const IndependentRateCalculator: React.FC = () => {
           isOpen={showAIPanel}
           onClose={() => setShowAIPanel(false)}
           onOptimizationChange={handleOptimizationChange}
+          onRateChange={(newRate) => {
+            setSelectedRateForAI(newRate);
+          }}
         />
       )}
     </div>
