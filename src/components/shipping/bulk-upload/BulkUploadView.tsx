@@ -34,6 +34,7 @@ import BulkAIOverviewPanel from './BulkAIOverviewPanel';
 import { Sparkles } from 'lucide-react';
 import { computeDiscountPercent } from '@/utils/discount';
 import BulkShipmentFilters from './BulkShipmentFilters';
+import AddManualShipmentModal from './AddManualShipmentModal';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -436,6 +437,22 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                 </TableRow>
               </TableFooter>
             </Table>
+          </div>
+
+          {/* Add Manual Shipment Button */}
+          <div className="mt-6">
+            <AddManualShipmentModal
+              pickupAddress={pickupAddress}
+              onShipmentAdded={(newShipment) => {
+                if (results && setResults) {
+                  const updatedResults = {
+                    ...results,
+                    processedShipments: [...results.processedShipments, newShipment]
+                  };
+                  setResults(updatedResults);
+                }
+              }}
+            />
           </div>
 
           <OrderSummary
