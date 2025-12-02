@@ -376,9 +376,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Enhanced AI Rate Picker as Dropdown
-  const AIRatePickerDropdown = () => <Card className="mb-6 border-2 border-purple-200 shadow-lg bg-gradient-to-r from-purple-50 to-indigo-50">
-      
-    </Card>;
+  const AIRatePickerDropdown = () => {};
   return <div className="space-y-4">
       {/* Enhanced AI Rate Picker */}
       <AIRatePickerDropdown />
