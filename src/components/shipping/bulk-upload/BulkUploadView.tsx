@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/components/ui/sonner';
-import { Download, UploadCloud } from 'lucide-react';
+import { Download, UploadCloud, Plus } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -439,12 +439,17 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             </Table>
           </div>
 
-          {/* Add Manual Shipment Button - Prominent at Bottom */}
-          <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-lg bg-gradient-to-r from-blue-50/50 to-purple-50/50 hover:border-primary/50 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-foreground">Add More Shipments</h4>
-                <p className="text-sm text-muted-foreground">Manually add additional shipments to your batch</p>
+          {/* Add Another Shipment - Prominent Row at Bottom */}
+          <div className="mt-6 p-6 border-2 border-dashed border-primary/40 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:border-primary hover:shadow-md transition-all">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h4 className="font-semibold text-lg text-foreground flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-primary" />
+                  Add Another Shipment
+                </h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Add more shipments to your batch with custom pickup addresses. You can add unlimited shipments and delete any you've added.
+                </p>
               </div>
               <AddManualShipmentModal
                 pickupAddress={pickupAddress}
@@ -456,8 +461,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                       successful: results.successful + 1
                     };
                     setResults(updatedResults);
+                    toast.success(`Shipment added! You can edit or delete it anytime.`);
                   }
                 }}
+                triggerButton={
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 h-auto">
+                    <Plus className="mr-2 h-5 w-5" />
+                    Add Another Shipment
+                  </Button>
+                }
               />
             </div>
           </div>
