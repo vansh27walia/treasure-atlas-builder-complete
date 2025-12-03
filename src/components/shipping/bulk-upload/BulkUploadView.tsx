@@ -439,20 +439,27 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             </Table>
           </div>
 
-          {/* Add Manual Shipment Button */}
-          <div className="mt-6">
-            <AddManualShipmentModal
-              pickupAddress={pickupAddress}
-              onShipmentAdded={(newShipment) => {
-                if (results && setResults) {
-                  const updatedResults = {
-                    ...results,
-                    processedShipments: [...results.processedShipments, newShipment]
-                  };
-                  setResults(updatedResults);
-                }
-              }}
-            />
+          {/* Add Manual Shipment Button - Prominent at Bottom */}
+          <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-lg bg-gradient-to-r from-blue-50/50 to-purple-50/50 hover:border-primary/50 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-foreground">Add More Shipments</h4>
+                <p className="text-sm text-muted-foreground">Manually add additional shipments to your batch</p>
+              </div>
+              <AddManualShipmentModal
+                pickupAddress={pickupAddress}
+                onShipmentAdded={(newShipment) => {
+                  if (results && setResults) {
+                    const updatedResults = {
+                      ...results,
+                      processedShipments: [...results.processedShipments, newShipment],
+                      successful: results.successful + 1
+                    };
+                    setResults(updatedResults);
+                  }
+                }}
+              />
+            </div>
           </div>
 
           <OrderSummary
