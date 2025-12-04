@@ -310,9 +310,9 @@ const IndependentRateCalculator: React.FC = () => {
   });
   return <div className="flex w-full relative">
       {/* Main Content - Shifts left when AI panel is open */}
-      <div className={`transition-all duration-300 ${showAIPanel ? "mr-[288px]" : "mr-0"} w-full`}>
+      <div className={`transition-all duration-300 ${showAIPanel ? "mr-[320px]" : "mr-0"} w-full`}>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-          <div className="container mx-auto px-6 py-8 max-w-6xl">
+          <div className="container mx-auto px-8 py-8 max-w-7xl">
             {/* Header */}
             <div className="text-center mb-8">
               <div className="flex items-center justify-center mb-4">
