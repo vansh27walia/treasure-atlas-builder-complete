@@ -415,6 +415,37 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     </TableRow>
                   );
                 })}
+              {/* Add Another Shipment Row */}
+              <TableRow className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 hover:from-blue-100/50 hover:to-indigo-100/50 border-t-2 border-dashed border-primary/30">
+                <TableCell colSpan={7} className="py-4">
+                  <div className="flex items-center gap-3">
+                    <Plus className="h-5 w-5 text-primary" />
+                    <span className="text-muted-foreground">Add another shipment to your batch...</span>
+                  </div>
+                </TableCell>
+                <TableCell className="py-4">
+                  <AddManualShipmentModal
+                    pickupAddress={pickupAddress}
+                    onShipmentAdded={(newShipment) => {
+                      if (results && setResults) {
+                        const updatedResults = {
+                          ...results,
+                          processedShipments: [...results.processedShipments, newShipment],
+                          successful: results.successful + 1
+                        };
+                        setResults(updatedResults);
+                        toast.success(`Shipment added! You can edit or delete it anytime.`);
+                      }
+                    }}
+                    triggerButton={
+                      <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+                        <Plus className="mr-1 h-4 w-4" />
+                        Add
+                      </Button>
+                    }
+                  />
+                </TableCell>
+              </TableRow>
               </TableBody>
               <TableFooter className="bg-gray-100">
                 <TableRow>
@@ -437,41 +468,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                 </TableRow>
               </TableFooter>
             </Table>
-          </div>
-
-          {/* Add Another Shipment - Prominent Row at Bottom */}
-          <div className="mt-6 p-6 border-2 border-dashed border-primary/40 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:border-primary hover:shadow-md transition-all">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1">
-                <h4 className="font-semibold text-lg text-foreground flex items-center gap-2">
-                  <Plus className="h-5 w-5 text-primary" />
-                  Add Another Shipment
-                </h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Add more shipments to your batch with custom pickup addresses. You can add unlimited shipments and delete any you've added.
-                </p>
-              </div>
-              <AddManualShipmentModal
-                pickupAddress={pickupAddress}
-                onShipmentAdded={(newShipment) => {
-                  if (results && setResults) {
-                    const updatedResults = {
-                      ...results,
-                      processedShipments: [...results.processedShipments, newShipment],
-                      successful: results.successful + 1
-                    };
-                    setResults(updatedResults);
-                    toast.success(`Shipment added! You can edit or delete it anytime.`);
-                  }
-                }}
-                triggerButton={
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 h-auto">
-                    <Plus className="mr-2 h-5 w-5" />
-                    Add Another Shipment
-                  </Button>
-                }
-              />
-            </div>
           </div>
 
           <OrderSummary
