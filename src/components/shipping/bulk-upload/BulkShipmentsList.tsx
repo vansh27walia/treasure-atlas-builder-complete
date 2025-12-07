@@ -51,8 +51,8 @@ interface BulkShipmentsListProps {
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
   onRefreshRates: (shipmentId: string) => void;
   onAIAnalysis: (shipment?: any) => void;
-  // ** New Prop for adding a shipment **
-  onAddShipment: (newShipmentDetails: any) => void;
+  // ** New Prop for adding a shipment (optional) **
+  onAddShipment?: (newShipmentDetails: any) => void;
 }
 
 // ** Placeholder component for the Add Shipment Dialog/Modal **
@@ -687,20 +687,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         </TableCell>
 
                         <TableCell className="text-center">
-                          {shipment.status === "processing" && <Badge className="bg-yellow-500 hover:bg-yellow-500/90 text-white"><RefreshCcw className="w-3 h-3 mr-1 animate-spin" /> Processing</Badge>}
                           {shipment.status === "pending_rates" && <Badge className="bg-indigo-500 hover:bg-indigo-500/90 text-white"><Zap className="w-3 h-3 mr-1 animate-pulse" /> Fetching Rates</Badge>}
-                          {shipment.status === "draft" && <Badge variant="secondary" className="text-gray-700"><FileText className="w-3 h-3 mr-1" /> Draft</Badge>}
-                          {shipment.status === "rated" && !shipment.selectedRateId && <Badge className="bg-blue-200 text-blue-800"><Star className="w-3 h-3 mr-1" /> Rates Ready</Badge>}
-                          {shipment.status === "rated" && shipment.selectedRateId && <Badge className="bg-green-500 hover:bg-green-500/90 text-white"><Check className="w-3 h-3 mr-1" /> Selected</Badge>}
-                          {shipment.status === "error" || shipment.status === "failed" && <Badge className="bg-red-500 hover:bg-red-500/90 text-white"><X className="w-3 h-3 mr-1" /> Error</Badge>}
-                          {shipment.status === "purchased" && <Badge className="bg-purple-600 hover:bg-purple-600/90 text-white"><Truck className="w-3 h-3 mr-1" /> Label Paid</Badge>}
+                          {shipment.status === "rates_fetched" && !shipment.selectedRateId && <Badge className="bg-blue-200 text-blue-800"><Star className="w-3 h-3 mr-1" /> Rates Ready</Badge>}
+                          {shipment.status === "rate_selected" && <Badge className="bg-green-500 hover:bg-green-500/90 text-white"><Check className="w-3 h-3 mr-1" /> Selected</Badge>}
+                          {(shipment.status === "error" || shipment.status === "failed") && <Badge className="bg-red-500 hover:bg-red-500/90 text-white"><X className="w-3 h-3 mr-1" /> Error</Badge>}
+                          {shipment.status === "label_purchased" && <Badge className="bg-purple-600 hover:bg-purple-600/90 text-white"><Truck className="w-3 h-3 mr-1" /> Label Paid</Badge>}
+                          {shipment.status === "completed" && <Badge className="bg-green-600 hover:bg-green-600/90 text-white"><Check className="w-3 h-3 mr-1" /> Completed</Badge>}
                         </TableCell>
 
                         <TableCell className="text-center">
                           {isInternational ? <CustomsClearanceButton
+                            shipment={shipment}
                             customsInfo={shipment.details.customs_info as LocalCustomsInfo}
-                            onSave={(info) => handleCustomsInfoSave(shipment.id, info)}
-                            isComplete={!!shipment.details.customs_info}
+                            onCustomsInfoSave={(info) => handleCustomsInfoSave(shipment.id, info)}
                           /> : <Badge variant="secondary" className="text-xs">N/A</Badge>}
                         </TableCell>
                         
@@ -710,7 +709,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenEditDialog(shipment.id)}
-                            disabled={isEditing || shipment.status === "purchased"}
+                            disabled={isEditing || shipment.status === "label_purchased" || shipment.status === "completed"}
                             className="text-blue-600 border-blue-200 hover:bg-blue-50"
                           >
                             {isEditing ? <RefreshCcw className="w-4 h-4 mr-1 animate-spin" /> : <Edit className="w-4 h-4 mr-1" />}
@@ -723,10 +722,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 </TableBody>
                 
                 {/* ** MODIFICATION: The New TableFooter for Add Shipment Button ** */}
+                {onAddShipment && (
                 <TableFooter className="bg-gray-100 hover:bg-gray-100/90 border-t-2 border-blue-200">
                     <TableRow>
                         {/* Span all columns up to the Actions column (8 columns: Row, Customer, Address, Carrier, Insurance, Rate, Status, Custom Clearance) */}
-                        <TableCell colSpan={9} className="text-right font-bold text-gray-800 py-3">
+                        <TableCell colSpan={8} className="text-right font-bold text-gray-800 py-3">
                             {/* Empty cell, but keep the right alignment for visual separation */}
                         </TableCell>
                         
@@ -741,6 +741,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         </TableCell>
                     </TableRow>
                 </TableFooter>
+                )}
               </Table>
             </Card>
           </div>
