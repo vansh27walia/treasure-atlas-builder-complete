@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import { BulkShipment } from "@/types/shipping";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell, TableFooter } from "@/components/ui/table";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check, Shield, DollarSign, ChevronDown, Brain, Zap, Star, Globe, PlusCircle } from "lucide-react";
+import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check, Shield, DollarSign, ChevronDown, Brain, Zap, Star, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
@@ -51,87 +51,7 @@ interface BulkShipmentsListProps {
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
   onRefreshRates: (shipmentId: string) => void;
   onAIAnalysis: (shipment?: any) => void;
-  // ** New Prop for adding a shipment (optional) **
-  onAddShipment?: (newShipmentDetails: any) => void;
 }
-
-// ** Placeholder component for the Add Shipment Dialog/Modal **
-// You will need to implement the actual logic for capturing shipment details here.
-const AddShipmentDialog: React.FC<{ onSave: (details: any) => void; children: React.ReactNode }> = ({ onSave, children }) => {
-  const [open, setOpen] = useState(false);
-  const form = useForm({
-    // Define your form schema/default values here
-    defaultValues: {
-      // Example fields, replace with actual BulkShipment fields
-      to_name: "",
-      to_street1: "",
-      weight: 16, // Default to 1lb/16oz
-      length: 10,
-      width: 10,
-      height: 10,
-    },
-  });
-
-  const onSubmit = (data: any) => {
-    // Simulate packaging into the structure expected by onAddShipment (often just the details object)
-    onSave(data);
-    form.reset();
-    setOpen(false);
-    toast.success("New shipment details submitted!");
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>📦 Add a New Shipment</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <p className="text-sm text-gray-500">
-              Enter the basic details for your new shipment.
-            </p>
-            {/* ** IMPORTANT: You must replace these fields with the full required form fields for a BulkShipment 'details' object ** */}
-            <FormField
-              control={form.control}
-              name="to_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Recipient Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="weight"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Weight (oz)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="16" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full">
-              Add Shipment
-            </Button>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-};
-// ** End of Add Shipment Dialog Placeholder **
-
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
   isFetchingRates,
@@ -139,8 +59,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onRemoveShipment,
   onEditShipment,
   onRefreshRates,
-  onAIAnalysis,
-  onAddShipment, // ** New Prop **
+  onAIAnalysis
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
   const [customsInfo, setCustomsInfo] = useState<Record<string, LocalCustomsInfo>>({});
@@ -463,7 +382,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       <AIRatePickerDropdown />
 
       {shipments.length === 0 ? <Card className="p-6 text-center">
-          <p className="text-gray-500">No shipments found. Start by adding one!</p>
+          <p className="text-gray-500">No shipments found.</p>
         </Card> : <div className="space-y-3">
           {/* Insurance Notice */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -485,8 +404,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     <TableHead className="w-1/12 font-semibold text-blue-900">Rate</TableHead>
                     <TableHead className="w-1/12 font-semibold text-blue-900">Status</TableHead>
                     <TableHead className="w-1/12 font-semibold text-blue-900">Custom Clearance</TableHead>
-                    {/* ** MODIFICATION: New column for Actions/Edit button ** */}
-                    <TableHead className="w-1/12 text-center font-semibold text-blue-900">Actions</TableHead>
+                    <TableHead className="w-1/12 text-right font-semibold text-blue-900">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -637,116 +555,285 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 <div className="bg-white rounded-lg p-3 border border-blue-200">
                                   <div className="flex items-center space-x-2 mb-2">
                                     <DollarSign className="w-4 h-4 text-gray-600" />
-                                    <span className="text-sm font-medium text-gray-700">Declared Value:</span>
+                                    <span className="text-sm text-gray-700 font-medium">Declare Value</span>
                                   </div>
-                                  <Input
-                                    type="number"
-                                    value={insurance.value}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
-                                      // Local state update
-                                      handleDeclaredValueChange(shipment.id, val);
-                                      // Persist to results so totals include insurance
-                                      const cost = calculateInsuranceCost(val, insurance.enabled);
-                                      onEditShipment(shipment.id, {
-                                        details: {
-                                          ...shipment.details,
-                                          declared_value: val,
-                                          insurance_enabled: true
-                                        },
-                                        insurance_cost: cost
-                                      } as any);
-                                    }}
-                                    min="0"
-                                    placeholder="100"
-                                    className="text-right font-mono"
-                                  />
+                                  <input type="number" value={insurance.value} onChange={e => {
+                            const val = parseFloat(e.target.value) || 0;
+                            handleDeclaredValueChange(shipment.id, val);
+                            const cost = calculateInsuranceCost(val, insurance.enabled);
+                            onEditShipment(shipment.id, {
+                              details: {
+                                ...shipment.details,
+                                insurance_enabled: insurance.enabled,
+                                declared_value: val
+                              },
+                              insurance_cost: cost
+                            } as any);
+                          }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="100" min="1" step="1" />
                                 </div>
-                                <div className="text-xs text-gray-500 flex justify-between">
-                                  <span>Insurance Cost:</span>
-                                  <span className="font-semibold text-blue-700">${insuranceCost.toFixed(2)}</span>
+
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm font-medium text-blue-800">Protection Cost</span>
+                                    <span className="text-lg font-bold text-blue-700">${insuranceCost.toFixed(2)}</span>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    For each $100, it's $2 (Declared: ${insurance.value.toFixed(2)})
+                                  </div>
                                 </div>
-                              </div> : <div className="text-sm text-gray-500 text-center py-2">
-                                  Insurance Disabled
+                              </div> : <div className="text-center py-3">
+                                <div className="text-sm text-gray-500 mb-1">No protection selected</div>
+                                <div className="text-xs text-blue-600 font-medium">Click toggle to add protection</div>
                               </div>}
-                            </div>
+                          </div>
                         </TableCell>
 
-                        <TableCell className="text-center font-bold text-lg text-green-700">
-                          {isEditing ? <Skeleton className="h-6 w-16 mx-auto" /> :
-                            totalCost > 0 ? <div className="space-y-1">
-                                <div className="text-xl text-green-700">${totalCost.toFixed(2)}</div>
-                                <div className="text-xs text-gray-500">
-                                  Shipping: ${shippingCost.toFixed(2)}
+                        <TableCell>
+                          {shipment.status !== "pending_rates" && shipment.selectedRateId && selectedRate && !isEditing ? <div className="space-y-2">
+                              <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-200">
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Shipping:</span>
+                                    <span className="font-semibold text-gray-900">
+                                      ${formatRate(selectedRate.rate)}
+                                    </span>
+                                  </div>
+                                  {insurance.enabled && <div className="flex items-center justify-between">
+                                      <span className="text-xs text-blue-600">Protection:</span>
+                                      <span className="text-sm font-medium text-blue-700">
+                                        +${insuranceCost.toFixed(2)}
+                                      </span>
+                                    </div>}
+                                  <div className="border-t border-green-300 pt-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-semibold text-green-800">Total:</span>
+                                      <span className="text-lg font-bold text-green-800">${totalCost.toFixed(2)}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                                {insuranceCost > 0 && <div className="text-xs text-blue-500">
-                                  Insurance: ${insuranceCost.toFixed(2)}
-                                </div>}
-                              </div> : <div className="text-sm text-gray-500">N/A</div>
-                          }
+                              </div>
+                            </div> : shipment.status === "pending_rates" || isEditing ? <div className="flex flex-col items-center space-y-2">
+                              <Skeleton className="h-16 w-20" />
+                              <div className="text-xs text-blue-600">{isEditing ? "Updating..." : "Loading..."}</div>
+                            </div> : <span className="text-gray-500">-</span>}
                         </TableCell>
 
-                        <TableCell className="text-center">
-                          {shipment.status === "pending_rates" && <Badge className="bg-indigo-500 hover:bg-indigo-500/90 text-white"><Zap className="w-3 h-3 mr-1 animate-pulse" /> Fetching Rates</Badge>}
-                          {shipment.status === "rates_fetched" && !shipment.selectedRateId && <Badge className="bg-blue-200 text-blue-800"><Star className="w-3 h-3 mr-1" /> Rates Ready</Badge>}
-                          {shipment.status === "rate_selected" && <Badge className="bg-green-500 hover:bg-green-500/90 text-white"><Check className="w-3 h-3 mr-1" /> Selected</Badge>}
-                          {(shipment.status === "error" || shipment.status === "failed") && <Badge className="bg-red-500 hover:bg-red-500/90 text-white"><X className="w-3 h-3 mr-1" /> Error</Badge>}
-                          {shipment.status === "label_purchased" && <Badge className="bg-purple-600 hover:bg-purple-600/90 text-white"><Truck className="w-3 h-3 mr-1" /> Label Paid</Badge>}
-                          {shipment.status === "completed" && <Badge className="bg-green-600 hover:bg-green-600/90 text-white"><Check className="w-3 h-3 mr-1" /> Completed</Badge>}
+                        <TableCell>
+                          {isEditing ? <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                              <RefreshCcw className="mr-1 h-3 w-3 animate-spin" />
+                              Updating
+                            </Badge> : ["completed", "rate_selected", "rates_fetched", "label_purchased"].includes(shipment.status) ? <Badge className="bg-green-100 text-green-700 border-green-200">
+                              <PackageCheck className="mr-1 h-3 w-3" />
+                              Ready
+                            </Badge> : shipment.status === "pending_rates" ? <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                              <Package className="mr-1 h-3 w-3 animate-pulse" />
+                              Processing
+                            </Badge> : <Badge className="bg-red-100 text-red-700 border-red-200">
+                              <X className="mr-1 h-3 w-3" />
+                              Error
+                            </Badge>}
                         </TableCell>
 
-                        <TableCell className="text-center">
-                          {isInternational ? <CustomsClearanceButton
-                            shipment={shipment}
-                            customsInfo={shipment.details.customs_info as LocalCustomsInfo}
-                            onCustomsInfoSave={(info) => handleCustomsInfoSave(shipment.id, info)}
-                          /> : <Badge variant="secondary" className="text-xs">N/A</Badge>}
+                        <TableCell>
+                          <CustomsClearanceButton shipment={shipment} customsInfo={customsInfo[shipment.id]} onCustomsInfoSave={info => handleCustomsInfoSave(shipment.id, info)} />
                         </TableCell>
-                        
-                        {/* ** MODIFICATION: The New Actions Column Cell ** */}
-                        <TableCell className="text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEditDialog(shipment.id)}
-                            disabled={isEditing || shipment.status === "label_purchased" || shipment.status === "completed"}
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                          >
-                            {isEditing ? <RefreshCcw className="w-4 h-4 mr-1 animate-spin" /> : <Edit className="w-4 h-4 mr-1" />}
-                            {isEditing ? "Updating..." : "Edit"}
-                          </Button>
-                          {/* The full EditShipmentDialog component remains defined elsewhere but is logically triggered here */}
-                        </TableCell>
-                      </TableRow>
-                  })}
-                </TableBody>
-                
-                {/* ** MODIFICATION: The New TableFooter for Add Shipment Button ** */}
-                {onAddShipment && (
-                <TableFooter className="bg-gray-100 hover:bg-gray-100/90 border-t-2 border-blue-200">
-                    <TableRow>
-                        {/* Span all columns up to the Actions column (8 columns: Row, Customer, Address, Carrier, Insurance, Rate, Status, Custom Clearance) */}
-                        <TableCell colSpan={8} className="text-right font-bold text-gray-800 py-3">
-                            {/* Empty cell, but keep the right alignment for visual separation */}
-                        </TableCell>
-                        
-                        {/* The new Actions cell containing the Add Shipment button */}
-                        <TableCell className="text-center font-bold text-blue-600 py-3">
-                            <AddShipmentDialog onSave={onAddShipment}>
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg transition-transform transform hover:scale-[1.01]">
-                                    <PlusCircle className="w-5 h-5 mr-2" />
-                                    Add a Shipment
+
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Dialog open={openDialogs[shipment.id]} onOpenChange={open => {
+                        if (!open) handleCloseEditDialog(shipment.id);
+                      }}>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(shipment.id)} className="border-blue-200 text-blue-700 hover:bg-blue-50" disabled={isEditing}>
+                                  {isEditing ? <RefreshCcw className="h-4 w-4 mr-1 animate-spin" /> : <Edit className="h-4 w-4 mr-1" />}
+                                  {isEditing ? "Updating" : "Edit"}
                                 </Button>
-                            </AddShipmentDialog>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
+                                </DialogHeader>
+                                <ShipmentEditForm shipment={shipment} onSubmit={data => handleEditSubmit(shipment.id, data)} onCancel={() => handleCloseEditDialog(shipment.id)} />
+                              </DialogContent>
+                            </Dialog>
+
+                            <Button variant="outline" size="sm" onClick={() => onRemoveShipment(shipment.id)} className="text-red-500 border-red-200 hover:bg-red-50">
+                              <X className="h-4 w-4 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
                         </TableCell>
-                    </TableRow>
-                </TableFooter>
-                )}
+                      </TableRow>;
+              })}
+                </TableBody>
               </Table>
             </Card>
           </div>
         </div>}
     </div>;
 };
+interface ShipmentEditFormProps {
+  shipment: BulkShipment;
+  onSubmit: (data: BulkShipment["details"]) => void;
+  onCancel: () => void;
+}
+const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
+  shipment,
+  onSubmit,
+  onCancel
+}) => {
+  const [weightUnit, setWeightUnit] = useState<"lb" | "oz" | "kg">("lb");
+  const [weightValue, setWeightValue] = useState<number>(shipment.details.weight || 1);
+  const form = useForm({
+    defaultValues: {
+      to_name: shipment.details.to_name,
+      to_company: shipment.details.to_company || "",
+      to_street1: shipment.details.to_street1,
+      to_street2: shipment.details.to_street2 || "",
+      to_city: shipment.details.to_city,
+      to_state: shipment.details.to_state,
+      to_zip: shipment.details.to_zip,
+      to_country: shipment.details.to_country,
+      to_phone: shipment.details.to_phone || "",
+      to_email: shipment.details.to_email || "",
+      weight: shipment.details.weight || 1,
+      length: shipment.details.length || 12,
+      width: shipment.details.width || 8,
+      height: shipment.details.height || 4,
+      reference: shipment.details.reference || ""
+    }
+  });
+  const handleFormSubmit = (data: any) => {
+    // Convert weight to ounces based on selected unit
+    let weightInOunces = weightValue;
+    if (weightUnit === "lb") {
+      weightInOunces = weightValue * 16;
+    } else if (weightUnit === "kg") {
+      weightInOunces = weightValue * 35.274;
+    }
+    onSubmit({
+      ...data,
+      weight: weightInOunces
+    });
+  };
+  return <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_name">Customer Name *</Label>
+          <Input id="to_name" {...form.register("to_name")} required />
+        </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="to_company">Company</Label>
+          <Input id="to_company" {...form.register("to_company")} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_phone">Phone</Label>
+          <Input id="to_phone" {...form.register("to_phone")} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="to_email">Email</Label>
+          <Input id="to_email" type="email" {...form.register("to_email")} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_street1">Address Line 1 *</Label>
+        <Input id="to_street1" {...form.register("to_street1")} required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_street2">Address Line 2</Label>
+        <Input id="to_street2" {...form.register("to_street2")} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_city">City *</Label>
+          <Input id="to_city" {...form.register("to_city")} required />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="to_state">State *</Label>
+          <Input id="to_state" {...form.register("to_state")} required />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="to_zip">ZIP Code *</Label>
+          <Input id="to_zip" {...form.register("to_zip")} required />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_country">Country *</Label>
+        <Input id="to_country" {...form.register("to_country")} required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="reference">Reference/Order #</Label>
+        <Input id="reference" {...form.register("reference")} />
+      </div>
+      <div className="p-6 rounded-xl px-0">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Package className="w-5 h-5" />
+          Package Details
+        </h3>
+
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="space-y-2">
+            <Label htmlFor="length">Length (in) *</Label>
+            <Input id="length" type="number" step="0.1" {...form.register("length", {
+            valueAsNumber: true
+          })} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="width">Width (in) *</Label>
+            <Input id="width" type="number" step="0.1" {...form.register("width", {
+            valueAsNumber: true
+          })} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="height">Height (in) *</Label>
+            <Input id="height" type="number" step="0.1" {...form.register("height", {
+            valueAsNumber: true
+          })} required />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="weight">Weight *</Label>
+            <Input id="weight" type="number" step="0.1" value={weightValue} onChange={e => setWeightValue(parseFloat(e.target.value) || 0)} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="weightUnit">Unit</Label>
+            <Select value={weightUnit} onValueChange={(value: "lb" | "oz" | "kg") => setWeightUnit(value)}>
+              <SelectTrigger id="weightUnit">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lb">Pounds (lb)</SelectItem>
+                <SelectItem value="oz">Ounces (oz)</SelectItem>
+                <SelectItem value="kg">Kilograms (kg)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">
+          <Check className="h-4 w-4 mr-1" />
+          Save & Refresh Rates
+        </Button>
+      </div>
+    </form>;
+};
 export default BulkShipmentsList;
