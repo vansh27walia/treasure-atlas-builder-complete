@@ -415,16 +415,16 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     </TableRow>
                   );
                 })}
-              {/* Add Another Shipment Row - Uses same FreshEditModal as Edit button */}
-              <TableRow className="hover:bg-muted/50 border-t border-dashed border-muted-foreground/30">
-                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-3 text-muted-foreground italic text-sm">New shipment...</TableCell>
-                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-3">
+{/* Add Another Shipment Row - Uses same FreshEditModal as Edit button */}
+              <TableRow className="bg-blue-50/50 hover:bg-blue-100/50 border-t-2 border-dashed border-blue-300">
+                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-4 text-muted-foreground italic text-sm">Add new shipment...</TableCell>
+                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-4">
                   <FreshEditModal
                     shipment={{
                       id: `new-${Date.now()}`,
