@@ -415,16 +415,18 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     </TableRow>
                   );
                 })}
-{/* Add Another Shipment Row - Uses same FreshEditModal as Edit button */}
-              <TableRow className="bg-blue-50/50 hover:bg-blue-100/50 border-t-2 border-dashed border-blue-300">
-                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-4 text-muted-foreground italic text-sm">Add new shipment...</TableCell>
-                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-4 text-center text-muted-foreground">—</TableCell>
-                <TableCell className="py-4">
+{/* Add Shipment Row - Empty row with only edit button */}
+              <TableRow className="border-t border-dashed border-muted">
+                <TableCell className="py-3 text-center font-medium text-muted-foreground">
+                  {filteredShipments.length + 1}
+                </TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell className="py-3">
                   <FreshEditModal
                     shipment={{
                       id: `new-${Date.now()}`,
@@ -452,7 +454,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                           successful: results.successful + 1
                         };
                         setResults(updatedResults);
-                        toast.success(`Shipment added! You can edit or delete it anytime.`);
+                        toast.success(`Shipment added!`);
                       }
                     }}
                     buttonLabel="Add a shipment"
