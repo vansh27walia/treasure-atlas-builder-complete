@@ -415,15 +415,16 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     </TableRow>
                   );
                 })}
-              {/* Add Another Shipment Row */}
-              <TableRow className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 hover:from-blue-100/50 hover:to-indigo-100/50 border-t-2 border-dashed border-primary/30">
-                <TableCell colSpan={7} className="py-4">
-                  <div className="flex items-center gap-3">
-                    <Plus className="h-5 w-5 text-primary" />
-                    <span className="text-muted-foreground">Add another shipment to your batch...</span>
-                  </div>
-                </TableCell>
-                <TableCell className="py-4">
+              {/* Add Another Shipment Row - Simple blank row with Add button */}
+              <TableRow className="hover:bg-muted/50 border-t border-dashed border-muted-foreground/30">
+                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-3 text-muted-foreground italic text-sm">New shipment...</TableCell>
+                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
+                <TableCell className="py-3">
                   <AddManualShipmentModal
                     pickupAddress={pickupAddress}
                     onShipmentAdded={(newShipment) => {
@@ -438,7 +439,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                       }
                     }}
                     triggerButton={
-                      <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+                      <Button variant="outline" size="sm">
                         <Plus className="mr-1 h-4 w-4" />
                         Add
                       </Button>
