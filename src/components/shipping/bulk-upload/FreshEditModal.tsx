@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Edit, RefreshCw } from "lucide-react";
+import { Edit, RefreshCw, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,9 +25,10 @@ interface FreshEditModalProps {
   shipment: any;
   pickupAddress: any;
   onUpdateShipment: (id: string, updated: any) => void;
+  buttonLabel?: string;
 }
 
-const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEditModalProps) => {
+const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel = "Edit" }: FreshEditModalProps) => {
   const [open, setOpen] = useState(false);
   const [customsModalOpen, setCustomsModalOpen] = useState(false);
   const [customsEnabled, setCustomsEnabled] = useState(false);
@@ -205,8 +206,9 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEdit
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-          <Edit className="h-4 w-4 mr-1" />
-          Edit
+          {buttonLabel === "Edit" && <Edit className="h-4 w-4 mr-1" />}
+          {buttonLabel !== "Edit" && <Plus className="h-4 w-4 mr-1" />}
+          {buttonLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">

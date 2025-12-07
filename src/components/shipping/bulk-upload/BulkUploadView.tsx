@@ -415,7 +415,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     </TableRow>
                   );
                 })}
-              {/* Add Another Shipment Row - Simple blank row with Add button */}
+              {/* Add Another Shipment Row - Uses same FreshEditModal as Edit button */}
               <TableRow className="hover:bg-muted/50 border-t border-dashed border-muted-foreground/30">
                 <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
                 <TableCell className="py-3 text-muted-foreground italic text-sm">New shipment...</TableCell>
@@ -425,25 +425,37 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                 <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
                 <TableCell className="py-3 text-center text-muted-foreground">—</TableCell>
                 <TableCell className="py-3">
-                  <AddManualShipmentModal
+                  <FreshEditModal
+                    shipment={{
+                      id: `new-${Date.now()}`,
+                      details: {
+                        toName: '',
+                        toStreet: '',
+                        toCity: '',
+                        toState: '',
+                        toZip: '',
+                        toCountry: 'US',
+                        weight: 0,
+                        length: 0,
+                        width: 0,
+                        height: 0,
+                      },
+                      rates: [],
+                      status: 'pending'
+                    }}
                     pickupAddress={pickupAddress}
-                    onShipmentAdded={(newShipment) => {
+                    onUpdateShipment={(id, updatedShipment) => {
                       if (results && setResults) {
                         const updatedResults = {
                           ...results,
-                          processedShipments: [...results.processedShipments, newShipment],
+                          processedShipments: [...results.processedShipments, updatedShipment],
                           successful: results.successful + 1
                         };
                         setResults(updatedResults);
                         toast.success(`Shipment added! You can edit or delete it anytime.`);
                       }
                     }}
-                    triggerButton={
-                      <Button variant="outline" size="sm">
-                        <Plus className="mr-1 h-4 w-4" />
-                        Add
-                      </Button>
-                    }
+                    buttonLabel="Add a shipment"
                   />
                 </TableCell>
               </TableRow>
