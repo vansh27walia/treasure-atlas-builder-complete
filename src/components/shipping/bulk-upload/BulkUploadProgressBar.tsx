@@ -43,10 +43,10 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
   };
 
   return (
-    <div className={`w-full py-4 sticky top-0 z-50 ${className}`}>
+    <div className={`w-full py-3 sticky top-0 z-50 ${className}`}>
       <div className="mx-auto max-w-4xl px-4">
-        {/* Glassy translucent container matching normal shipping */}
-        <div className="bg-white/30 backdrop-blur-xl shadow-xl border border-white/20 p-4 transition-all duration-300 hover:bg-white/40 rounded-3xl">
+        {/* Fully translucent glassy container */}
+        <div className="bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 p-4 rounded-3xl">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const status = getStepStatus(step.id);
@@ -55,30 +55,31 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
               return (
                 <div key={step.id} className="flex items-center flex-1">
                   <div className="flex flex-col items-center">
-                    {/* Step Circle with glassy effect */}
+                    {/* Step Circle */}
                     <div className={`
-                      w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative shadow-lg backdrop-blur-sm
+                      w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative
                       ${status === 'completed' 
-                        ? 'bg-blue-600/80 border-blue-500 text-white shadow-blue-500/30' 
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/40' 
                         : status === 'current' 
-                          ? 'bg-blue-100/60 border-blue-600 text-blue-700 ring-4 ring-blue-100/30 shadow-blue-500/20' 
-                          : 'bg-white/50 border-gray-300/50 text-gray-400 shadow-gray-200/30'}
+                          ? 'bg-white/80 border-blue-600 text-blue-700 shadow-lg shadow-blue-500/30' 
+                          : 'bg-white/40 border-gray-300/60 text-gray-400'}
                     `}>
-                      <Icon className="w-5 h-5" />
+                      <Icon className={`w-5 h-5 ${status === 'current' ? 'animate-pulse' : ''}`} />
                       
+                      {/* Blinking ring for current step */}
                       {status === 'current' && (
-                        <div className="absolute -inset-1 rounded-full bg-blue-500/20 animate-pulse" />
+                        <div className="absolute -inset-1.5 rounded-full border-2 border-blue-400 animate-ping opacity-75" />
                       )}
                     </div>
                     
-                    {/* Step Text with translucent background */}
+                    {/* Step Text */}
                     <div className="text-center mt-2">
-                      <div className={`text-xs font-bold transition-colors duration-300 px-2 py-1 rounded-lg backdrop-blur-sm ${
+                      <div className={`text-xs font-bold transition-colors duration-300 ${
                         status === 'current' 
-                          ? 'text-blue-700 bg-blue-100/40' 
+                          ? 'text-blue-700' 
                           : status === 'completed' 
-                            ? 'text-blue-600 bg-blue-50/40' 
-                            : 'text-gray-500 bg-gray-50/40'
+                            ? 'text-blue-600' 
+                            : 'text-gray-500'
                       }`}>
                         {step.title}
                       </div>
@@ -94,10 +95,10 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
                     </div>
                   </div>
                   
-                  {/* Connector Line with glassy effect */}
+                  {/* Connector Line */}
                   {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-4 rounded-full transition-all duration-500 backdrop-blur-sm ${
-                      status === 'completed' ? 'bg-blue-500/60' : 'bg-gray-200/40'
+                    <div className={`flex-1 h-1 mx-4 rounded-full transition-all duration-500 ${
+                      status === 'completed' ? 'bg-blue-500' : 'bg-gray-200/50'
                     }`} />
                   )}
                 </div>

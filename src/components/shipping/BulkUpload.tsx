@@ -259,10 +259,8 @@ const BulkUpload: React.FC = () => {
     handleDownloadLabelsClick();
   };
   return <>
-      {/* Sticky Progress Bar at the very top - curved and translucent like normal shipping */}
-      <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md shadow-sm rounded-b-3xl border-b border-gray-100">
-        <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} className="border rounded-2xl" />
-      </div>
+      {/* Sticky Progress Bar at the very top - translucent like normal shipping */}
+      <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
 
       <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
         <div className="container mx-auto px-4 py-8">
