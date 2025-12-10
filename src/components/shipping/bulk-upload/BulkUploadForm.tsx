@@ -255,7 +255,19 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   // Enhanced file selection step
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header with upload icon - only show on initial select step */}
+      <div className="text-center py-0">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+          <Upload className="w-8 h-8 text-blue-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Upload Your CSV File
+        </h2>
+        <p className="text-gray-600 mb-6">
+          Get started by uploading your CSV file. Our AI will handle the rest!
+        </p>
+      </div>
       {/* Enhanced Pickup Address Selection */}
       <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-lg">
         <CardContent className="p-6">
