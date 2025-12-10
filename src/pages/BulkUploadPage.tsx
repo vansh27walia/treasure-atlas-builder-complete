@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShipAIChatbot from "@/components/shipping/ShipAIChatbot";
 import { Progress } from "@/components/ui/progress";
-import BulkUploadProgressBar from "@/components/shipping/bulk-upload/BulkUploadProgressBar";
+
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
   const [uploadProgress, setUploadProgress] = React.useState(0);
-  const [currentStep, setCurrentStep] = React.useState<"upload" | "mapping" | "rates" | "labels">("upload");
-  const [completedSteps, setCompletedSteps] = React.useState<Array<"upload" | "mapping" | "rates" | "labels">>([]);
 
   const handleDownloadTemplate = () => {
     const csvContent = ["to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference", "John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234", "Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235", "Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236"].join("\n");
@@ -30,10 +28,6 @@ const BulkUploadPage = () => {
   };
 
   return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Sticky Progress Bar at the very top */}
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
-        <BulkUploadProgressBar currentStep={currentStep} completedSteps={completedSteps} />
-      </div>
 
       <div className="container mx-auto py-6 px-4">
         <div className="text-center mb-8">
