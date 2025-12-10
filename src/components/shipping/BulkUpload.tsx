@@ -19,7 +19,11 @@ import { toast } from 'sonner';
 import { SavedAddress } from '@/services/AddressService';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-const BulkUpload: React.FC = () => {
+interface BulkUploadProps {
+  onStatusChange?: (status: string) => void;
+}
+
+const BulkUpload: React.FC<BulkUploadProps> = ({ onStatusChange }) => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
@@ -82,7 +86,11 @@ const BulkUpload: React.FC = () => {
     return completed;
   };
 
-  // Handle AI panel events
+  // Notify parent of status changes
+  useEffect(() => {
+    onStatusChange?.(uploadStatus);
+  }, [uploadStatus, onStatusChange]);
+
   const handleAIAnalysis = (shipment?: any) => {
     setSelectedShipmentForAI(shipment || null);
     setAiPanelOpen(true);
