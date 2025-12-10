@@ -11,6 +11,9 @@ import BulkUploadProgressBar from "@/components/shipping/bulk-upload/BulkUploadP
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
   const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [currentStep, setCurrentStep] = React.useState<"upload" | "mapping" | "rates" | "labels">("upload");
+  const [completedSteps, setCompletedSteps] = React.useState<Array<"upload" | "mapping" | "rates" | "labels">>([]);
+
   const handleDownloadTemplate = () => {
     const csvContent = ["to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference", "John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234", "Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235", "Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236"].join("\n");
     const blob = new Blob([csvContent], {
@@ -25,13 +28,14 @@ const BulkUploadPage = () => {
     a.click();
     document.body.removeChild(a);
   };
-  const getCurrentStep = (): "upload" | "mapping" | "rates" | "labels" => "rates";
-  const getCompletedSteps = (): Array<"upload" | "mapping" | "rates" | "labels"> => ["upload"];
-  return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto py-[6px] px-[5px]">
-        
-        {/* END OF STEP PROGRESS BAR */}
 
+  return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Sticky Progress Bar at the very top */}
+      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
+        <BulkUploadProgressBar currentStep={currentStep} completedSteps={completedSteps} />
+      </div>
+
+      <div className="container mx-auto py-6 px-4">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 text-center">
             Bulk Shipping
@@ -41,13 +45,13 @@ const BulkUploadPage = () => {
             generation.
           </p>
         </div>
-        {/* 1. PERCENTAGE PROGRESS BAR: This remains where it was, below the heading and above the tabs. */}
+        
+        {/* Percentage Progress Bar */}
         {uploadProgress > 0 && uploadProgress < 100 && <div className="max-w-6xl mx-auto px-0 mb-6">
             <h3 className="text-md font-semibold text-blue-600 mb-2">Upload and Processing Progress</h3>
             <Progress value={uploadProgress} className="w-full h-3" />
             <p className="text-sm text-gray-500 mt-1">{uploadProgress}% Complete</p>
           </div>}
-        {/* END OF PERCENTAGE PROGRESS BAR */}
 
         {/* 2. TABS: This block is below all progress bars. */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
