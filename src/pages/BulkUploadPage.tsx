@@ -11,16 +11,6 @@ import { Progress } from "@/components/ui/progress";
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
   const [uploadProgress, setUploadProgress] = React.useState(0);
-  const [showTabs, setShowTabs] = React.useState(true);
-
-  const handleStatusChange = (status: string) => {
-    // Hide tabs once user proceeds past idle/uploading
-    if (status !== 'idle' && status !== 'uploading') {
-      setShowTabs(false);
-    } else {
-      setShowTabs(true);
-    }
-  };
 
   const handleDownloadTemplate = () => {
     const csvContent = ["to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference", "John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234", "Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235", "Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236"].join("\n");
@@ -57,25 +47,24 @@ const BulkUploadPage = () => {
             <p className="text-sm text-gray-500 mt-1">{uploadProgress}% Complete</p>
           </div>}
 
-        {/* 2. TABS: Only show when in idle/uploading state */}
-        {showTabs ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
-            <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
-              <TabsTrigger value="upload" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
-                <Upload className="h-4 w-4 mr-2" />
-                Smart Upload
-              </TabsTrigger>
-              <TabsTrigger value="template" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
-                <FileText className="h-4 w-4 mr-2" />
-                Template & Guide
-              </TabsTrigger>
-            </TabsList>
+        {/* 2. TABS: This block is below all progress bars. */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
+          <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
+            <TabsTrigger value="upload" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
+              <Upload className="h-4 w-4 mr-2" />
+              Smart Upload
+            </TabsTrigger>
+            <TabsTrigger value="template" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
+              <FileText className="h-4 w-4 mr-2" />
+              Template & Guide
+            </TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="upload" className="space-y-0">
-              <BulkUpload onStatusChange={handleStatusChange} />
-            </TabsContent>
+          <TabsContent value="upload" className="space-y-0">
+            <BulkUpload />
+          </TabsContent>
 
-            <TabsContent value="template" className="space-y-8">
+          <TabsContent value="template" className="space-y-8">
             {/* ... Template Content ... */}
             <Alert className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 shadow-sm">
               <div className="flex items-center space-x-3">
@@ -283,12 +272,7 @@ const BulkUploadPage = () => {
               </CardContent>
             </Card>
           </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="max-w-6xl mx-auto px-0">
-            <BulkUpload onStatusChange={handleStatusChange} />
-          </div>
-        )}
+        </Tabs>
       </div>
 
       {/* Unified AI Chatbot */}
