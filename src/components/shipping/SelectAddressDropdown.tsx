@@ -180,23 +180,29 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0 bg-white z-50" align="start">
-        <Command className="bg-white">
-          <CommandInput placeholder="Search address..." className="bg-white" />
-          <CommandList className="bg-white max-h-[300px] overflow-y-auto">
-            <CommandEmpty>
-              <div className="flex flex-col items-center justify-center py-6">
-                <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={refreshAddresses}
-                    disabled={isLoading}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Refresh
-                  </Button>
+      <PopoverContent className="w-[400px] p-0 bg-white z-50 max-h-[60vh] overflow-hidden" align="start" side="bottom" sideOffset={4} avoidCollisions={true} collisionPadding={16}>
+        <Command className="bg-white flex flex-col max-h-[60vh]">
+          {addresses.length > 0 && (
+            <CommandInput placeholder="Search address..." className="bg-white flex-shrink-0" />
+          )}
+          <CommandList className="bg-white flex-1 overflow-y-auto">
+            {addresses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 px-4">
+                <p className="text-sm text-muted-foreground mb-4 text-center">No pickup addresses saved yet.</p>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={handleAddNew}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New Address
+                </Button>
+              </div>
+            ) : (
+              <CommandEmpty>
+                <div className="flex flex-col items-center justify-center py-6">
+                  <p className="text-sm text-muted-foreground mb-2">No matching addresses</p>
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -206,85 +212,88 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                     Add new
                   </Button>
                 </div>
-              </div>
-            </CommandEmpty>
-            <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
-              {addresses.map((address) => (
-                <CommandItem
-                  key={address.id}
-                  value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={() => {
-                    console.log('Selecting address:', address);
-                    handleSelectAddress(address);
-                  }}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <div className="flex items-start mr-2">
-                    <Check
-                      className={cn(
-                        "h-4 w-4 mt-0.5",
-                        selectedAddress?.id === address.id 
-                          ? "opacity-100" 
-                          : "opacity-0"
-                      )}
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {address.name || 'Unnamed Address'}
-                      {isPickupAddress && address.is_default_from && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                          Default
+              </CommandEmpty>
+            )}
+            {addresses.length > 0 && (
+              <>
+                <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
+                  {addresses.map((address) => (
+                    <CommandItem
+                      key={address.id}
+                      value={`${address.id}-${address.name || address.street1}`}
+                      onSelect={() => {
+                        console.log('Selecting address:', address);
+                        handleSelectAddress(address);
+                      }}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-start mr-2">
+                        <Check
+                          className={cn(
+                            "h-4 w-4 mt-0.5",
+                            selectedAddress?.id === address.id 
+                              ? "opacity-100" 
+                              : "opacity-0"
+                          )}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {address.name || 'Unnamed Address'}
+                          {isPickupAddress && address.is_default_from && (
+                            <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                              Default
+                            </span>
+                          )}
+                          {!isPickupAddress && address.is_default_to && (
+                            <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                              Default
+                            </span>
+                          )}
                         </span>
-                      )}
-                      {!isPickupAddress && address.is_default_to && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                          Default
+                        <span className="text-sm text-muted-foreground">
+                          {formatAddressForDisplay(address)}
                         </span>
-                      )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup>
+                  {selectedAddress && (
+                    <CommandItem 
+                      onSelect={handleClearSelection}
+                      className="cursor-pointer hover:bg-gray-50 text-red-600"
+                    >
+                      <span className="font-medium flex items-center">
+                        Clear Selection
+                      </span>
+                    </CommandItem>
+                  )}
+                  <CommandItem 
+                    onSelect={refreshAddresses}
+                    className="cursor-pointer hover:bg-gray-50"
+                    disabled={isLoading}
+                  >
+                    <span className="font-medium text-blue-600 flex items-center">
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Refresh Addresses
                     </span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatAddressForDisplay(address)}
-                    </span>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              {selectedAddress && (
-                <CommandItem 
-                  onSelect={handleClearSelection}
-                  className="cursor-pointer hover:bg-gray-50 text-red-600"
-                >
-                  <span className="font-medium flex items-center">
-                    Clear Selection
-                  </span>
-                </CommandItem>
-              )}
-              <CommandItem 
-                onSelect={refreshAddresses}
-                className="cursor-pointer hover:bg-gray-50"
-                disabled={isLoading}
-              >
-                <span className="font-medium text-blue-600 flex items-center">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Addresses
-                </span>
-              </CommandItem>
-              {/* Only show "Add new address" option for pickup addresses */}
-              {isPickupAddress && (
-                <CommandItem 
-                  onSelect={handleAddNew}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <span className="font-medium text-green-600 flex items-center">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add new address
-                  </span>
-                </CommandItem>
-              )}
-            </CommandGroup>
+                  </CommandItem>
+                  {isPickupAddress && (
+                    <CommandItem 
+                      onSelect={handleAddNew}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <span className="font-medium text-green-600 flex items-center">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add new address
+                      </span>
+                    </CommandItem>
+                  )}
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
