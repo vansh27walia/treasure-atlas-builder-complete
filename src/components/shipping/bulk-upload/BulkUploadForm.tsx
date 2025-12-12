@@ -290,7 +290,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                   <span className="text-gray-600">Loading addresses...</span>
                 </div>
-              ) : (
+              ) : availableAddresses.length > 0 ? (
                 <Select value={selectedAddressId} onValueChange={(val) => {
                   if (val === '__add_new__') {
                     setShowAddAddressModal(true);
@@ -299,33 +299,32 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   handleAddressChange(val);
                 }}>
                   <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-3">
-                    <SelectValue placeholder={availableAddresses.length > 0 ? "Select pickup address" : "No addresses saved"} />
+                    <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50 max-h-[50vh] overflow-y-auto">
-                    {availableAddresses.length > 0 ? (
-                      <>
-                        {availableAddresses.map((address) => (
-                          <SelectItem key={address.id} value={address.id.toString()}>
-                            <div className="flex flex-col py-1">
-                              <span className="font-semibold text-gray-900">{address.name}</span>
-                              <span className="text-sm text-gray-500">
-                                {address.street1}, {address.city}, {address.state} {address.zip}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                        <div className="border-t my-1" />
-                      </>
-                    ) : (
-                      <div className="px-4 py-2 text-sm text-gray-500">
-                        No pickup addresses saved yet.
-                      </div>
-                    )}
+                  <SelectContent className="bg-white border shadow-lg z-50">
+                    {availableAddresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id.toString()}>
+                        <div className="flex flex-col py-1">
+                          <span className="font-semibold text-gray-900">{address.name}</span>
+                          <span className="text-sm text-gray-500">
+                            {address.street1}, {address.city}, {address.state} {address.zip}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    <div className="border-t my-1" />
                     <SelectItem value="__add_new__">
                       <div className="text-blue-700 font-medium">➕ Add new address</div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              ) : (
+                <Alert className="border-amber-200 bg-amber-50">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>No addresses found.</strong> Please add a pickup address in Settings first.
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           </div>
