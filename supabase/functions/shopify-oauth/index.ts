@@ -131,31 +131,11 @@ serve(async (req) => {
 
     console.log(`[SHOPIFY-OAUTH] Processing Action: ${action}, Shop: ${shop}, Host: ${host}`);
 
-    // Handle 'start' action - Direct Shopify install flow (no auth required from user initially)
-    // This is called when merchant clicks "Add app" from Shopify App Store or visits install URL
+    // Handle 'start' action - Direct Shopify install flow
+    // Supports TWO cases:
+    // 1. Shop is known (from Shopify App Store or install link) - redirect to shop-specific OAuth
+    // 2. Shop is UNKNOWN (user clicks Connect button) - redirect to centralized admin.shopify.com
     if (action === 'start') {
-      if (!shop) {
-        console.error('[SHOPIFY-OAUTH] No shop parameter provided for start action.');
-        return new Response('Missing shop parameter', {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-        });
-      }
-
-      // Validate and format shop domain
-      let shopDomain = shop.trim().toLowerCase();
-      if (!shopDomain.includes('.myshopify.com')) {
-        shopDomain = `${shopDomain}.myshopify.com`;
-      }
-
-      if (!shopDomain.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
-        console.error('[SHOPIFY-OAUTH] Invalid shop domain format:', shopDomain);
-        return new Response('Invalid shop domain format', {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-        });
-      }
-
       const shopifyApiKey = Deno.env.get('SHOPIFY_API_KEY');
       if (!shopifyApiKey) {
         console.error('[SHOPIFY-OAUTH] Shopify API key environment variable not configured.');
@@ -165,14 +145,54 @@ serve(async (req) => {
         });
       }
 
-      // Generate state for CSRF protection (no user ID yet, will be linked during callback)
+      const scopes = 'read_orders,read_products,read_customers';
+      const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
+      
+      // Generate state for CSRF protection
       const state = `pending_${crypto.randomUUID()}`;
       
-      // Store state in database with null user_id (will be updated during callback if user is logged in)
+      let authUrl: string;
+      let shopDomain = 'unknown'; // Placeholder for centralized flow
+
+      if (shop) {
+        // Case 1: Shop is known - use shop-specific OAuth URL
+        shopDomain = shop.trim().toLowerCase();
+        if (!shopDomain.includes('.myshopify.com')) {
+          shopDomain = `${shopDomain}.myshopify.com`;
+        }
+
+        if (!shopDomain.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
+          console.error('[SHOPIFY-OAUTH] Invalid shop domain format:', shopDomain);
+          return new Response('Invalid shop domain format', {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+          });
+        }
+
+        authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
+          `client_id=${shopifyApiKey}&` +
+          `scope=${scopes}&` +
+          `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+          `state=${state}`;
+        
+        console.log(`[SHOPIFY-OAUTH] Redirecting to shop-specific OAuth: ${authUrl}`);
+      } else {
+        // Case 2: Shop is UNKNOWN - use centralized admin.shopify.com
+        // Shopify will prompt user to log in and select their store
+        authUrl = `https://admin.shopify.com/admin/oauth/authorize?` +
+          `client_id=${shopifyApiKey}&` +
+          `scope=${scopes}&` +
+          `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+          `state=${state}`;
+        
+        console.log(`[SHOPIFY-OAUTH] Redirecting to centralized Shopify OAuth: ${authUrl}`);
+      }
+
+      // Store state in database
       const { error: stateError } = await supabaseClient
         .from('oauth_states')
         .insert({
-          user_id: '00000000-0000-0000-0000-000000000000', // Placeholder, will be updated
+          user_id: '00000000-0000-0000-0000-000000000000', // Placeholder, will be updated during callback
           state_value: state,
           shop_domain: shopDomain,
           platform: 'shopify'
@@ -185,17 +205,6 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
         });
       }
-
-      const scopes = 'read_orders,read_products,read_customers';
-      const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
-      
-      const authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
-        `client_id=${shopifyApiKey}&` +
-        `scope=${scopes}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `state=${state}`;
-
-      console.log(`[SHOPIFY-OAUTH] Redirecting to Shopify OAuth: ${authUrl}`);
 
       // Redirect directly to Shopify OAuth screen
       return new Response(null, {

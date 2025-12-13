@@ -126,17 +126,13 @@ const ImportPage = () => {
     }
     
     // Direct redirect to the Shopify OAuth start endpoint
-    // The shop parameter will come from Shopify App Store or install link
-    // We redirect to our backend which will then redirect to Shopify
+    // No shop parameter needed - backend will use centralized admin.shopify.com
+    // which prompts user to log in and select their store
     setIsConnecting(true);
     
-    // Redirect directly to the OAuth start endpoint
-    // Since we don't have the shop yet, show instructions to the user
-    toast.info(
-      'To connect your store, please install our app from the Shopify App Store or use your store-specific install link.',
-      { duration: 8000 }
-    );
-    setIsConnecting(false);
+    // Redirect directly to our backend OAuth start endpoint
+    // The backend will redirect to https://admin.shopify.com/admin/oauth/authorize
+    window.location.href = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?action=start`;
   };
 
   // Handle direct install link (when shop parameter is in URL from Shopify)
@@ -324,28 +320,23 @@ const ImportPage = () => {
                     )}
                   </Button>
                 ) : (
-                  <>
-                    <Button 
-                      onClick={handleConnectClick} 
-                      disabled={isConnecting}
-                      className="w-full"
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Connect Store
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Install from Shopify App Store or use your install link
-                    </p>
-                  </>
+                  <Button 
+                    onClick={handleConnectClick} 
+                    disabled={isConnecting}
+                    className="w-full"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Connect Shopify
+                      </>
+                    )}
+                  </Button>
                 )}
               </div>
             ) : (
