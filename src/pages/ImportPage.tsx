@@ -119,20 +119,32 @@ const ImportPage = () => {
     }
   };
 
-  const handleConnectClick = () => {
+  const handleConnectClick = async () => {
     if (!user) {
       toast.error('Please sign in to connect your Shopify store');
       return;
     }
     
-    // Direct redirect to the Shopify OAuth start endpoint
-    // No shop parameter needed - backend will use centralized admin.shopify.com
-    // which prompts user to log in and select their store
     setIsConnecting(true);
     
-    // Redirect directly to our backend OAuth start endpoint
-    // The backend will redirect to https://admin.shopify.com/admin/oauth/authorize
-    window.location.href = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?action=start`;
+    try {
+      // Get the current session to pass the access token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Session expired. Please sign in again.');
+        setIsConnecting(false);
+        return;
+      }
+      
+      // Redirect to backend OAuth start endpoint with user token
+      // Backend will store the real user_id with the OAuth state
+      window.location.href = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?action=start&token=${encodeURIComponent(session.access_token)}`;
+    } catch (error) {
+      console.error('Error starting Shopify OAuth:', error);
+      toast.error('Failed to start Shopify connection');
+      setIsConnecting(false);
+    }
   };
 
   // Handle direct install link (when shop parameter is in URL from Shopify)
