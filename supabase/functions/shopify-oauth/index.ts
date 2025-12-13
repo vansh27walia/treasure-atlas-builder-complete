@@ -59,18 +59,25 @@ async function validateHmac(query: URLSearchParams, secret: string): Promise<boo
  * Dynamically constructs the frontend redirect URL based on Shopify's host parameter.
  * This is crucial for embedded apps to redirect back into the Shopify admin.
  */
-function getFrontendRedirectUrl(shopDomain: string, hostParam: string, path = '/import') {
-  let decodedHost = '';
-  try {
-    // Shopify's 'host' parameter is base64 encoded
-    decodedHost = atob(hostParam);
-  } catch (e) {
-    console.error('[SHOPIFY-OAUTH] Failed to decode host parameter:', e);
-    return `https://${shopDomain}${path}`; // Simple fallback to shop domain
+function getFrontendRedirectUrl(shopDomain: string, hostParam: string | null, path = '/import') {
+  console.log(`[LOGGING] Entering getFrontendRedirectUrl for shop: ${shopDomain}, host: ${hostParam}, path: ${path}`);
+  
+  // Use the deployed app URL
+  const baseFrontendAppUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
+  
+  if (hostParam) {
+    try {
+      // Shopify's 'host' parameter is base64 encoded
+      const decodedHost = atob(hostParam);
+      console.log(`[LOGGING] Decoded host parameter: ${decodedHost}`);
+    } catch (e) {
+      console.error('[SHOPIFY-OAUTH] Failed to decode host parameter:', e);
+    }
   }
   
-  const baseFrontendAppUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || `https://app.vvapglobal.com`;
-  return `${baseFrontendAppUrl}${path}?shop=${encodeURIComponent(shopDomain)}&host=${encodeURIComponent(hostParam)}`;
+  const redirectUrl = `${baseFrontendAppUrl}${path}?shop=${encodeURIComponent(shopDomain)}${hostParam ? '&host=' + encodeURIComponent(hostParam) : ''}`;
+  console.log(`[LOGGING] Constructed redirect URL: ${redirectUrl}`);
+  return redirectUrl;
 }
 
 serve(async (req) => {
@@ -189,12 +196,14 @@ serve(async (req) => {
       }
 
       // Store state in database
+      // For centralized flow (shop unknown), we store a placeholder shop domain
+      // The callback will match by state_value only, not shop_domain
       const { error: stateError } = await supabaseClient
         .from('oauth_states')
         .insert({
           user_id: '00000000-0000-0000-0000-000000000000', // Placeholder, will be updated during callback
           state_value: state,
-          shop_domain: shopDomain,
+          shop_domain: shop ? shopDomain : 'pending', // 'pending' for centralized flow
           platform: 'shopify'
         });
 
@@ -205,6 +214,9 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
         });
       }
+
+      console.log(`[SHOPIFY-OAUTH] OAuth state stored successfully. State: ${state}, Shop: ${shop ? shopDomain : 'pending (centralized)'}`);
+
 
       // Redirect directly to Shopify OAuth screen
       return new Response(null, {
@@ -358,15 +370,39 @@ serve(async (req) => {
       }
 
       // Verify state against stored records
-      const { data: stateRecord, error: stateError } = await supabaseClient
+      // First try exact match, then try matching just by state_value (for centralized flow)
+      let stateRecord = null;
+      let stateError = null;
+      
+      // Try matching by state_value and shop_domain first
+      const { data: exactMatch, error: exactError } = await supabaseClient
         .from('oauth_states')
         .select('*')
         .eq('state_value', state)
         .eq('shop_domain', shop)
         .single();
+      
+      if (exactMatch) {
+        stateRecord = exactMatch;
+      } else {
+        // Try matching by state_value with 'pending' shop (centralized flow)
+        const { data: pendingMatch, error: pendingError } = await supabaseClient
+          .from('oauth_states')
+          .select('*')
+          .eq('state_value', state)
+          .eq('shop_domain', 'pending')
+          .single();
+        
+        if (pendingMatch) {
+          stateRecord = pendingMatch;
+          console.log('[SHOPIFY-OAUTH] Matched pending state from centralized flow');
+        } else {
+          stateError = exactError || pendingError;
+        }
+      }
 
       if (stateError || !stateRecord) {
-        console.error('[SHOPIFY-OAUTH] State validation failed:', stateError?.message || 'No record found.');
+        console.error('[SHOPIFY-OAUTH] State validation failed:', stateError?.message || 'No record found for state: ' + state);
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
           : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
@@ -375,6 +411,8 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=state_validation_failed` }
         });
       }
+      
+      console.log(`[SHOPIFY-OAUTH] State validation successful for shop: ${shop}`);
 
       // Use the user_id from the state record if available and not pending
       if (!isPendingState && stateRecord.user_id) {
