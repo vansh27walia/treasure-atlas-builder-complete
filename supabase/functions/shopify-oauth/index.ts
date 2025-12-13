@@ -108,14 +108,15 @@ serve(async (req) => {
       }
     }
 
-    // Determine the action
+    // Determine the action based on URL parameters
+    // Priority: code (callback) > action param > shop param only (start flow from Shopify)
     if (url.searchParams.get('code')) {
       action = 'callback';
-    } else {
-      action = url.searchParams.get('action');
-      if (!action && (requestBody as any).action) {
-        action = (requestBody as any).action;
-      }
+    } else if (url.searchParams.get('action') || (requestBody as any).action) {
+      action = url.searchParams.get('action') || (requestBody as any).action;
+    } else if (url.searchParams.get('shop') && req.method === 'GET') {
+      // This is the Shopify install flow - shop param without code means start OAuth
+      action = 'start';
     }
 
     // Determine the shop domain and host
@@ -130,7 +131,80 @@ serve(async (req) => {
 
     console.log(`[SHOPIFY-OAUTH] Processing Action: ${action}, Shop: ${shop}, Host: ${host}`);
 
-    // Handle 'initiate' action - REQUIRES AUTHENTICATION
+    // Handle 'start' action - Direct Shopify install flow (no auth required from user initially)
+    // This is called when merchant clicks "Add app" from Shopify App Store or visits install URL
+    if (action === 'start') {
+      if (!shop) {
+        console.error('[SHOPIFY-OAUTH] No shop parameter provided for start action.');
+        return new Response('Missing shop parameter', {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+        });
+      }
+
+      // Validate and format shop domain
+      let shopDomain = shop.trim().toLowerCase();
+      if (!shopDomain.includes('.myshopify.com')) {
+        shopDomain = `${shopDomain}.myshopify.com`;
+      }
+
+      if (!shopDomain.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
+        console.error('[SHOPIFY-OAUTH] Invalid shop domain format:', shopDomain);
+        return new Response('Invalid shop domain format', {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+        });
+      }
+
+      const shopifyApiKey = Deno.env.get('SHOPIFY_API_KEY');
+      if (!shopifyApiKey) {
+        console.error('[SHOPIFY-OAUTH] Shopify API key environment variable not configured.');
+        return new Response('Server configuration error', {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+        });
+      }
+
+      // Generate state for CSRF protection (no user ID yet, will be linked during callback)
+      const state = `pending_${crypto.randomUUID()}`;
+      
+      // Store state in database with null user_id (will be updated during callback if user is logged in)
+      const { error: stateError } = await supabaseClient
+        .from('oauth_states')
+        .insert({
+          user_id: '00000000-0000-0000-0000-000000000000', // Placeholder, will be updated
+          state_value: state,
+          shop_domain: shopDomain,
+          platform: 'shopify'
+        });
+
+      if (stateError) {
+        console.error('[SHOPIFY-OAUTH] Error storing OAuth state in database:', stateError.message);
+        return new Response('Failed to initialize OAuth', {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+        });
+      }
+
+      const scopes = 'read_orders,read_products,read_customers';
+      const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
+      
+      const authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
+        `client_id=${shopifyApiKey}&` +
+        `scope=${scopes}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${state}`;
+
+      console.log(`[SHOPIFY-OAUTH] Redirecting to Shopify OAuth: ${authUrl}`);
+
+      // Redirect directly to Shopify OAuth screen
+      return new Response(null, {
+        status: 302,
+        headers: { ...corsHeaders, 'Location': authUrl }
+      });
+    }
+
+    // Handle 'initiate' action - REQUIRES AUTHENTICATION (legacy flow for manual shop input)
     if (action === 'initiate') {
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
@@ -241,27 +315,37 @@ serve(async (req) => {
 
       if (!code || !shop || !state || !hmac) {
         console.error('[SHOPIFY-OAUTH] Missing required callback parameters.');
-        // If we don't have host, we can't construct a proper redirect, so redirect to a fallback
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop || '')}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=missing_parameters` }
         });
       }
 
-      // Validate state format and extract user ID
-      const [userId] = state.split('_');
-      if (!userId) {
-        console.error('[SHOPIFY-OAUTH] Invalid state format (missing user ID).');
-        const frontendUrl = host 
-          ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
-        return new Response(null, {
-          status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=invalid_state` }
-        });
+      // Check if this is a pending state (from 'start' flow) or user-specific state (from 'initiate' flow)
+      const isPendingState = state.startsWith('pending_');
+      let userId: string | null = null;
+
+      if (isPendingState) {
+        // For 'start' flow, we need to redirect user to login first if not authenticated
+        // For now, we'll create a temporary connection that can be claimed later
+        // or prompt the user to log in on the frontend
+        console.log('[SHOPIFY-OAUTH] Processing pending state from direct install flow');
+      } else {
+        // Extract user ID from state for 'initiate' flow
+        [userId] = state.split('_');
+        if (!userId) {
+          console.error('[SHOPIFY-OAUTH] Invalid state format (missing user ID).');
+          const frontendUrl = host 
+            ? getFrontendRedirectUrl(shop, host, '/import')
+            : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          return new Response(null, {
+            status: 302,
+            headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=invalid_state` }
+          });
+        }
       }
 
       // Verify state against stored records
@@ -281,6 +365,11 @@ serve(async (req) => {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=state_validation_failed` }
         });
+      }
+
+      // Use the user_id from the state record if available and not pending
+      if (!isPendingState && stateRecord.user_id) {
+        userId = stateRecord.user_id;
       }
 
       // Get Shopify API credentials
@@ -338,6 +427,24 @@ serve(async (req) => {
 
       const tokenData = await tokenResponse.json();
       console.log('[SHOPIFY-OAUTH] Token exchange successful');
+
+      // For pending states (direct install), redirect to frontend with token info
+      // The frontend will then prompt for login and claim the connection
+      if (isPendingState || !userId) {
+        // Store token temporarily and redirect to frontend for user to log in and claim
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import`;
+        
+        // Redirect with pending connection info - frontend will handle login and claiming
+        return new Response(null, {
+          status: 302,
+          headers: { 
+            ...corsHeaders, 
+            'Location': `${frontendUrl}?pending_shop=${encodeURIComponent(shop)}&connected=pending&token_scope=${encodeURIComponent(tokenData.scope || '')}`
+          }
+        });
+      }
 
       // Store the Shopify connection
       const { error: insertError } = await supabaseClient
