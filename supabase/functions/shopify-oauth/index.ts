@@ -152,6 +152,21 @@ serve(async (req) => {
         });
       }
 
+      // Extract user token from query param (passed from frontend)
+      const userToken = url.searchParams.get('token');
+      let actualUserId = '00000000-0000-0000-0000-000000000000'; // Fallback placeholder
+      
+      if (userToken) {
+        // Verify the token and get the real user ID
+        const { data: { user: tokenUser }, error: tokenError } = await supabaseClient.auth.getUser(userToken);
+        if (tokenUser && !tokenError) {
+          actualUserId = tokenUser.id;
+          console.log(`[SHOPIFY-OAUTH] Verified user from token: ${actualUserId}`);
+        } else {
+          console.warn('[SHOPIFY-OAUTH] Could not verify token, using placeholder user_id');
+        }
+      }
+
       const scopes = 'read_orders,read_products,read_customers';
       const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
       
@@ -195,13 +210,11 @@ serve(async (req) => {
         console.log(`[SHOPIFY-OAUTH] Redirecting to centralized Shopify OAuth: ${authUrl}`);
       }
 
-      // Store state in database
-      // For centralized flow (shop unknown), we store a placeholder shop domain
-      // The callback will match by state_value only, not shop_domain
+      // Store state in database WITH the real user_id
       const { error: stateError } = await supabaseClient
         .from('oauth_states')
         .insert({
-          user_id: '00000000-0000-0000-0000-000000000000', // Placeholder, will be updated during callback
+          user_id: actualUserId,
           state_value: state,
           shop_domain: shop ? shopDomain : 'pending', // 'pending' for centralized flow
           platform: 'shopify'
@@ -215,7 +228,7 @@ serve(async (req) => {
         });
       }
 
-      console.log(`[SHOPIFY-OAUTH] OAuth state stored successfully. State: ${state}, Shop: ${shop ? shopDomain : 'pending (centralized)'}`);
+      console.log(`[SHOPIFY-OAUTH] OAuth state stored successfully. State: ${state}, Shop: ${shop ? shopDomain : 'pending (centralized)'}, User: ${actualUserId}`);
 
 
       // Redirect directly to Shopify OAuth screen
@@ -414,9 +427,17 @@ serve(async (req) => {
       
       console.log(`[SHOPIFY-OAUTH] State validation successful for shop: ${shop}`);
 
-      // Use the user_id from the state record if available and not pending
-      if (!isPendingState && stateRecord.user_id) {
-        userId = stateRecord.user_id;
+      // Use the user_id from the state record
+      // Check if it's a real user_id or the placeholder
+      const placeholderUserId = '00000000-0000-0000-0000-000000000000';
+      const storedUserId = stateRecord.user_id;
+      const hasRealUser = storedUserId && storedUserId !== placeholderUserId;
+      
+      if (hasRealUser) {
+        userId = storedUserId;
+        console.log(`[SHOPIFY-OAUTH] Using stored user_id: ${userId}`);
+      } else {
+        console.log('[SHOPIFY-OAUTH] No real user_id stored, will redirect as pending');
       }
 
       // Get Shopify API credentials
@@ -475,13 +496,15 @@ serve(async (req) => {
       const tokenData = await tokenResponse.json();
       console.log('[SHOPIFY-OAUTH] Token exchange successful');
 
-      // For pending states (direct install), redirect to frontend with token info
-      // The frontend will then prompt for login and claim the connection
-      if (isPendingState || !userId) {
-        // Store token temporarily and redirect to frontend for user to log in and claim
+      // Only treat as pending if we don't have a real user_id
+      // (This happens when someone installs directly from Shopify without being logged in)
+      const isActuallyPending = !userId || userId === '00000000-0000-0000-0000-000000000000';
+      
+      if (isActuallyPending) {
+        console.log('[SHOPIFY-OAUTH] No real user - redirecting as pending for frontend login');
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import`;
+          : `https://app.shippingquick.io/import`;
         
         // Redirect with pending connection info - frontend will handle login and claiming
         return new Response(null, {
@@ -492,6 +515,8 @@ serve(async (req) => {
           }
         });
       }
+
+      console.log(`[SHOPIFY-OAUTH] Saving connection for user: ${userId}, shop: ${shop}`);
 
       // Store the Shopify connection
       const { error: insertError } = await supabaseClient
