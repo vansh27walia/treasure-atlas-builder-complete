@@ -124,75 +124,43 @@ const ImportPage = () => {
       toast.error('Please sign in to connect your Shopify store');
       return;
     }
-    // Direct redirect to Shopify OAuth - no shop URL input needed
-    connectShopify();
-  };
-
-  const connectShopify = async () => {
-    if (!user) {
-      toast.error('Please sign in first');
-      return;
-    }
-
+    
+    // Direct redirect to the Shopify OAuth start endpoint
+    // The shop parameter will come from Shopify App Store or install link
+    // We redirect to our backend which will then redirect to Shopify
     setIsConnecting(true);
     
-    try {
-      console.log('Initiating Shopify OAuth');
+    // Redirect directly to the OAuth start endpoint
+    // Since we don't have the shop yet, show instructions to the user
+    toast.info(
+      'To connect your store, please install our app from the Shopify App Store or use your store-specific install link.',
+      { duration: 8000 }
+    );
+    setIsConnecting(false);
+  };
 
-      // Get the current user's session to get the access token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        throw new Error('User session not found. Please log in again.');
-      }
-
-      // For the new flow, we'll show a dialog asking for shop URL since we need it
-      // to redirect to the correct Shopify store's OAuth screen
-      const shopName = prompt('Enter your Shopify store name (e.g., mystore for mystore.myshopify.com):');
-      
-      if (!shopName || !shopName.trim()) {
-        setIsConnecting(false);
-        return;
-      }
-
-      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ 
-          action: 'initiate', 
-          shop: shopName.trim() 
-        })
-      });
-
-      console.log('OAuth initiate response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OAuth initiate error:', errorData);
-        throw new Error(errorData.error || 'Failed to initiate OAuth');
-      }
-
-      const data = await response.json();
-      const { authUrl } = data;
-      
-      if (!authUrl) {
-        throw new Error('No auth URL received');
-      }
-
-      console.log('Redirecting to Shopify OAuth URL:', authUrl);
-      
-      // Redirect to Shopify OAuth
-      window.location.href = authUrl;
-      
-    } catch (error: any) {
-      console.error('Error connecting to Shopify:', error);
-      toast.error(`Failed to connect to Shopify: ${error.message}`);
-      setIsConnecting(false);
+  // Handle direct install link (when shop parameter is in URL from Shopify)
+  const handleDirectInstall = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopFromUrl = urlParams.get('shop');
+    
+    if (shopFromUrl && user) {
+      // We have a shop from Shopify, redirect to start OAuth
+      setIsConnecting(true);
+      window.location.href = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?shop=${encodeURIComponent(shopFromUrl)}`;
     }
   };
+
+  // Check if we came from a Shopify install link and handle it
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopFromUrl = urlParams.get('shop');
+    
+    if (shopFromUrl && user && !isConnected) {
+      // Auto-redirect to OAuth if shop is in URL and user is logged in
+      handleDirectInstall();
+    }
+  }, [user, isConnected]);
 
   const fetchShopifyOrders = async () => {
     if (!user) return;
@@ -337,27 +305,47 @@ const ImportPage = () => {
             
             {!isConnected ? (
               <div className="space-y-3">
-                <Button 
-                  onClick={handleConnectClick} 
-                  disabled={isConnecting}
-                  className="w-full"
-                >
-                  {isConnecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Connect Store
-                    </>
-                  )}
-                </Button>
-                {pendingShop && (
-                  <p className="text-xs text-amber-600">
-                    Pending connection to {pendingShop} - click Connect to complete
-                  </p>
+                {pendingShop ? (
+                  <Button 
+                    onClick={handleDirectInstall} 
+                    disabled={isConnecting}
+                    className="w-full"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Complete Connection to {pendingShop}
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <>
+                    <Button 
+                      onClick={handleConnectClick} 
+                      disabled={isConnecting}
+                      className="w-full"
+                    >
+                      {isConnecting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Connect Store
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Install from Shopify App Store or use your install link
+                    </p>
+                  </>
                 )}
               </div>
             ) : (
