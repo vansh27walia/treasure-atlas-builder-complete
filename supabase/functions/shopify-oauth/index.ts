@@ -157,32 +157,13 @@ serve(async (req) => {
       let actualUserId = '00000000-0000-0000-0000-000000000000'; // Fallback placeholder
       
       if (userToken) {
-        try {
-          // Decode JWT to extract user ID directly
-          // The token is a JWT, we can decode the payload to get the user ID
-          const parts = userToken.split('.');
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1]));
-            if (payload.sub) {
-              actualUserId = payload.sub;
-              console.log(`[SHOPIFY-OAUTH] Extracted user_id from JWT: ${actualUserId}`);
-            }
-          }
-        } catch (decodeError) {
-          console.warn('[SHOPIFY-OAUTH] Could not decode token:', decodeError);
-        }
-        
-        // Also try to verify with Supabase auth (optional, for extra validation)
-        try {
-          const { data: { user: tokenUser }, error: tokenError } = await supabaseClient.auth.getUser(userToken);
-          if (tokenUser && !tokenError) {
-            actualUserId = tokenUser.id;
-            console.log(`[SHOPIFY-OAUTH] Verified user from Supabase auth: ${actualUserId}`);
-          } else if (tokenError) {
-            console.log(`[SHOPIFY-OAUTH] Supabase auth verification failed (using JWT decode): ${tokenError.message}`);
-          }
-        } catch (authError) {
-          console.log('[SHOPIFY-OAUTH] Auth verification error (using JWT decode instead):', authError);
+        // Verify the token and get the real user ID
+        const { data: { user: tokenUser }, error: tokenError } = await supabaseClient.auth.getUser(userToken);
+        if (tokenUser && !tokenError) {
+          actualUserId = tokenUser.id;
+          console.log(`[SHOPIFY-OAUTH] Verified user from token: ${actualUserId}`);
+        } else {
+          console.warn('[SHOPIFY-OAUTH] Could not verify token, using placeholder user_id');
         }
       }
 
