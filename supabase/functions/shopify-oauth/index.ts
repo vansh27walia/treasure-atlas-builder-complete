@@ -167,8 +167,17 @@ serve(async (req) => {
         }
       }
 
-      const scopes = 'read_orders,read_products,read_customers';
+      // SCOPES: Include read_orders, write_orders, read_products, read_customers
+      const scopes = 'read_orders,write_orders,read_products,read_customers';
       const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
+      
+      console.log(`[SHOPIFY-OAUTH][START] ========== OAUTH START FLOW ==========`);
+      console.log(`[SHOPIFY-OAUTH][START] Timestamp: ${new Date().toISOString()}`);
+      console.log(`[SHOPIFY-OAUTH][START] Requested scopes: ${scopes}`);
+      console.log(`[SHOPIFY-OAUTH][START] Redirect URI: ${redirectUri}`);
+      console.log(`[SHOPIFY-OAUTH][START] Shop from request: ${shop || 'NOT PROVIDED (centralized flow)'}`);
+      console.log(`[SHOPIFY-OAUTH][START] User token provided: ${!!userToken}`);
+      console.log(`[SHOPIFY-OAUTH][START] Resolved user_id: ${actualUserId}`);
       
       // Generate state for CSRF protection
       const state = `pending_${crypto.randomUUID()}`;
@@ -313,8 +322,16 @@ serve(async (req) => {
         });
       }
 
-      const scopes = 'read_orders,read_products,read_customers';
+      // SCOPES: Include read_orders, write_orders, read_products, read_customers
+      const scopes = 'read_orders,write_orders,read_products,read_customers';
       const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
+      
+      console.log(`[SHOPIFY-OAUTH][INITIATE] ========== OAUTH INITIATE FLOW ==========`);
+      console.log(`[SHOPIFY-OAUTH][INITIATE] Timestamp: ${new Date().toISOString()}`);
+      console.log(`[SHOPIFY-OAUTH][INITIATE] Requested scopes: ${scopes}`);
+      console.log(`[SHOPIFY-OAUTH][INITIATE] Redirect URI: ${redirectUri}`);
+      console.log(`[SHOPIFY-OAUTH][INITIATE] Shop domain: ${shopDomain}`);
+      console.log(`[SHOPIFY-OAUTH][INITIATE] User ID: ${user.id}`);
       
       console.log(`[SHOPIFY-OAUTH] Generated Shopify Redirect URI: ${redirectUri}`);
 
@@ -341,11 +358,22 @@ serve(async (req) => {
       // CALLBACK DOES NOT REQUIRE AUTHORIZATION HEADER
       // This is a direct redirect from Shopify, not from our authenticated frontend
       
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ========== OAUTH CALLBACK RECEIVED ==========`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Timestamp: ${new Date().toISOString()}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Full callback URL: ${req.url}`);
+      
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
       const hmac = url.searchParams.get('hmac');
+      const timestamp = url.searchParams.get('timestamp');
 
-      console.log(`[SHOPIFY-OAUTH] Callback received - Code: ${!!code}, Shop: ${shop}, State: ${!!state}, HMAC: ${!!hmac}, Host: ${!!host}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Parameters received:`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK]   - code: ${code ? code.substring(0, 10) + '...' : 'MISSING'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK]   - shop: ${shop || 'MISSING'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK]   - state: ${state || 'MISSING'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK]   - hmac: ${hmac ? 'PROVIDED' : 'MISSING'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK]   - timestamp: ${timestamp || 'NOT PROVIDED'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK]   - host: ${host || 'NOT PROVIDED'}`);
 
       if (!code || !shop || !state || !hmac) {
         console.error('[SHOPIFY-OAUTH] Missing required callback parameters.');
@@ -456,9 +484,11 @@ serve(async (req) => {
       }
 
       // Validate HMAC signature
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Starting HMAC validation...`);
       const isValidHmac = await validateHmac(url.searchParams, shopifyApiSecret);
       if (!isValidHmac) {
-        console.error('[SHOPIFY-OAUTH] HMAC validation failed.');
+        console.error('[SHOPIFY-OAUTH][CALLBACK] ❌ HMAC validation FAILED');
+        console.error('[SHOPIFY-OAUTH][CALLBACK] This could indicate a security issue or misconfigured API secret');
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
           : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
@@ -468,9 +498,14 @@ serve(async (req) => {
         });
       }
 
-      console.log(`[SHOPIFY-OAUTH] HMAC validation successful for shop: ${shop}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ✅ HMAC validation SUCCESSFUL for shop: ${shop}`);
 
       // Exchange code for access token
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ========== TOKEN EXCHANGE ==========`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Exchanging authorization code for access token...`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Token endpoint: https://${shop}/admin/oauth/access_token`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Client ID: ${shopifyApiKey?.substring(0, 8)}...`);
+      
       const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -481,9 +516,14 @@ serve(async (req) => {
         })
       });
 
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Token response status: ${tokenResponse.status}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Token response headers: ${JSON.stringify(Object.fromEntries(tokenResponse.headers))}`);
+
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
-        console.error('[SHOPIFY-OAUTH] Token exchange failed:', tokenResponse.status, errorText);
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] ❌ Token exchange FAILED`);
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] Status: ${tokenResponse.status}`);
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] Error response: ${errorText}`);
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
           : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
@@ -494,7 +534,9 @@ serve(async (req) => {
       }
 
       const tokenData = await tokenResponse.json();
-      console.log('[SHOPIFY-OAUTH] Token exchange successful');
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ✅ Token exchange SUCCESSFUL`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Access token received: ${tokenData.access_token ? 'YES (hidden)' : 'NO'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes granted: ${tokenData.scope || 'NOT PROVIDED'}`);
 
       // Only treat as pending if we don't have a real user_id
       // (This happens when someone installs directly from Shopify without being logged in)
@@ -516,23 +558,32 @@ serve(async (req) => {
         });
       }
 
-      console.log(`[SHOPIFY-OAUTH] Saving connection for user: ${userId}, shop: ${shop}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ========== SAVING CONNECTION ==========`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] User ID: ${userId}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Shop: ${shop}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes to save: ${tokenData.scope}`);
 
       // Store the Shopify connection
+      const connectionData = {
+        user_id: userId,
+        shop: shop,
+        access_token: tokenData.access_token,
+        scopes: tokenData.scope,
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Upserting connection data...`);
+      
       const { error: insertError } = await supabaseClient
         .from('shopify_connections')
-        .upsert({
-          user_id: userId,
-          shop: shop,
-          access_token: tokenData.access_token,
-          scopes: tokenData.scope,
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(connectionData, {
           onConflict: 'user_id,shop'
         });
 
       if (insertError) {
-        console.error('[SHOPIFY-OAUTH] Error storing connection:', insertError.message);
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] ❌ Connection save FAILED`);
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] Error: ${insertError.message}`);
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] Error details: ${JSON.stringify(insertError)}`);
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
           : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
@@ -542,10 +593,21 @@ serve(async (req) => {
         });
       }
 
-      // Clean up OAuth state
-      await supabaseClient.from('oauth_states').delete().eq('state_value', state);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ✅ Connection saved SUCCESSFULLY`);
 
-      console.log('[SHOPIFY-OAUTH] Connection saved successfully for user:', userId);
+      // Clean up OAuth state
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Cleaning up OAuth state...`);
+      const { error: deleteError } = await supabaseClient.from('oauth_states').delete().eq('state_value', state);
+      if (deleteError) {
+        console.warn(`[SHOPIFY-OAUTH][CALLBACK] Warning: Could not delete state: ${deleteError.message}`);
+      } else {
+        console.log(`[SHOPIFY-OAUTH][CALLBACK] OAuth state cleaned up`);
+      }
+
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] ========== OAUTH COMPLETE ==========`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] User: ${userId}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Shop: ${shop}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes: ${tokenData.scope}`);
 
       // Redirect back to frontend
       const frontendUrl = host 
