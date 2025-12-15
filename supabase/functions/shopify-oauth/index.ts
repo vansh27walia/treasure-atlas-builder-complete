@@ -377,9 +377,10 @@ serve(async (req) => {
 
       if (!code || !shop || !state || !hmac) {
         console.error('[SHOPIFY-OAUTH] Missing required callback parameters.');
+        const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
         const frontendUrl = host 
-          ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop || '')}`;
+          ? getFrontendRedirectUrl(shop || '', host, '/import')
+          : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop || '')}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=missing_parameters` }
@@ -400,9 +401,10 @@ serve(async (req) => {
         [userId] = state.split('_');
         if (!userId) {
           console.error('[SHOPIFY-OAUTH] Invalid state format (missing user ID).');
+          const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
           const frontendUrl = host 
             ? getFrontendRedirectUrl(shop, host, '/import')
-            : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+            : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
           return new Response(null, {
             status: 302,
             headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=invalid_state` }
@@ -444,9 +446,10 @@ serve(async (req) => {
 
       if (stateError || !stateRecord) {
         console.error('[SHOPIFY-OAUTH] State validation failed:', stateError?.message || 'No record found for state: ' + state);
+        const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=state_validation_failed` }
@@ -474,9 +477,10 @@ serve(async (req) => {
 
       if (!shopifyApiKey || !shopifyApiSecret) {
         console.error('[SHOPIFY-OAUTH] Shopify API credentials not configured.');
+        const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=server_configuration` }
@@ -489,9 +493,10 @@ serve(async (req) => {
       if (!isValidHmac) {
         console.error('[SHOPIFY-OAUTH][CALLBACK] ❌ HMAC validation FAILED');
         console.error('[SHOPIFY-OAUTH][CALLBACK] This could indicate a security issue or misconfigured API secret');
+        const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=hmac_validation_failed` }
@@ -524,9 +529,10 @@ serve(async (req) => {
         console.error(`[SHOPIFY-OAUTH][CALLBACK] ❌ Token exchange FAILED`);
         console.error(`[SHOPIFY-OAUTH][CALLBACK] Status: ${tokenResponse.status}`);
         console.error(`[SHOPIFY-OAUTH][CALLBACK] Error response: ${errorText}`);
+        const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=token_exchange_failed` }
@@ -584,9 +590,10 @@ serve(async (req) => {
         console.error(`[SHOPIFY-OAUTH][CALLBACK] ❌ Connection save FAILED`);
         console.error(`[SHOPIFY-OAUTH][CALLBACK] Error: ${insertError.message}`);
         console.error(`[SHOPIFY-OAUTH][CALLBACK] Error details: ${JSON.stringify(insertError)}`);
+        const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
         const frontendUrl = host 
           ? getFrontendRedirectUrl(shop, host, '/import')
-          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+          : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
           headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=connection_save_failed` }
@@ -610,9 +617,10 @@ serve(async (req) => {
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes: ${tokenData.scope}`);
 
       // Redirect back to frontend
+      const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
       const frontendUrl = host 
         ? getFrontendRedirectUrl(shop, host, '/import')
-        : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
+        : `${baseFrontendUrl}/import?shop=${encodeURIComponent(shop)}`;
       return new Response(null, {
         status: 302,
         headers: { ...corsHeaders, 'Location': `${frontendUrl}&connected=true` }
@@ -627,7 +635,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[SHOPIFY-OAUTH] Unexpected internal server error:', error);
-    let errorRedirectUrl = 'https://app.vvapglobal.com/import?error=server_error';
+    const baseFrontendUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
+    let errorRedirectUrl = `${baseFrontendUrl}/import?error=server_error`;
     
     try {
       const url = new URL(req.url);
