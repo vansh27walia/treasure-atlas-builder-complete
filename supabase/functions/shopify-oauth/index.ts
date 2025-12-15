@@ -60,23 +60,17 @@ async function validateHmac(query: URLSearchParams, secret: string): Promise<boo
  * This is crucial for embedded apps to redirect back into the Shopify admin.
  */
 function getFrontendRedirectUrl(shopDomain: string, hostParam: string | null, path = '/import') {
-  console.log(`[LOGGING] Entering getFrontendRedirectUrl for shop: ${shopDomain}, host: ${hostParam}, path: ${path}`);
-  
-  // Use the deployed app URL
+  // Use the canonical deployed app URL
   const baseFrontendAppUrl = Deno.env.get('FRONTEND_APP_BASE_URL') || 'https://app.shippingquick.io';
-  
-  if (hostParam) {
-    try {
-      // Shopify's 'host' parameter is base64 encoded
-      const decodedHost = atob(hostParam);
-      console.log(`[LOGGING] Decoded host parameter: ${decodedHost}`);
-    } catch (e) {
-      console.error('[SHOPIFY-OAUTH] Failed to decode host parameter:', e);
-    }
-  }
-  
-  const redirectUrl = `${baseFrontendAppUrl}${path}?shop=${encodeURIComponent(shopDomain)}${hostParam ? '&host=' + encodeURIComponent(hostParam) : ''}`;
-  console.log(`[LOGGING] Constructed redirect URL: ${redirectUrl}`);
+
+  // Standalone app: ignore host param for redirects (host is for embedded apps)
+  const safeShop = shopDomain?.trim() || '';
+  const redirectUrl = `${baseFrontendAppUrl}${path}?shop=${encodeURIComponent(safeShop)}`;
+
+  console.log(
+    `[SHOPIFY-OAUTH][REDIRECT] base=${baseFrontendAppUrl} path=${path} shop=${safeShop} hostProvided=${!!hostParam} -> ${redirectUrl}`
+  );
+
   return redirectUrl;
 }
 
@@ -143,107 +137,137 @@ serve(async (req) => {
     // 1. Shop is known (from Shopify App Store or install link) - redirect to shop-specific OAuth
     // 2. Shop is UNKNOWN (user clicks Connect button) - redirect to centralized admin.shopify.com
     if (action === 'start') {
+      const requestId = crypto.randomUUID();
+      const startedAt = Date.now();
+
       const shopifyApiKey = Deno.env.get('SHOPIFY_API_KEY');
       if (!shopifyApiKey) {
-        console.error('[SHOPIFY-OAUTH] Shopify API key environment variable not configured.');
+        console.error(`[SHOPIFY-OAUTH][${requestId}][START] Missing SHOPIFY_API_KEY env var`);
         return new Response('Server configuration error', {
           status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+          headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
         });
       }
 
       // Extract user token from query param (passed from frontend)
       const userToken = url.searchParams.get('token');
-      let actualUserId = '00000000-0000-0000-0000-000000000000'; // Fallback placeholder
-      
+      const shopParamRaw = shop;
+      let actualUserId = '00000000-0000-0000-0000-000000000000';
+
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] ===== OAUTH START =====`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] req.method=${req.method}`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] req.url=${req.url}`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] shopParam=${shopParamRaw ?? 'NOT PROVIDED (centralized flow)'}`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] tokenProvided=${!!userToken}`);
+
       if (userToken) {
-        // Verify the token and get the real user ID
-        const { data: { user: tokenUser }, error: tokenError } = await supabaseClient.auth.getUser(userToken);
-        if (tokenUser && !tokenError) {
-          actualUserId = tokenUser.id;
-          console.log(`[SHOPIFY-OAUTH] Verified user from token: ${actualUserId}`);
-        } else {
-          console.warn('[SHOPIFY-OAUTH] Could not verify token, using placeholder user_id');
+        try {
+          // Decode JWT to extract user id (more reliable than getUser in some edge cases)
+          const jwtParts = userToken.split('.');
+          if (jwtParts.length >= 2) {
+            const payloadJson = atob(jwtParts[1].replace(/-/g, '+').replace(/_/g, '/'));
+            const payload = JSON.parse(payloadJson);
+            if (payload?.sub) {
+              actualUserId = String(payload.sub);
+              console.log(`[SHOPIFY-OAUTH][${requestId}][START] user_id from JWT payload.sub=${actualUserId}`);
+            } else {
+              console.warn(`[SHOPIFY-OAUTH][${requestId}][START] JWT payload missing sub; payload keys=${Object.keys(payload || {}).join(',')}`);
+            }
+          } else {
+            console.warn(`[SHOPIFY-OAUTH][${requestId}][START] token is not a JWT (unexpected format)`);
+          }
+        } catch (e) {
+          console.warn(`[SHOPIFY-OAUTH][${requestId}][START] Failed to decode JWT token (non-fatal):`, e);
+        }
+
+        // Also attempt a verified lookup (best-effort)
+        try {
+          const { data: { user: tokenUser }, error: tokenError } = await supabaseClient.auth.getUser(userToken);
+          if (tokenUser && !tokenError) {
+            actualUserId = tokenUser.id;
+            console.log(`[SHOPIFY-OAUTH][${requestId}][START] Verified user via supabase.auth.getUser: ${actualUserId}`);
+          } else {
+            console.warn(`[SHOPIFY-OAUTH][${requestId}][START] supabase.auth.getUser failed: ${tokenError?.message || 'unknown'}`);
+          }
+        } catch (e) {
+          console.warn(`[SHOPIFY-OAUTH][${requestId}][START] supabase.auth.getUser threw (non-fatal):`, e);
         }
       }
 
-      // SCOPES: Include read_orders, write_orders, read_products, read_customers
+      // SCOPES: these are the permissions Shopify will show on the install/authorize screen.
       const scopes = 'read_orders,write_orders,read_products,read_customers';
       const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
-      
-      console.log(`[SHOPIFY-OAUTH][START] ========== OAUTH START FLOW ==========`);
-      console.log(`[SHOPIFY-OAUTH][START] Timestamp: ${new Date().toISOString()}`);
-      console.log(`[SHOPIFY-OAUTH][START] Requested scopes: ${scopes}`);
-      console.log(`[SHOPIFY-OAUTH][START] Redirect URI: ${redirectUri}`);
-      console.log(`[SHOPIFY-OAUTH][START] Shop from request: ${shop || 'NOT PROVIDED (centralized flow)'}`);
-      console.log(`[SHOPIFY-OAUTH][START] User token provided: ${!!userToken}`);
-      console.log(`[SHOPIFY-OAUTH][START] Resolved user_id: ${actualUserId}`);
-      
+
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] Requested scopes=${scopes}`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] Redirect URI=${redirectUri}`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] Resolved user_id=${actualUserId}`);
+
       // Generate state for CSRF protection
       const state = `pending_${crypto.randomUUID()}`;
-      
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] Generated state=${state}`);
+
       let authUrl: string;
-      let shopDomain = 'unknown'; // Placeholder for centralized flow
+      let shopDomain = 'pending';
 
       if (shop) {
-        // Case 1: Shop is known - use shop-specific OAuth URL
         shopDomain = shop.trim().toLowerCase();
         if (!shopDomain.includes('.myshopify.com')) {
           shopDomain = `${shopDomain}.myshopify.com`;
         }
 
-        if (!shopDomain.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
-          console.error('[SHOPIFY-OAUTH] Invalid shop domain format:', shopDomain);
+        const isValidShop = /^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/.test(shopDomain);
+        console.log(`[SHOPIFY-OAUTH][${requestId}][START] Normalized shopDomain=${shopDomain} valid=${isValidShop}`);
+
+        if (!isValidShop) {
+          console.error(`[SHOPIFY-OAUTH][${requestId}][START] Invalid shop domain format: ${shopDomain}`);
           return new Response('Invalid shop domain format', {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+            headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
           });
         }
 
         authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
           `client_id=${shopifyApiKey}&` +
-          `scope=${scopes}&` +
+          `scope=${encodeURIComponent(scopes)}&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-          `state=${state}`;
-        
-        console.log(`[SHOPIFY-OAUTH] Redirecting to shop-specific OAuth: ${authUrl}`);
+          `state=${encodeURIComponent(state)}`;
+
+        console.log(`[SHOPIFY-OAUTH][${requestId}][START] Redirecting to shop-specific OAuth URL=${authUrl}`);
       } else {
-        // Case 2: Shop is UNKNOWN - use centralized admin.shopify.com
-        // Shopify will prompt user to log in and select their store
         authUrl = `https://admin.shopify.com/admin/oauth/authorize?` +
           `client_id=${shopifyApiKey}&` +
-          `scope=${scopes}&` +
+          `scope=${encodeURIComponent(scopes)}&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-          `state=${state}`;
-        
-        console.log(`[SHOPIFY-OAUTH] Redirecting to centralized Shopify OAuth: ${authUrl}`);
+          `state=${encodeURIComponent(state)}`;
+
+        console.log(`[SHOPIFY-OAUTH][${requestId}][START] Redirecting to centralized OAuth URL=${authUrl}`);
       }
 
-      // Store state in database WITH the real user_id
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] Storing oauth_states record...`);
       const { error: stateError } = await supabaseClient
         .from('oauth_states')
         .insert({
           user_id: actualUserId,
           state_value: state,
-          shop_domain: shop ? shopDomain : 'pending', // 'pending' for centralized flow
-          platform: 'shopify'
+          shop_domain: shop ? shopDomain : 'pending',
+          platform: 'shopify',
         });
 
       if (stateError) {
-        console.error('[SHOPIFY-OAUTH] Error storing OAuth state in database:', stateError.message);
+        console.error(`[SHOPIFY-OAUTH][${requestId}][START] Failed to store oauth state: ${stateError.message}`);
+        console.error(`[SHOPIFY-OAUTH][${requestId}][START] State insert error details: ${JSON.stringify(stateError)}`);
         return new Response('Failed to initialize OAuth', {
           status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+          headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
         });
       }
 
-      console.log(`[SHOPIFY-OAUTH] OAuth state stored successfully. State: ${state}, Shop: ${shop ? shopDomain : 'pending (centralized)'}, User: ${actualUserId}`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] OAuth state stored successfully`);
+      console.log(`[SHOPIFY-OAUTH][${requestId}][START] DurationMs=${Date.now() - startedAt}`);
 
-
-      // Redirect directly to Shopify OAuth screen
       return new Response(null, {
         status: 302,
-        headers: { ...corsHeaders, 'Location': authUrl }
+        headers: { ...corsHeaders, 'Location': authUrl },
       });
     }
 
