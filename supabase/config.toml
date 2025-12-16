@@ -85,3 +85,9 @@ verify_jwt = false
 
 [functions.cancel-label]
 verify_jwt = true
+
+[functions.shopify-oauth]
+verify_jwt = false
+
+[functions.shopify-orders]
+verify_jwt = true

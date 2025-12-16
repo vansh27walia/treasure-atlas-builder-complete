@@ -615,9 +615,9 @@ serve(async (req) => {
 
       // Clean up OAuth state
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Cleaning up OAuth state...`);
-      const { error: deleteError } = await supabaseClient.from('oauth_states').delete().eq('state_value', state);
-      if (deleteError) {
-        console.warn(`[SHOPIFY-OAUTH][CALLBACK] Warning: Could not delete state: ${deleteError.message}`);
+      const { error: stateDeleteError } = await supabaseClient.from('oauth_states').delete().eq('state_value', state);
+      if (stateDeleteError) {
+        console.warn(`[SHOPIFY-OAUTH][CALLBACK] Warning: Could not delete state: ${stateDeleteError.message}`);
       } else {
         console.log(`[SHOPIFY-OAUTH][CALLBACK] OAuth state cleaned up`);
       }
