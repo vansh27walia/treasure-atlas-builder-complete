@@ -413,35 +413,33 @@ serve(async (req) => {
       }
 
       // Verify state against stored records
-      // First try exact match, then try matching just by state_value (for centralized flow)
+      // Match by state_value first (most reliable), then validate
       let stateRecord = null;
       let stateError = null;
       
-      // Try matching by state_value and shop_domain first
-      const { data: exactMatch, error: exactError } = await supabaseClient
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Looking up state: ${state}`);
+      
+      // Try matching by state_value ONLY first (handles both centralized and shop-specific flows)
+      const { data: stateMatches, error: stateQueryError } = await supabaseClient
         .from('oauth_states')
         .select('*')
-        .eq('state_value', state)
-        .eq('shop_domain', shop)
-        .single();
+        .eq('state_value', state);
       
-      if (exactMatch) {
-        stateRecord = exactMatch;
-      } else {
-        // Try matching by state_value with 'pending' shop (centralized flow)
-        const { data: pendingMatch, error: pendingError } = await supabaseClient
-          .from('oauth_states')
-          .select('*')
-          .eq('state_value', state)
-          .eq('shop_domain', 'pending')
-          .single();
+      if (stateQueryError) {
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] State query error: ${stateQueryError.message}`);
+        stateError = stateQueryError;
+      } else if (stateMatches && stateMatches.length > 0) {
+        // Found matching state(s) - use the first one
+        stateRecord = stateMatches[0];
+        console.log(`[SHOPIFY-OAUTH][CALLBACK] ✅ State matched! shop_domain: ${stateRecord.shop_domain}, user_id: ${stateRecord.user_id}`);
         
-        if (pendingMatch) {
-          stateRecord = pendingMatch;
-          console.log('[SHOPIFY-OAUTH] Matched pending state from centralized flow');
-        } else {
-          stateError = exactError || pendingError;
+        // If we have multiple matches (shouldn't happen), log a warning
+        if (stateMatches.length > 1) {
+          console.warn(`[SHOPIFY-OAUTH][CALLBACK] Warning: Found ${stateMatches.length} matching states, using first one`);
         }
+      } else {
+        console.error(`[SHOPIFY-OAUTH][CALLBACK] ❌ No state record found for state: ${state}`);
+        stateError = { message: 'No matching state found' };
       }
 
       if (stateError || !stateRecord) {
@@ -569,22 +567,35 @@ serve(async (req) => {
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Shop: ${shop}`);
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes to save: ${tokenData.scope}`);
 
-      // Store the Shopify connection
+      // Store the Shopify connection (delete existing first to avoid constraint issues)
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Checking for existing connection for user ${userId} and shop ${shop}...`);
+      
+      // Delete any existing connection for this user+shop combination
+      const { error: deleteError } = await supabaseClient
+        .from('shopify_connections')
+        .delete()
+        .eq('user_id', userId)
+        .eq('shop', shop);
+      
+      if (deleteError) {
+        console.warn(`[SHOPIFY-OAUTH][CALLBACK] Warning: Could not delete existing connection: ${deleteError.message}`);
+      }
+      
       const connectionData = {
         user_id: userId,
         shop: shop,
         access_token: tokenData.access_token,
-        scopes: tokenData.scope,
+        scopes: tokenData.scope || '',
+        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       
-      console.log(`[SHOPIFY-OAUTH][CALLBACK] Upserting connection data...`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Inserting new connection...`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Connection data: user_id=${userId}, shop=${shop}, scopes=${tokenData.scope || 'NONE'}`);
       
       const { error: insertError } = await supabaseClient
         .from('shopify_connections')
-        .upsert(connectionData, {
-          onConflict: 'user_id,shop'
-        });
+        .insert(connectionData);
 
       if (insertError) {
         console.error(`[SHOPIFY-OAUTH][CALLBACK] ❌ Connection save FAILED`);
