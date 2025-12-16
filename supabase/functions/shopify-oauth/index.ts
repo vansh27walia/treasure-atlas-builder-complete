@@ -167,9 +167,9 @@ serve(async (req) => {
         }
       }
 
-      // SCOPES: Include read_orders, write_orders, read_products, read_customers
-      const scopes = 'read_orders,write_orders,read_products,read_customers';
-      const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
+       // SCOPES: match required Admin API capabilities
+       const scopes = 'read_orders,write_orders,read_fulfillments,write_fulfillments,read_products,write_products,read_customers';
+       const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
       
       console.log(`[SHOPIFY-OAUTH][START] ========== OAUTH START FLOW ==========`);
       console.log(`[SHOPIFY-OAUTH][START] Timestamp: ${new Date().toISOString()}`);
@@ -200,21 +200,23 @@ serve(async (req) => {
           });
         }
 
-        authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
-          `client_id=${shopifyApiKey}&` +
-          `scope=${scopes}&` +
-          `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-          `state=${state}`;
+         authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
+           `client_id=${shopifyApiKey}&` +
+           `scope=${scopes}&` +
+           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+           `state=${state}&` +
+           `grant_options[]=per-user`;
         
         console.log(`[SHOPIFY-OAUTH] Redirecting to shop-specific OAuth: ${authUrl}`);
       } else {
         // Case 2: Shop is UNKNOWN - use centralized admin.shopify.com
         // Shopify will prompt user to log in and select their store
-        authUrl = `https://admin.shopify.com/admin/oauth/authorize?` +
-          `client_id=${shopifyApiKey}&` +
-          `scope=${scopes}&` +
-          `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-          `state=${state}`;
+         authUrl = `https://admin.shopify.com/admin/oauth/authorize?` +
+           `client_id=${shopifyApiKey}&` +
+           `scope=${scopes}&` +
+           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+           `state=${state}&` +
+           `grant_options[]=per-user`;
         
         console.log(`[SHOPIFY-OAUTH] Redirecting to centralized Shopify OAuth: ${authUrl}`);
       }
@@ -322,9 +324,9 @@ serve(async (req) => {
         });
       }
 
-      // SCOPES: Include read_orders, write_orders, read_products, read_customers
-      const scopes = 'read_orders,write_orders,read_products,read_customers';
-      const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
+       // SCOPES: match required Admin API capabilities
+       const scopes = 'read_orders,write_orders,read_fulfillments,write_fulfillments,read_products,write_products,read_customers';
+       const redirectUri = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`;
       
       console.log(`[SHOPIFY-OAUTH][INITIATE] ========== OAUTH INITIATE FLOW ==========`);
       console.log(`[SHOPIFY-OAUTH][INITIATE] Timestamp: ${new Date().toISOString()}`);
@@ -537,10 +539,12 @@ serve(async (req) => {
         });
       }
 
-      const tokenData = await tokenResponse.json();
-      console.log(`[SHOPIFY-OAUTH][CALLBACK] ✅ Token exchange SUCCESSFUL`);
-      console.log(`[SHOPIFY-OAUTH][CALLBACK] Access token received: ${tokenData.access_token ? 'YES (hidden)' : 'NO'}`);
-      console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes granted: ${tokenData.scope || 'NOT PROVIDED'}`);
+       const tokenData = await tokenResponse.json();
+       const grantedScopes = tokenData?.scope || tokenData?.associated_user_scope || '';
+       console.log(`[SHOPIFY-OAUTH][CALLBACK] ✅ Token exchange SUCCESSFUL`);
+       console.log(`[SHOPIFY-OAUTH][CALLBACK] Token response keys: ${Object.keys(tokenData || {}).join(', ')}`);
+       console.log(`[SHOPIFY-OAUTH][CALLBACK] Access token received: ${tokenData.access_token ? 'YES (hidden)' : 'NO'}`);
+       console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes granted: ${grantedScopes || 'NOT PROVIDED'}`);
 
       // Only treat as pending if we don't have a real user_id
       // (This happens when someone installs directly from Shopify without being logged in)
@@ -555,17 +559,17 @@ serve(async (req) => {
         // Redirect with pending connection info - frontend will handle login and claiming
         return new Response(null, {
           status: 302,
-          headers: { 
-            ...corsHeaders, 
-            'Location': `${frontendUrl}?pending_shop=${encodeURIComponent(shop)}&connected=pending&token_scope=${encodeURIComponent(tokenData.scope || '')}`
-          }
+           headers: { 
+             ...corsHeaders, 
+             'Location': `${frontendUrl}?pending_shop=${encodeURIComponent(shop)}&connected=pending&token_scope=${encodeURIComponent(grantedScopes)}`
+           }
         });
       }
 
       console.log(`[SHOPIFY-OAUTH][CALLBACK] ========== SAVING CONNECTION ==========`);
       console.log(`[SHOPIFY-OAUTH][CALLBACK] User ID: ${userId}`);
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Shop: ${shop}`);
-      console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes to save: ${tokenData.scope}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Scopes to save: ${grantedScopes}`);
 
       // Store the Shopify connection (delete existing first to avoid constraint issues)
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Checking for existing connection for user ${userId} and shop ${shop}...`);
@@ -585,13 +589,13 @@ serve(async (req) => {
         user_id: userId,
         shop: shop,
         access_token: tokenData.access_token,
-        scopes: tokenData.scope || '',
+        scopes: grantedScopes,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       
       console.log(`[SHOPIFY-OAUTH][CALLBACK] Inserting new connection...`);
-      console.log(`[SHOPIFY-OAUTH][CALLBACK] Connection data: user_id=${userId}, shop=${shop}, scopes=${tokenData.scope || 'NONE'}`);
+      console.log(`[SHOPIFY-OAUTH][CALLBACK] Connection data: user_id=${userId}, shop=${shop}, scopes=${grantedScopes || 'NONE'}`);
       
       const { error: insertError } = await supabaseClient
         .from('shopify_connections')
