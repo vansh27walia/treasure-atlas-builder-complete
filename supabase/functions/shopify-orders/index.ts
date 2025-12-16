@@ -57,7 +57,8 @@ serve(async (req) => {
 
     console.log(`[SHOPIFY-ORDERS] Found ${connections.length} connected shops for user`)
 
-    const allOrders = []
+    const allOrders: any[] = []
+    const errors: Array<{ shop: string; status: number; message: string }> = []
 
     // Fetch orders from all connected shops
     for (const connection of connections) {
@@ -77,45 +78,72 @@ serve(async (req) => {
 
         if (!shopifyResponse.ok) {
           const errorText = await shopifyResponse.text()
-          console.error(`[SHOPIFY-ORDERS] Failed to fetch orders from ${connection.shop}:`, shopifyResponse.status, errorText)
+          console.error(
+            `[SHOPIFY-ORDERS] Failed to fetch orders from ${connection.shop}:`,
+            shopifyResponse.status,
+            errorText
+          )
+          errors.push({ shop: connection.shop, status: shopifyResponse.status, message: errorText })
           continue // Skip this shop and continue with others
         }
 
         const shopifyData = await shopifyResponse.json()
-        console.log(`[SHOPIFY-ORDERS] Retrieved ${shopifyData.orders?.length || 0} orders from ${connection.shop}`)
+        console.log(
+          `[SHOPIFY-ORDERS] Retrieved ${shopifyData.orders?.length || 0} orders from ${connection.shop}`
+        )
 
         // Transform orders to our format and add shop identifier
         const shopOrders = (shopifyData.orders || []).map((order: any) => {
           const customer = order.customer || {}
           const shippingAddress = order.shipping_address || {}
-          
+
           return {
             order_id: `#${order.order_number || order.id}`,
-            customer_name: customer.first_name && customer.last_name 
-              ? `${customer.first_name} ${customer.last_name}`.trim()
-              : customer.email || 'Guest Customer',
-            shipping_address: shippingAddress.address1 
-              ? `${shippingAddress.address1 || ''}, ${shippingAddress.city || ''}, ${shippingAddress.province || ''} ${shippingAddress.zip || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
+            customer_name:
+              customer.first_name && customer.last_name
+                ? `${customer.first_name} ${customer.last_name}`.trim()
+                : customer.email || 'Guest Customer',
+            shipping_address: shippingAddress.address1
+              ? `${shippingAddress.address1 || ''}, ${shippingAddress.city || ''}, ${shippingAddress.province || ''} ${shippingAddress.zip || ''}`
+                  .replace(/^,\s*/, '')
+                  .replace(/,\s*$/, '')
               : 'No shipping address',
             total_weight: order.total_weight ? parseFloat(order.total_weight) : 0,
-            line_items: order.line_items?.map((item: any) => `${item.quantity}x ${item.name}`).join(', ') || 'No items',
+            line_items:
+              order.line_items?.map((item: any) => `${item.quantity}x ${item.name}`).join(', ') ||
+              'No items',
             created_at: order.created_at ? new Date(order.created_at).toLocaleDateString() : 'Unknown',
             shopify_order_id: order.id?.toString() || '',
-            shop: connection.shop // Add shop identifier
+            shop: connection.shop, // Add shop identifier
           }
         })
 
         allOrders.push(...shopOrders)
       } catch (error) {
         console.error(`[SHOPIFY-ORDERS] Error fetching orders from ${connection.shop}:`, error)
+        errors.push({ shop: connection.shop, status: 500, message: String(error) })
         continue // Skip this shop and continue with others
       }
     }
 
     console.log(`[SHOPIFY-ORDERS] Total orders retrieved: ${allOrders.length}`)
 
+    // If we got zero orders AND at least one shop errored, surface the error to the UI
+    if (allOrders.length === 0 && errors.length > 0) {
+      const firstError = errors[0]
+      const status = firstError.status === 401 || firstError.status === 403 ? firstError.status : 502
+
+      return new Response(
+        JSON.stringify({
+          error: `Shopify API error for ${firstError.shop}: ${firstError.message}`,
+          details: errors,
+        }),
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     return new Response(
-      JSON.stringify({ orders: allOrders, success: true }),
+      JSON.stringify({ orders: allOrders, success: true, errors: errors.length ? errors : undefined }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

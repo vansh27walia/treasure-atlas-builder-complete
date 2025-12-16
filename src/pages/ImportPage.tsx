@@ -233,10 +233,12 @@ const ImportPage = () => {
     if (!user) return;
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('shopify_connections')
         .delete()
         .eq('user_id', user.id);
+
+      if (error) throw error;
 
       setIsConnected(false);
       setConnectedShops([]);
