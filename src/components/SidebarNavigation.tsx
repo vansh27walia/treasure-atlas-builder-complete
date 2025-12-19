@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
+import { Zap } from 'lucide-react';
 import SidebarContent from './sidebar/SidebarContent';
 import ToggleButton from './sidebar/ToggleButton';
 
@@ -43,9 +44,14 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
           collapsed ? 'w-20' : 'w-64'
         )}
       >
-        {/* Logo and Toggle Button */}
-        <div className="flex items-center justify-between p-4">
-          <div className="flex-1" /> {/* Spacer */}
+        {/* Logo and Brand */}
+        <div className="flex items-center justify-between p-4 border-b border-blue-800">
+          <div className={cn("flex items-center gap-2", collapsed && "justify-center w-full")}>
+            <Zap className="h-8 w-8 text-blue-400 flex-shrink-0" />
+            {!collapsed && (
+              <span className="font-bold text-lg text-white">ShippingQuick.io</span>
+            )}
+          </div>
           <ToggleButton collapsed={collapsed} onClick={toggleSidebar} />
         </div>
 
