@@ -171,10 +171,10 @@ const Index: React.FC = () => {
         {/* Enhanced Header Section */}
         <div className="text-center space-y-6">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 bg-clip-text text-slate-950">
-            ShipQuick Dashboard
+            ShippingQuick.io Dashboard
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Complete shipping management with real-time data, advanced analytics, and intelligent automation
+            Fast & easy shipping management with real-time data, advanced analytics, and intelligent automation
           </p>
           {user && <p className="text-lg text-gray-700">
               Welcome back, {user.user_metadata?.full_name || user.email}!
