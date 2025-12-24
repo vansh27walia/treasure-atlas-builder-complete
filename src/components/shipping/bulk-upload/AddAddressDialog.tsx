@@ -45,7 +45,7 @@ const AddAddressDialog: React.FC<AddAddressDialogProps> = ({ open, onOpenChange,
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+        className="sm:max-w-lg"
         onInteractOutside={(e) => {
           // Prevent closing when clicking on Google Places autocomplete dropdown
           const target = e.target as HTMLElement;
@@ -57,9 +57,7 @@ const AddAddressDialog: React.FC<AddAddressDialogProps> = ({ open, onOpenChange,
         <DialogHeader>
           <DialogTitle>Add Pickup Address</DialogTitle>
         </DialogHeader>
-        <div className="overflow-y-auto max-h-[calc(90vh-100px)]">
-          <AddressForm onSubmit={handleSubmit} isPickupAddress showDefaultOptions buttonText={isSaving ? 'Saving...' : 'Save Address'} enableGoogleAutocomplete={true} />
-        </div>
+        <AddressForm onSubmit={handleSubmit} isPickupAddress showDefaultOptions buttonText={isSaving ? 'Saving...' : 'Save Address'} enableGoogleAutocomplete={true} />
       </DialogContent>
     </Dialog>
   );

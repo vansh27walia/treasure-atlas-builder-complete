@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Edit, RefreshCw, Plus } from "lucide-react";
+import { Edit, RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { computeDiscountPercent } from "@/utils/discount";
-import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
-import ToggleableCustomsClearance from '@/components/shipping/ToggleableCustomsClearance';
-import CustomsDocumentationModal from '@/components/shipping/CustomsDocumentationModal';
 
 const kgToOunces = (kg: number) => Number((kg * 35.27396195).toFixed(2));
 
@@ -25,14 +21,10 @@ interface FreshEditModalProps {
   shipment: any;
   pickupAddress: any;
   onUpdateShipment: (id: string, updated: any) => void;
-  buttonLabel?: string;
 }
 
-const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel = "Edit" }: FreshEditModalProps) => {
+const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment }: FreshEditModalProps) => {
   const [open, setOpen] = useState(false);
-  const [customsModalOpen, setCustomsModalOpen] = useState(false);
-  const [customsEnabled, setCustomsEnabled] = useState(false);
-  const [customsData, setCustomsData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<any[]>([]);
   const [selectedRate, setSelectedRate] = useState<any>(null);
@@ -189,10 +181,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel
         updatedShipment.selected_rate = selectedRate;
       }
 
-      if (customsData) {
-        updatedShipment.details.customs_info = customsData;
-      }
-
       await onUpdateShipment(shipment.id, updatedShipment);
       setOpen(false);
       toast.success("✅ Shipment saved! Rates will be refreshed automatically.");
@@ -206,9 +194,8 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-          {buttonLabel === "Edit" && <Edit className="h-4 w-4 mr-1" />}
-          {buttonLabel !== "Edit" && <Plus className="h-4 w-4 mr-1" />}
-          {buttonLabel}
+          <Edit className="h-4 w-4 mr-1" />
+          Edit
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
@@ -229,26 +216,13 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel
               <Label htmlFor="phone">Phone</Label>
               <Input id="phone" value={localData.phone} onChange={(e) => setLocalData((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Enter phone number" />
             </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="address">Address (Google Autocomplete)</Label>
-              <AddressAutoComplete
-                onChange={(value) => setLocalData(prev => ({ ...prev, street1: value }))}
-                onAddressSelected={(address) => {
-                  console.log('Address selected:', address);
-                }}
-                onFullAddressPopulated={(addressData) => {
-                  console.log('Full address populated:', addressData);
-                  setLocalData(prev => ({
-                    ...prev,
-                    street1: addressData.street || '',
-                    city: addressData.city || '',
-                    state: addressData.state || '',
-                    zip: addressData.zip || '',
-                    country: addressData.country || 'US'
-                  }));
-                }}
-                placeholder="Start typing address..."
-              />
+            <div>
+              <Label htmlFor="country">Country</Label>
+              <Input id="country" value={localData.country} onChange={(e) => setLocalData((prev) => ({ ...prev, country: e.target.value }))} placeholder="Enter country code (e.g., US)" />
+            </div>
+            <div>
+              <Label htmlFor="street1">Street Address</Label>
+              <Input id="street1" value={localData.street1} onChange={(e) => setLocalData((prev) => ({ ...prev, street1: e.target.value }))} placeholder="Enter street address" />
             </div>
             <div>
               <Label htmlFor="street2">Street Address 2</Label>
@@ -266,34 +240,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel
               <Label htmlFor="zip">Zip Code</Label>
               <Input id="zip" value={localData.zip} onChange={(e) => setLocalData((prev) => ({ ...prev, zip: e.target.value }))} placeholder="Enter zip code" />
             </div>
-            <div>
-              <Label htmlFor="country">Country</Label>
-              <Select value={localData.country} onValueChange={(value) => setLocalData((prev) => ({ ...prev, country: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="US">United States</SelectItem>
-                  <SelectItem value="CA">Canada</SelectItem>
-                  <SelectItem value="MX">Mexico</SelectItem>
-                  <SelectItem value="GB">United Kingdom</SelectItem>
-                  <SelectItem value="AU">Australia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {localData.country !== 'US' && (
-              <div className="md:col-span-2">
-                <ToggleableCustomsClearance
-                  enabled={customsEnabled}
-                  onToggle={(enabled) => {
-                    setCustomsEnabled(enabled);
-                    if (enabled) {
-                      setCustomsModalOpen(true);
-                    }
-                  }}
-                />
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -348,7 +294,7 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel
                 {rates.map((rate) => {
                   const hasDiscount = rate.list_rate || rate.retail_rate;
                   const originalPrice = hasDiscount ? rate.list_rate || rate.retail_rate : null;
-                  const discountPercent = originalPrice ? computeDiscountPercent(originalPrice, rate.rate, { clampMin: 60, clampMax: 90 }) : 0;
+                  const discountPercent = originalPrice ? Math.round((1 - Number(rate.rate) / Number(originalPrice)) * 100) : 0;
                   return (
                     <div key={rate.id} className={`p-3 border rounded cursor-pointer transition-colors ${selectedRate?.id === rate.id ? "border-blue-600 bg-blue-600/5" : "hover:border-blue-600/50"}`} onClick={() => setSelectedRate(rate)}>
                       <div className="flex justify-between items-center">
@@ -379,19 +325,6 @@ const FreshEditModal = ({ shipment, pickupAddress, onUpdateShipment, buttonLabel
           </div>
         </div>
       </DialogContent>
-      
-      <CustomsDocumentationModal
-        isOpen={customsModalOpen}
-        onClose={() => setCustomsModalOpen(false)}
-        onSubmit={(data) => {
-          setCustomsData(data);
-          setCustomsEnabled(true);
-          toast.success('Customs documentation saved');
-        }}
-        fromCountry="US"
-        toCountry={localData.country}
-        initialData={customsData}
-      />
     </Dialog>
   );
 };

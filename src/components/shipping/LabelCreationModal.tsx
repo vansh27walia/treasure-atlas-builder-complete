@@ -9,8 +9,6 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsContent, TabsTrigger } from '@/components/ui/tabs';
 
-import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
-
 interface LabelCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -384,19 +382,6 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
                   </Tabs>
                   
                   <div className="flex gap-3 justify-center mt-4">
-                    <CancelLabelDialog
-                      shipmentId={labelData.shipmentId || ''}
-                      trackingCode={displayTrackingCode || ''}
-                      carrier={labelData.carrier || 'Unknown'}
-                      service={labelData.service}
-                      fromAddress={labelData.fromAddress ? `${labelData.fromAddress.street1}, ${labelData.fromAddress.city}` : 'Unknown'}
-                      toAddress={labelData.toAddress ? `${labelData.toAddress.street1}, ${labelData.toAddress.city}` : 'Unknown'}
-                      trigger={
-                        <Button variant="destructive" className="flex items-center gap-2">
-                          Cancel Label
-                        </Button>
-                      }
-                    />
                     <Button
                       onClick={handleViewTracking}
                       variant="outline"

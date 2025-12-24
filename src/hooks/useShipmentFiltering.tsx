@@ -9,12 +9,6 @@ export const useShipmentFiltering = (
   const [sortField, setSortField] = useState<'recipient' | 'rate' | 'carrier'>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string | null>(null);
-  const [advancedFilters, setAdvancedFilters] = useState({
-    minPrice: 0,
-    maxPrice: 100,
-    maxDays: 7,
-    features: [] as string[]
-  });
 
   // Filter and sort shipments
   const filteredShipments = useMemo(() => {
@@ -42,22 +36,8 @@ export const useShipmentFiltering = (
           (shipment.availableRates?.some(rate => 
             rate.carrier.toLowerCase() === selectedCarrierFilter.toLowerCase()
           ));
-
-        // Advanced price filter
-        const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
-        const rate = Number(selectedRate?.rate || shipment.rate || 0);
-        const matchesPrice = rate >= advancedFilters.minPrice && rate <= advancedFilters.maxPrice;
-
-        // Advanced delivery days filter
-        const deliveryDays = selectedRate?.delivery_days || 99;
-        const matchesDays = deliveryDays <= advancedFilters.maxDays;
-
-        // Advanced feature filter
-        const service = shipment.service?.toLowerCase() || '';
-        const matchesFeatures = advancedFilters.features.length === 0 || 
-          advancedFilters.features.some(feature => service.includes(feature.toLowerCase()));
           
-        return matchesSearch && matchesCarrier && matchesPrice && matchesDays && matchesFeatures;
+        return matchesSearch && matchesCarrier;
       })
       .sort((a, b) => {
         if (sortField === 'recipient') {
@@ -78,19 +58,17 @@ export const useShipmentFiltering = (
         
         return sortDirection === 'asc' ? rateA - rateB : rateB - rateA;
       });
-  }, [results, searchTerm, sortField, sortDirection, selectedCarrierFilter, advancedFilters]);
+  }, [results, searchTerm, sortField, sortDirection, selectedCarrierFilter]);
 
   return {
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
-    advancedFilters,
     filteredShipments,
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter,
-    setAdvancedFilters
+    setSelectedCarrierFilter
   };
 };

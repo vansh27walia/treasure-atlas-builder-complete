@@ -95,8 +95,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           };
           hasChanges = true;
 
-          // Calculate and update insurance cost immediately - ensure 0 when disabled
-          const cost = calculateInsuranceCost(value, enabled);
+          // Calculate and update insurance cost immediately
+          const cost = enabled ? calculateInsuranceCost(value) : 0;
           if (shipment.insurance_cost !== cost) {
             onEditShipment(shipment.id, {
               insurance_cost: cost,
@@ -306,23 +306,22 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Insurance calculation: Exactly $2 per $100 of declared value (rounds up to nearest $100)
-  const calculateInsuranceCost = (declaredValue: number, enabled: boolean = true): number => {
-    // When insurance is disabled, backend should receive 0
-    if (!enabled || declaredValue <= 0) return 0;
+  const calculateInsuranceCost = (declaredValue: number): number => {
+    if (declaredValue <= 0) return 0;
     // Round up to nearest $100, then multiply by $2
     return Math.ceil(declaredValue / 100) * 2;
   };
 
-  // Helper function to get REAL discount percentage from API rates (clamped 60-90%)
+  // Helper function to get REAL discount percentage from API rates (clamped 50-95%)
   const getDiscountPercentage = (rate: any): number => {
     if (!rate) return 0;
     const currentRate = typeof rate.rate === "string" ? parseFloat(rate.rate) : rate.rate;
-    const originalRate = rate.original_rate || rate.retail_rate || rate.list_rate;
+    const originalRate = rate.retail_rate || rate.list_rate;
     const parsedOriginal = typeof originalRate === "string" ? parseFloat(originalRate) : originalRate;
     if (!parsedOriginal || parsedOriginal <= currentRate) return 0;
     return computeDiscountPercent(parsedOriginal, currentRate, {
-      clampMin: 60,
-      clampMax: 90
+      clampMin: 50,
+      clampMax: 95
     });
   };
 
@@ -376,7 +375,112 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Enhanced AI Rate Picker as Dropdown
-  const AIRatePickerDropdown = () => null;
+  const AIRatePickerDropdown = () => <Card className="mb-6 border-2 border-purple-200 shadow-lg bg-gradient-to-r from-purple-50 to-indigo-50">
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-purple-900">AI Smart Rate Selection</h3>
+              <p className="text-purple-700 text-sm">Apply intelligent optimization to all shipments</p>
+            </div>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Brain className="w-4 h-4 mr-2" />
+                AI Optimize
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 bg-white border-2 border-purple-200 shadow-xl z-50">
+              <DropdownMenuItem onClick={() => handleBulkOptimization("cheapest")} className="hover:bg-green-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                  <div>
+                    <div className="font-medium text-green-800">Most Affordable</div>
+                    <div className="text-xs text-green-600">Select lowest cost rates</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("fastest")} className="hover:bg-red-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Zap className="w-5 h-5 text-red-600" />
+                  <div>
+                    <div className="font-medium text-red-800">Fastest Delivery</div>
+                    <div className="text-xs text-red-600">Prioritize delivery speed</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("most_reliable")} className="hover:bg-blue-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="font-medium text-blue-800">Most Reliable</div>
+                    <div className="text-xs text-blue-600">Choose trusted carriers</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("balanced")} className="hover:bg-purple-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Star className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <div className="font-medium text-purple-800">Balanced Choice</div>
+                    <div className="text-xs text-purple-600">Best price-speed ratio</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("eco_friendly")} className="hover:bg-emerald-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Truck className="w-5 h-5 text-emerald-600" />
+                  <div>
+                    <div className="font-medium text-emerald-800">Eco-Friendly</div>
+                    <div className="text-xs text-emerald-600">Ground shipping options</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("2day")} className="hover:bg-orange-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Package className="w-5 h-5 text-orange-600" />
+                  <div>
+                    <div className="font-medium text-orange-800">2-Day Delivery</div>
+                    <div className="text-xs text-orange-600">Target 2-day shipping</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("3day")} className="hover:bg-indigo-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Package className="w-5 h-5 text-indigo-600" />
+                  <div>
+                    <div className="font-medium text-indigo-800">3-Day Delivery</div>
+                    <div className="text-xs text-indigo-600">Target 3-day shipping</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization("premium")} className="hover:bg-yellow-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Star className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <div className="font-medium text-yellow-800">Premium Service</div>
+                    <div className="text-xs text-yellow-600">Highest service level</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </Card>;
   return <div className="space-y-4">
       {/* Enhanced AI Rate Picker */}
       <AIRatePickerDropdown />
@@ -411,7 +515,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   {[...shipments].reverse().map((shipment, index) => {
                 const insurance = getInsuranceSettings(shipment.id);
                 const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
-                const insuranceCost = calculateInsuranceCost(insurance.value, insurance.enabled);
+                const insuranceCost = insurance.enabled ? calculateInsuranceCost(insurance.value) : 0;
                 const shippingCost = selectedRate ? parseFloat(formatRate(selectedRate.rate)) : 0;
                 const totalCost = shippingCost + insuranceCost;
                 const isEditing = editingShipments.has(shipment.id);
@@ -537,7 +641,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             handleInsuranceToggle(shipment.id, enabled);
                             // Persist to results so totals include insurance
                             const declared = insurance.value || 0;
-                            const cost = calculateInsuranceCost(declared, enabled);
+                            const cost = enabled ? calculateInsuranceCost(declared) : 0;
                             onEditShipment(shipment.id, {
                               details: {
                                 ...shipment.details,
@@ -560,7 +664,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <input type="number" value={insurance.value} onChange={e => {
                             const val = parseFloat(e.target.value) || 0;
                             handleDeclaredValueChange(shipment.id, val);
-                            const cost = calculateInsuranceCost(val, insurance.enabled);
+                            const cost = insurance.enabled ? calculateInsuranceCost(val) : 0;
                             onEditShipment(shipment.id, {
                               details: {
                                 ...shipment.details,

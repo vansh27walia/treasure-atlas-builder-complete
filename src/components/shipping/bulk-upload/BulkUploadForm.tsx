@@ -40,7 +40,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
   const [showAddAddressModal, setShowAddAddressModal] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
-  const [fileReadyForMapping, setFileReadyForMapping] = useState(false);
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -131,8 +130,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
       console.log('CSV validation passed, lines:', lines.length);
       setCsvContent(text);
-      setFileReadyForMapping(true);
-      toast.success('CSV file loaded! Click "Next Step: AI Header Mapping" to continue.');
+      setCurrentStep('mapping');
+      toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
       return true;
     } catch (error) {
       console.error('Error reading CSV file:', error);
@@ -192,15 +191,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('select');
     setSelectedFile(null);
     setCsvContent('');
-    setFileReadyForMapping(false);
     toast.info('CSV upload cancelled. You can select a new file.');
-  };
-
-  const handleProceedToMapping = () => {
-    if (fileReadyForMapping && csvContent) {
-      setCurrentStep('mapping');
-      toast.info('Analyzing headers with AI...');
-    }
   };
 
   const handleAreaClick = () => {
@@ -255,19 +246,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   // Enhanced file selection step
   return (
-    <div className="space-y-6">
-      {/* Header with upload icon - only show on initial select step */}
-      <div className="text-center py-0">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-          <Upload className="w-8 h-8 text-blue-600" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Upload Your CSV File
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Get started by uploading your CSV file. Our AI will handle the rest!
-        </p>
-      </div>
+    <div className="space-y-8">
       {/* Enhanced Pickup Address Selection */}
       <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-lg">
         <CardContent className="p-6">
@@ -414,14 +393,14 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleProceedToMapping();
+                  setCurrentStep('mapping');
                 }}
-                disabled={!selectedAddressId || !addressesLoaded || !fileReadyForMapping}
-                className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-3 text-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!selectedAddressId || !addressesLoaded}
+                className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-6 py-2"
               >
-                <Brain className="mr-2 h-5 w-5" />
-                Proceed to AI Header Mapping
-                <ArrowRight className="ml-2 h-5 w-5" />
+                <Brain className="mr-2 h-4 w-4" />
+                Continue with AI Mapping
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           )}

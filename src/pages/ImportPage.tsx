@@ -27,10 +27,11 @@ const ImportPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectedShops, setConnectedShops] = useState<string[]>([]);
+  const [shopUrl, setShopUrl] = useState('');
   const [orders, setOrders] = useState<ShopifyOrder[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
-  const [pendingShop, setPendingShop] = useState<string | null>(null);
+  const [showShopInput, setShowShopInput] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -42,15 +43,6 @@ const ImportPage = () => {
     const connected = urlParams.get('connected');
     const error = urlParams.get('error');
     const connectedShop = urlParams.get('shop');
-    const pendingShopParam = urlParams.get('pending_shop');
-
-    if (pendingShopParam) {
-      // User came from direct Shopify install but needs to log in
-      setPendingShop(pendingShopParam);
-      if (!user) {
-        toast.info('Please sign in to complete the Shopify connection');
-      }
-    }
 
     if (connected === 'true' && connectedShop) {
       toast.success(`Successfully connected to Shopify store: ${connectedShop}`);
@@ -58,11 +50,8 @@ const ImportPage = () => {
       window.history.pushState({}, document.title, window.location.pathname);
       // Refresh connection status
       setTimeout(() => {
-        if (user) checkShopifyConnections();
+        checkShopifyConnections();
       }, 1000);
-    } else if (connected === 'pending') {
-      toast.info('Shopify connection pending - please sign in to complete');
-      window.history.pushState({}, document.title, window.location.pathname);
     } else if (error) {
       let errorMessage = 'Failed to connect to Shopify';
       switch (error) {
@@ -119,56 +108,77 @@ const ImportPage = () => {
     }
   };
 
-  const handleConnectClick = async () => {
+  const handleConnectClick = () => {
     if (!user) {
       toast.error('Please sign in to connect your Shopify store');
       return;
     }
-    
+    if (!isConnected) {
+      setShowShopInput(true);
+    }
+  };
+
+  const connectShopify = async () => {
+    if (!user) {
+      toast.error('Please sign in first');
+      return;
+    }
+
+    if (!shopUrl.trim()) {
+      toast.error('Please enter your shop URL');
+      return;
+    }
+
     setIsConnecting(true);
     
     try {
-      // Get the current session to pass the access token
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Initiating Shopify OAuth for shop:', shopUrl);
+
+      // Get the current user's session to get the access token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session?.access_token) {
-        toast.error('Session expired. Please sign in again.');
-        setIsConnecting(false);
-        return;
+      if (sessionError || !session) {
+        throw new Error('User session not found. Please log in again.');
       }
+
+      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}` // This fixes the 401 error
+        },
+        body: JSON.stringify({ 
+          action: 'initiate', 
+          shop: shopUrl.trim() 
+        })
+      });
+
+      console.log('OAuth initiate response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('OAuth initiate error:', errorData);
+        throw new Error(errorData.error || 'Failed to initiate OAuth');
+      }
+
+      const data = await response.json();
+      const { authUrl } = data;
       
-      // Redirect to backend OAuth start endpoint with user token
-      // Backend will store the real user_id with the OAuth state
-      window.location.href = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?action=start&token=${encodeURIComponent(session.access_token)}`;
+      if (!authUrl) {
+        throw new Error('No auth URL received');
+      }
+
+      console.log('Redirecting to Shopify OAuth URL:', authUrl);
+      
+      // Redirect to Shopify OAuth
+      window.location.href = authUrl;
+      
     } catch (error) {
-      console.error('Error starting Shopify OAuth:', error);
-      toast.error('Failed to start Shopify connection');
+      console.error('Error connecting to Shopify:', error);
+      toast.error(`Failed to connect to Shopify: ${error.message}`);
       setIsConnecting(false);
     }
   };
-
-  // Handle direct install link (when shop parameter is in URL from Shopify)
-  const handleDirectInstall = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const shopFromUrl = urlParams.get('shop');
-    
-    if (shopFromUrl && user) {
-      // We have a shop from Shopify, redirect to start OAuth
-      setIsConnecting(true);
-      window.location.href = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?shop=${encodeURIComponent(shopFromUrl)}`;
-    }
-  };
-
-  // Check if we came from a Shopify install link and handle it
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const shopFromUrl = urlParams.get('shop');
-    
-    if (shopFromUrl && user && !isConnected) {
-      // Auto-redirect to OAuth if shop is in URL and user is logged in
-      handleDirectInstall();
-    }
-  }, [user, isConnected]);
 
   const fetchShopifyOrders = async () => {
     if (!user) return;
@@ -233,18 +243,17 @@ const ImportPage = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
+      await supabase
         .from('shopify_connections')
         .delete()
         .eq('user_id', user.id);
-
-      if (error) throw error;
 
       setIsConnected(false);
       setConnectedShops([]);
       setOrders([]);
       setSelectedOrders([]);
-      setPendingShop(null);
+      setShowShopInput(false);
+      setShopUrl('');
       toast.success('Disconnected from all Shopify stores');
     } catch (error) {
       console.error('Error disconnecting:', error);
@@ -315,42 +324,51 @@ const ImportPage = () => {
             
             {!isConnected ? (
               <div className="space-y-3">
-                {pendingShop ? (
-                  <Button 
-                    onClick={handleDirectInstall} 
-                    disabled={isConnecting}
-                    className="w-full"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Complete Connection to {pendingShop}
-                      </>
-                    )}
+                {!showShopInput ? (
+                  <Button onClick={handleConnectClick} className="w-full">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Connect Store
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={handleConnectClick} 
-                    disabled={isConnecting}
-                    className="w-full"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Connect Shopify
-                      </>
-                    )}
-                  </Button>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="shop-url">Shop URL</Label>
+                      <Input
+                        id="shop-url"
+                        placeholder="mystore (without .myshopify.com)"
+                        value={shopUrl}
+                        onChange={(e) => setShopUrl(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter your shop name (we'll add .myshopify.com automatically)
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        onClick={connectShopify} 
+                        disabled={isConnecting}
+                        className="flex-1"
+                      >
+                        {isConnecting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          'Connect with OAuth'
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowShopInput(false);
+                          setShopUrl('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (

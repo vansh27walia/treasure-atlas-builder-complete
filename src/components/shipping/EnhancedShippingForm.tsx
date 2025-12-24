@@ -328,9 +328,9 @@ const EnhancedShippingForm: React.FC = () => {
           <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-border">
             {/* Pickup Address */}
             <div className="p-6 my-0 px-0 mx-[10px]">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">​    
- <MapPin className="w-5 h-5 text-green-600" />
-                Pickup Address /sender address 
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-green-600" />
+                Pickup Address
               </h3>
               <AddressSelector type="from" onAddressSelect={handleFromAddressSelect} useGoogleAutocomplete={true} />
             </div>
@@ -339,7 +339,7 @@ const EnhancedShippingForm: React.FC = () => {
             <div className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-red-600" />
-                Drop-off Address / receiver address  
+                Drop-off Address
               </h3>
               <AddressSelector type="to" onAddressSelect={handleToAddressSelect} useGoogleAutocomplete={true} />
             </div>

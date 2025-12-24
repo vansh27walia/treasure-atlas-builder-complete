@@ -6,6 +6,7 @@ import { Package, Truck, ChartBar, Upload, CreditCard, TrendingUp, MapPin, Clock
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+
 const Index: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -171,10 +172,10 @@ const Index: React.FC = () => {
         {/* Enhanced Header Section */}
         <div className="text-center space-y-6">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 bg-clip-text text-slate-950">
-            ShippingQuick.io Dashboard
+            ShipQuick Dashboard
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Fast & easy shipping management with real-time data, advanced analytics, and intelligent automation
+            Complete shipping management with real-time data, advanced analytics, and intelligent automation
           </p>
           {user && <p className="text-lg text-gray-700">
               Welcome back, {user.user_metadata?.full_name || user.email}!
@@ -384,7 +385,7 @@ const Index: React.FC = () => {
               <Package className="mr-2 h-6 w-6" />
               Create Single Label
             </Button>
-            <Button size="lg" onClick={() => navigate('/bulk-upload')} variant="outline" className="border-2 border-white hover:bg-white shadow-xl px-8 py-4 text-lg text-sky-700">
+            <Button size="lg" onClick={() => navigate('/bulk-upload')} variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-blue-600 shadow-xl px-8 py-4 text-lg">
               <Upload className="mr-2 h-6 w-6" />
               Batch Processing
             </Button>

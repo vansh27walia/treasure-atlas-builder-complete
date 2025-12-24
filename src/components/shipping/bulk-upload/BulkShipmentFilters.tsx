@@ -102,9 +102,9 @@ interface BulkShipmentFiltersProps {
   sortField: "recipient" | "rate" | "carrier";
   sortDirection: "asc" | "desc";
   onSortChange: (field: "recipient" | "rate" | "carrier", direction: "asc" | "desc") => void;
-  selectedCarrier: string;
-  onCarrierFilterChange: (carrier: string) => void;
-  onApplyCarrierToAll: (carrier: string, service?: string) => void;
+  selectedCarrier: string | null;
+  onCarrierFilterChange: (carrier: string | null) => void;
+  onApplyCarrierToAll: (carrier: string, service: string) => void;
   onQuickOptimization?: (filterId: string) => void;
   // New Optional Props for Advanced Filtering
   onAdvancedFilterChange?: (filters: {
@@ -185,7 +185,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
 
   const handleClearAll = () => {
     onSearchChange("");
-    onCarrierFilterChange("");
+    onCarrierFilterChange(null);
     // Reset Advanced
     setPriceRange([0, 100]);
     setDaysRange(7);
@@ -196,7 +196,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   // Calculate active filters count including advanced options
   const activeFiltersCount =
     (searchTerm ? 1 : 0) +
-    (selectedCarrier && selectedCarrier !== "" ? 1 : 0) +
+    (selectedCarrier && selectedCarrier !== "all" ? 1 : 0) +
     (priceRange[1] < 100 || priceRange[0] > 0 ? 1 : 0) +
     (daysRange < 7 ? 1 : 0) +
     features.length;
@@ -236,20 +236,20 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           />
         </div>
 
-        {/* 2. Carrier Filter - Uses carrier NAME for proper filtering */}
+        {/* 2. Carrier Filter */}
         <Select
           value={selectedCarrier || "all"}
-          onValueChange={(value) => onCarrierFilterChange(value === "all" ? "" : value)}
+          onValueChange={(value) => onCarrierFilterChange(value === "all" ? null : value)}
         >
           <SelectTrigger className="w-[160px] h-10 border-gray-300">
             <SelectValue placeholder="All Carriers" />
           </SelectTrigger>
-          <SelectContent className="z-50">
+          <SelectContent>
             <SelectItem value="all">
               <span className="font-medium">All Carriers</span>
             </SelectItem>
             {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
-              <SelectItem key={carrier.id} value={carrier.name}>
+              <SelectItem key={carrier.id} value={carrier.id}>
                 <div className="flex items-center gap-2">
                   <CarrierLogo carrier={carrier.name} className="h-4 w-auto" />
                   {carrier.name}
@@ -338,18 +338,18 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </PopoverContent>
         </Popover>
 
-        {/* 4. Quick Change Dropdown */}
+        {/* 4. Quick Change / Optimization Dropdown */}
         <Select onValueChange={(val) => onQuickOptimization?.(val)}>
           <SelectTrigger className="w-[180px] h-10 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-purple-600" />
-              <SelectValue placeholder="Quick Change" />
+              <SelectValue placeholder="Quick Options" />
             </div>
           </SelectTrigger>
           <SelectContent className="bg-white border-2 shadow-lg z-50">
             <SelectGroup>
               <SelectLabel className="text-xs text-gray-500 uppercase tracking-wider font-semibold px-2 py-1">
-                Quick Change
+                Auto-Optimize
               </SelectLabel>
               {OPTIMIZATION_OPTIONS.map((option) => (
                 <SelectItem key={option.id} value={option.id}>

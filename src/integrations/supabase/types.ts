@@ -824,8 +824,8 @@ export type Database = {
     }
     Functions: {
       user_onboarding_status:
-        | { Args: never; Returns: undefined }
         | { Args: { user_id: string }; Returns: boolean }
+        | { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

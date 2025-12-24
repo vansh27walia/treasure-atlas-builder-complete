@@ -70,37 +70,21 @@ serve(async (req) => {
     }
 
     const { 
-      email,
       toEmails, 
       subject, 
       description, 
-      labelUrl,
-      trackingCode,
       batchResult, 
-      batchId,
-      isBatch,
       selectedFormats = ['pdf'] 
     } = requestBody;
 
-    console.log('Processing email request for:', { 
-      email, 
-      toEmails, 
-      subject, 
-      isBatch, 
-      labelUrl: labelUrl ? 'present' : 'missing',
-      batchResult: batchResult ? 'present' : 'missing',
-      selectedFormats 
-    });
+    console.log('Processing email request for:', { toEmails, subject, selectedFormats });
 
-    // Determine recipient email(s)
-    const recipientEmails = toEmails || (email ? [email] : []);
-    
     // Validate required fields
-    if (!recipientEmails || recipientEmails.length === 0) {
-      console.error('Missing recipient email');
+    if (!toEmails || toEmails.length === 0 || !subject) {
+      console.error('Missing required fields:', { toEmails, subject });
       return new Response(JSON.stringify({ 
         error: 'Missing required fields', 
-        details: 'Recipient email is required' 
+        details: 'toEmails and subject are required' 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
@@ -123,68 +107,20 @@ serve(async (req) => {
     console.log('Resend API key found, initializing Resend client');
     const resend = new Resend(resendApiKey);
 
-    // Prepare attachments
+    // Prepare attachments based on selected formats
     const attachments = [];
     const labelsList = [];
 
-    // Handle single label (normal shipping)
-    if (labelUrl && !isBatch) {
-      try {
-        console.log('Fetching single label from:', labelUrl);
-        const response = await fetch(labelUrl);
-        
-        if (!response.ok) {
-          console.error('Failed to fetch label:', response.status, response.statusText);
-          throw new Error(`Failed to fetch label: ${response.status} ${response.statusText}`);
-        }
-
-        const buffer = await response.arrayBuffer();
-        const contentType = response.headers.get('content-type') || 'application/pdf';
-        
-        // Determine file extension from URL or content type
-        let extension = 'pdf';
-        if (labelUrl.includes('.png')) extension = 'png';
-        else if (labelUrl.includes('.zpl')) extension = 'zpl';
-        else if (contentType.includes('image/png')) extension = 'png';
-        
-        const filename = trackingCode 
-          ? `shipping_label_${trackingCode}.${extension}`
-          : `shipping_label_${Date.now()}.${extension}`;
-        
-        attachments.push({
-          filename,
-          content: new Uint8Array(buffer),
-          contentType: extension === 'pdf' ? 'application/pdf' : 
-                      extension === 'zpl' ? 'text/plain' : 
-                      'image/png'
-        });
-        
-        labelsList.push(`• Shipping Label${trackingCode ? ` (${trackingCode})` : ''}`);
-        console.log('Successfully attached single label');
-      } catch (error) {
-        console.error('Error fetching single label:', error);
-        return new Response(JSON.stringify({ 
-          error: 'Failed to fetch label',
-          message: error instanceof Error ? error.message : 'Unable to fetch label for email attachment'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500
-        });
-      }
-    }
-    // Handle batch labels
-    else if (batchResult?.consolidatedLabelUrls || (isBatch && labelUrl)) {
-      const urlsToFetch = batchResult?.consolidatedLabelUrls || { pdf: labelUrl };
-      
+    if (batchResult?.consolidatedLabelUrls) {
       for (const format of selectedFormats) {
-        if (format === 'scanForm' && batchResult?.scanFormUrl) {
+        if (format === 'scanForm' && batchResult.scanFormUrl) {
           try {
             console.log('Fetching scan form from:', batchResult.scanFormUrl);
             const response = await fetch(batchResult.scanFormUrl);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
               attachments.push({
-                filename: `pickup_manifest_${batchId || Date.now()}.pdf`,
+                filename: `pickup_manifest_${Date.now()}.pdf`,
                 content: new Uint8Array(buffer),
                 contentType: 'application/pdf'
               });
@@ -199,16 +135,14 @@ serve(async (req) => {
           continue;
         }
 
-        const url = urlsToFetch[format];
+        const url = batchResult.consolidatedLabelUrls[format];
         if (url) {
           try {
             console.log(`Fetching ${format} label from:`, url);
             const response = await fetch(url);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
-              const filename = batchId 
-                ? `batch_${batchId}_labels.${format}`
-                : `consolidated_labels_${Date.now()}.${format}`;
+              const filename = `consolidated_labels_${Date.now()}.${format}`;
               
               attachments.push({
                 filename,
@@ -218,7 +152,7 @@ serve(async (req) => {
                            'image/png'
               });
               
-              labelsList.push(`• ${isBatch ? 'Batch' : 'Consolidated'} ${format.toUpperCase()} Labels`);
+              labelsList.push(`• Consolidated ${format.toUpperCase()} Labels`);
               console.log(`Successfully attached ${format} label`);
             } else {
               console.error(`Failed to fetch ${format} label: ${response.status} ${response.statusText}`);
@@ -242,20 +176,13 @@ serve(async (req) => {
     }
 
     // Prepare email content
-    const emailSubject = subject || (isBatch ? 'Your Batch Shipping Labels' : 'Your Shipping Label');
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">${isBatch ? 'Batch Shipping Labels' : 'Shipping Label'}</h2>
+        <h2 style="color: #2563eb;">Shipping Labels</h2>
         <p>${description || 'Please find your shipping labels attached to this email.'}</p>
         
-        ${trackingCode ? `
-          <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-            <p style="margin: 0; color: #1e40af;"><strong>Tracking Number:</strong> ${trackingCode}</p>
-          </div>
-        ` : ''}
-        
         <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #374151; margin-top: 0;">Attached Files:</h3>
+          <h3 style="color: #374151;">Attached Files:</h3>
           ${labelsList.map(item => `<p style="margin: 5px 0;">${item}</p>`).join('')}
         </div>
         
@@ -271,14 +198,14 @@ serve(async (req) => {
     `;
 
     // Convert single email to array if needed
-    const emailArray = Array.isArray(recipientEmails) ? recipientEmails : [recipientEmails];
+    const emailArray = Array.isArray(toEmails) ? toEmails : [toEmails];
     
     console.log(`Preparing to send email to ${emailArray.length} recipients with ${attachments.length} attachments`);
 
     const emailData = {
-      from: 'Shipping Labels <onboarding@resend.dev>',
+      from: 'Shipping System <noreply@yourdomain.com>',
       to: emailArray,
-      subject: emailSubject,
+      subject: subject,
       html: emailHtml,
       attachments: attachments
     };

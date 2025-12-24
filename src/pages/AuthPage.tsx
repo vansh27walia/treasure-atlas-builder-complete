@@ -141,7 +141,9 @@ const AuthPage: React.FC = () => {
           <div className="mx-auto h-12 w-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
             <Mail className="h-6 w-6 text-white" />
           </div>
-          <h2 className="mt-6 text-center font-extrabold text-slate-950 text-2xl">Welcome to ShippingQuick.io</h2>
+          <h2 className="mt-6 text-center font-extrabold text-slate-950 text-2xl">Welcome to 
+ShipQuick
+App</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             {activeTab === 'login' && 'Sign in to your account'}
             {activeTab === 'signup' && 'Create your account'}

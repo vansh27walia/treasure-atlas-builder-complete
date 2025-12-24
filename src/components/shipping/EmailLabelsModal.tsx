@@ -42,20 +42,13 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
     }
 
     // Determine what to send - individual label or batch result
-    const emailData: any = { 
-      email,
-      subject: batchResult ? 'Your Batch Shipping Labels' : 'Your Shipping Label',
-      description: batchResult 
-        ? 'Your batch shipping labels are ready. Please find them attached to this email.'
-        : 'Your shipping label is ready. Please find it attached to this email.'
-    };
+    const emailData: any = { email };
     
     if (batchResult) {
       // For batch results, use the consolidated PDF URL
       emailData.labelUrl = batchResult.consolidatedLabelUrls.pdf;
       emailData.batchId = batchResult.batchId;
       emailData.isBatch = true;
-      emailData.batchResult = batchResult;
     } else if (labelUrl) {
       // For individual labels
       emailData.labelUrl = labelUrl;
@@ -68,23 +61,18 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('email-labels', {
+      const { error } = await supabase.functions.invoke('email-labels', {
         body: emailData
       });
 
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Email sent successfully:', data);
       toast.success('Label sent successfully!');
       onClose();
       setEmail('');
     } catch (error) {
       console.error('Error sending email:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to send email. Please try again.';
-      toast.error(errorMessage);
+      toast.error('Failed to send email. Please try again.');
     } finally {
       setIsLoading(false);
     }

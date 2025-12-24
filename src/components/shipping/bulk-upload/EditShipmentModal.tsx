@@ -7,9 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Edit, Save, AlertTriangle, Phone, Globe } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
-import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
-import ToggleableCustomsClearance from '@/components/shipping/ToggleableCustomsClearance';
-import CustomsDocumentationModal from '@/components/shipping/CustomsDocumentationModal';
 
 interface EditShipmentModalProps {
   shipment: BulkShipment;
@@ -21,9 +18,6 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
   onEditShipment
 }) => {
   const [open, setOpen] = useState(false);
-  const [customsModalOpen, setCustomsModalOpen] = useState(false);
-  const [customsEnabled, setCustomsEnabled] = useState(false);
-  const [customsData, setCustomsData] = useState<any>(null);
   const [editData, setEditData] = useState({
     customer_name: shipment.customer_name || shipment.recipient || '',
     weight: Number(shipment.details?.weight || 1), // ALWAYS IN POUNDS - NO CONVERSION
@@ -33,12 +27,7 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
     declared_value: Number(shipment.details?.declared_value || 100),
     insurance_enabled: shipment.details?.insurance_enabled !== false,
     phone_number: shipment.details?.phone_number || '',
-    to_country: shipment.details?.to_country || 'US',
-    to_street1: shipment.details?.to_street1 || '',
-    to_street2: shipment.details?.to_street2 || '',
-    to_city: shipment.details?.to_city || '',
-    to_state: shipment.details?.to_state || '',
-    to_zip: shipment.details?.to_zip || ''
+    to_country: shipment.details?.to_country || 'US'
   });
 
   // Check if shipment is international
@@ -107,13 +96,10 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
         to_country: editData.to_country,
         // Update all address fields properly
         to_name: editData.customer_name,
-        to_street1: editData.to_street1,
-        to_street2: editData.to_street2,
-        to_city: editData.to_city,
-        to_state: editData.to_state,
-        to_zip: editData.to_zip,
-        // Add customs data if available
-        ...(customsData && { customs_info: customsData })
+        to_street1: shipment.details?.to_street1 || '',
+        to_city: shipment.details?.to_city || '',
+        to_state: shipment.details?.to_state || '',
+        to_zip: shipment.details?.to_zip || '',
       }
     };
 
@@ -201,70 +187,6 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
             </div>
 
             <div>
-              <Label htmlFor="address" className="flex items-center gap-2">
-                Address (Google Autocomplete)
-              </Label>
-              <AddressAutoComplete
-                onChange={(value) => setEditData(prev => ({ ...prev, to_street1: value }))}
-                onAddressSelected={(address) => {
-                  console.log('Address selected:', address);
-                }}
-                onFullAddressPopulated={(addressData) => {
-                  console.log('Full address populated:', addressData);
-                  setEditData(prev => ({
-                    ...prev,
-                    to_street1: addressData.street || '',
-                    to_city: addressData.city || '',
-                    to_state: addressData.state || '',
-                    to_zip: addressData.zip || '',
-                    to_country: addressData.country || 'US'
-                  }));
-                }}
-                placeholder="Start typing address..."
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="to_street2">Apartment / Suite (Optional)</Label>
-              <Input
-                id="to_street2"
-                value={editData.to_street2}
-                onChange={(e) => setEditData(prev => ({ ...prev, to_street2: e.target.value }))}
-                placeholder="Apt, Suite, etc."
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="to_city">City</Label>
-              <Input
-                id="to_city"
-                value={editData.to_city}
-                onChange={(e) => setEditData(prev => ({ ...prev, to_city: e.target.value }))}
-                placeholder="City"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="to_state">State</Label>
-              <Input
-                id="to_state"
-                value={editData.to_state}
-                onChange={(e) => setEditData(prev => ({ ...prev, to_state: e.target.value }))}
-                placeholder="State"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="to_zip">Zip Code</Label>
-              <Input
-                id="to_zip"
-                value={editData.to_zip}
-                onChange={(e) => setEditData(prev => ({ ...prev, to_zip: e.target.value }))}
-                placeholder="Zip Code"
-              />
-            </div>
-
-            <div>
               <Label htmlFor="to_country" className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
                 Country
@@ -291,20 +213,6 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
                 </p>
               )}
             </div>
-            
-            {isInternational && (
-              <div className="col-span-2">
-                <ToggleableCustomsClearance
-                  enabled={customsEnabled}
-                  onToggle={(enabled) => {
-                    setCustomsEnabled(enabled);
-                    if (enabled) {
-                      setCustomsModalOpen(true);
-                    }
-                  }}
-                />
-              </div>
-            )}
           </div>
 
           {/* Package Dimensions */}
@@ -414,19 +322,6 @@ const EditShipmentModal: React.FC<EditShipmentModalProps> = ({
           </Button>
         </div>
       </DialogContent>
-      
-      <CustomsDocumentationModal
-        isOpen={customsModalOpen}
-        onClose={() => setCustomsModalOpen(false)}
-        onSubmit={(data) => {
-          setCustomsData(data);
-          setCustomsEnabled(true);
-          toast.success('Customs documentation saved');
-        }}
-        fromCountry="US"
-        toCountry={editData.to_country}
-        initialData={customsData}
-      />
     </Dialog>
   );
 };

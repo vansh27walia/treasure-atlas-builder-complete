@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
 import { PDFDocument } from 'pdf-lib';
-import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Thermal Printer', description: 'Standard thermal label size for direct printing' },
@@ -519,8 +518,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[90vh] max-h-[800px] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <span>{dialogTitleText}</span>
           </DialogTitle>
@@ -536,7 +535,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </Button>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col pt-4 overflow-y-auto min-h-0">
+        <div className="flex-1 flex flex-col pt-4 overflow-hidden">
           {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             {!isBatchPreview && (
@@ -556,9 +555,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               </TabsList>
             )}
 
-            <TabsContent value="preview" className="flex-1 flex flex-col space-y-4">
+            <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden">
               {/* Format Selection - Only in Preview Tab */}
-              <div className="flex-shrink-0">
+              <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Print Format</Label>
                 <Select
                   value={selectedFormat}
@@ -582,7 +581,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               </div>
 
               {/* Single PDF Preview Container */}
-              <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 bg-gray-50 border rounded-lg relative">
+              <div className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-50 border rounded-lg overflow-hidden relative">
                 {isRegeneratingLabel && (
                   <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                     <div className="flex flex-col items-center gap-2">
@@ -606,7 +605,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
 
                 {/* Single PDF/Image Preview */}
-                <div className={`bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-2xl'} w-full`}>
+                <div className={`bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-3xl'} w-full`}>
                   {isRegeneratingLabel ? (
                     <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
@@ -620,7 +619,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '350px' : '420px', 
+                        height: selectedFormat === '4x6' ? '400px' : '500px', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
@@ -666,23 +665,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons - Print and Download */}
-              <div className="flex-shrink-0 grid grid-cols-2 gap-3 pt-4 border-t">
+              {/* Print Button - Only in Preview Tab */}
+              <div className="pt-4 border-t mt-4">
                 <Button
                   onClick={handlePrint}
                   disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
                 >
                   <Printer className="h-5 w-5 mr-2" />
                   Print Label
-                </Button>
-                <Button
-                  onClick={() => handleDownload('pdf')}
-                  disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
-                >
-                  <Download className="h-5 w-5 mr-2" />
-                  Download
                 </Button>
               </div>
             </TabsContent>
@@ -804,19 +795,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </Tabs>
         </div>
 
-        <DialogFooter className="flex-shrink-0 sm:justify-between pt-3 border-t gap-2">
-          <div className="flex gap-2">
-            {!isBatchPreview && shipmentId && trackingCode && shipmentDetails && (
-              <CancelLabelDialog
-                shipmentId={shipmentId}
-                trackingCode={trackingCode}
-                carrier={shipmentDetails.carrier}
-                service={shipmentDetails.service}
-                fromAddress={shipmentDetails.fromAddress}
-                toAddress={shipmentDetails.toAddress}
-              />
-            )}
-          </div>
+        <DialogFooter className="sm:justify-start pt-3">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="h-9 px-6">
               Close

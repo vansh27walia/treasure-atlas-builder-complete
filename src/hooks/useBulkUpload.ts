@@ -22,33 +22,27 @@ export const useBulkUpload = () => {
     handleDownloadTemplate
   } = useShipmentUpload();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate'>('recipient');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
-  const [advancedFilters, setAdvancedFilters] = useState({
-    minPrice: 0,
-    maxPrice: 100,
-    maxDays: 7,
-    features: [] as string[]
-  });
-  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
-  const [isFetchingRates, setIsFetchingRates] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
-  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
-  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
-    isGenerating: false,
-    totalShipments: 0,
-    processedShipments: 0,
-    successfulShipments: 0,
-    failedShipments: 0,
-    currentStep: '',
-    estimatedTimeRemaining: 0
-  });
-  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate'>('recipient');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
+  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
+    isGenerating: false,
+    totalShipments: 0,
+    processedShipments: 0,
+    successfulShipments: 0,
+    failedShipments: 0,
+    currentStep: '',
+    estimatedTimeRemaining: 0
+  });
+  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -74,59 +68,42 @@ export const useBulkUpload = () => {
     }
   }, [paymentCompleted, isCreatingLabels, results]);
 
-  // Filter and sort shipments with advanced filters
-  const filteredShipments = results?.processedShipments.filter(shipment => {
-    // Basic search filter
-    const matchesSearch = !searchTerm || 
-      shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shipment.service?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Carrier filter
-    const matchesCarrier = !selectedCarrierFilter || 
-      shipment.carrier.toLowerCase() === selectedCarrierFilter.toLowerCase();
-    
-    // Advanced price filter
-    const rate = Number(shipment.rate || 0);
-    const matchesPrice = rate >= advancedFilters.minPrice && rate <= advancedFilters.maxPrice;
-    
-    // Advanced delivery days filter
-    const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
-    const deliveryDays = selectedRate?.delivery_days || 99;
-    const matchesDays = deliveryDays <= advancedFilters.maxDays;
-    
-    // Advanced features filter
-    const service = shipment.service?.toLowerCase() || '';
-    const matchesFeatures = advancedFilters.features.length === 0 || 
-      advancedFilters.features.some(feature => service.includes(feature.toLowerCase()));
-    
-    return matchesSearch && matchesCarrier && matchesPrice && matchesDays && matchesFeatures;
-  }).sort((a, b) => {
-    let aValue, bValue;
-    
-    switch (sortField) {
-      case 'recipient':
-        aValue = a.recipient;
-        bValue = b.recipient;
-        break;
-      case 'carrier':
-        aValue = a.carrier;
-        bValue = b.carrier;
-        break;
-      case 'rate':
-        aValue = a.rate;
-        bValue = b.rate;
-        break;
-      default:
-        return 0;
-    }
-    
-    if (sortDirection === 'asc') {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    } else {
-      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-    }
-  }) || [];
+  // Filter and sort shipments
+  const filteredShipments = results?.processedShipments.filter(shipment => {
+    const matchesSearch = !searchTerm || 
+      shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCarrier = !selectedCarrierFilter || 
+      shipment.carrier === selectedCarrierFilter;
+    
+    return matchesSearch && matchesCarrier;
+  }).sort((a, b) => {
+    let aValue, bValue;
+    
+    switch (sortField) {
+      case 'recipient':
+        aValue = a.recipient;
+        bValue = b.recipient;
+        break;
+      case 'carrier':
+        aValue = a.carrier;
+        bValue = b.carrier;
+        break;
+      case 'rate':
+        aValue = a.rate;
+        bValue = b.rate;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (sortDirection === 'asc') {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  }) || [];
 
   const handleSelectRate = (shipmentId: string, rateId: string) => {
     if (!results) return;
@@ -460,52 +437,49 @@ export const useBulkUpload = () => {
     }
   };
 
-  return {
-    // ... exposed values and setters
-    file,
-    isUploading,
-    isPaying,
-    isCreatingLabels,
-    isFetchingRates,
-    uploadStatus,
-    results,
-    progress,
-    searchTerm,
-    sortField,
-    sortDirection,
-    selectedCarrierFilter,
-    advancedFilters,
-    filteredShipments,
-    pickupAddress,
-    batchError,
-    labelGenerationProgress,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
-    showAddPaymentModal,
-    setShowAddPaymentModal,
-    setPickupAddress,
-    setSearchTerm,
-    setSortField,
-    setSortDirection,
-    setSelectedCarrierFilter,
-    setAdvancedFilters,
-    handleFileChange,
-    handleUpload,
-    handleSelectRate,
-    handleRemoveShipment,
-    handleEditShipment,
-    handleRefreshRates,
-    handleBulkApplyCarrier,
-    handleClearBatchError,
-    handleOpenBatchPrintPreview,
-    handlePaymentSuccess,
-    handleAddPaymentMethod,
-    handleDownloadTemplate,
-    handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
-    handleEmailLabels,
-    setResults
-  };
+  return {
+    // ... exposed values and setters
+    file,
+    isUploading,
+    isPaying,
+    isCreatingLabels,
+    isFetchingRates,
+    uploadStatus,
+    results,
+    progress,
+    searchTerm,
+    sortField,
+    sortDirection,
+    selectedCarrierFilter,
+    filteredShipments,
+    pickupAddress,
+    batchError,
+    labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
+    showAddPaymentModal,
+    setShowAddPaymentModal,
+    setPickupAddress,
+    setSearchTerm,
+    setSortField,
+    setSortDirection,
+    setSelectedCarrierFilter,
+    handleFileChange,
+    handleUpload,
+    handleSelectRate,
+    handleRemoveShipment,
+    handleEditShipment,
+    handleRefreshRates,
+    handleBulkApplyCarrier,
+    handleClearBatchError,
+    handleOpenBatchPrintPreview,
+    handlePaymentSuccess,
+    handleAddPaymentMethod,
+    handleDownloadTemplate,
+    handleCreateLabels,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels
+  };
 };
