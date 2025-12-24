@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search, Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -22,6 +23,7 @@ const LabelSuccessPage: React.FC = () => {
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [trackingSearch, setTrackingSearch] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -85,6 +87,41 @@ const LabelSuccessPage: React.FC = () => {
       }
     } else {
       toast.error("Label URL is not available");
+    }
+  };
+
+  const handleCancelLabel = async () => {
+    if (!shipmentId) {
+      toast.error('No shipment ID available');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to cancel this label? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-label', {
+        body: { shipment_id: shipmentId }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || 'Label cancelled successfully');
+        // Redirect to dashboard after short delay
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      } else {
+        throw new Error(data?.error || 'Failed to cancel label');
+      }
+    } catch (error: any) {
+      console.error('Error cancelling label:', error);
+      toast.error(error.message || 'Failed to cancel label');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -160,6 +197,15 @@ const LabelSuccessPage: React.FC = () => {
             >
               <Home className="h-5 w-5" />
               Create Another Label
+            </Button>
+
+            <Button 
+              variant="destructive"
+              className="flex items-center gap-2 h-12 px-8"
+              onClick={handleCancelLabel}
+              disabled={isCancelling}
+            >
+              {isCancelling ? 'Cancelling...' : 'Cancel Label'}
             </Button>
           </div>
 

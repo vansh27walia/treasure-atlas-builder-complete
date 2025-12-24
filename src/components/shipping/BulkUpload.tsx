@@ -90,22 +90,14 @@ const BulkUpload: React.FC = () => {
   const handleAIOptimizationChange = (filter: string, shipmentId?: string) => {
     const applyFilterToShipment = (shipment: any) => {
       if (!shipment.availableRates || shipment.availableRates.length === 0) return;
-      
       let selectedRate = null;
-      
       switch (filter) {
         case 'cheapest':
-          selectedRate = shipment.availableRates.reduce((min: any, rate: any) => 
-            parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min
-          );
+          selectedRate = shipment.availableRates.reduce((min: any, rate: any) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
           break;
-          
         case 'fastest':
-          selectedRate = shipment.availableRates.reduce((fastest: any, rate: any) => 
-            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
-          );
+          selectedRate = shipment.availableRates.reduce((fastest: any, rate: any) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
           break;
-          
         case 'balanced':
           selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
             const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
@@ -113,26 +105,20 @@ const BulkUpload: React.FC = () => {
             return rateScore > bestScore ? rate : best;
           });
           break;
-          
         case '2-day':
-          selectedRate = shipment.availableRates.find((rate: any) => 
-            rate.delivery_days <= 2
-          ) || shipment.availableRates.reduce((fastest: any, rate: any) => 
-            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
-          );
+          selectedRate = shipment.availableRates.find((rate: any) => rate.delivery_days <= 2) || shipment.availableRates.reduce((fastest: any, rate: any) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
           break;
-          
         case 'express':
-          selectedRate = shipment.availableRates.find((rate: any) => 
-            rate.delivery_days === 1 || rate.service?.toLowerCase().includes('express')
-          ) || shipment.availableRates.reduce((fastest: any, rate: any) => 
-            (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest
-          );
+          selectedRate = shipment.availableRates.find((rate: any) => rate.delivery_days === 1 || rate.service?.toLowerCase().includes('express')) || shipment.availableRates.reduce((fastest: any, rate: any) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
           break;
-          
         case 'most-reliable':
-          const reliabilityScores: { [key: string]: number } = {
-            'UPS': 90, 'FEDEX': 88, 'USPS': 85, 'DHL': 82
+          const reliabilityScores: {
+            [key: string]: number;
+          } = {
+            'UPS': 90,
+            'FEDEX': 88,
+            'USPS': 85,
+            'DHL': 82
           };
           selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
             const rateReliability = reliabilityScores[rate.carrier?.toUpperCase()] || 75;
@@ -140,28 +126,20 @@ const BulkUpload: React.FC = () => {
             return rateReliability > bestReliability ? rate : best;
           });
           break;
-          
         case 'ai-recommended':
           selectedRate = shipment.availableRates.reduce((best: any, rate: any) => {
-            const rateScore = (1 / parseFloat(rate.rate.toString())) * 0.4 + 
-                            (1 / (rate.delivery_days || 5)) * 0.3 +
-                            (reliabilityScores[rate.carrier?.toUpperCase()] || 75) / 100 * 0.3;
-            const bestScore = (1 / parseFloat(best.rate.toString())) * 0.4 + 
-                            (1 / (best.delivery_days || 5)) * 0.3 +
-                            (reliabilityScores[best.carrier?.toUpperCase()] || 75) / 100 * 0.3;
+            const rateScore = 1 / parseFloat(rate.rate.toString()) * 0.4 + 1 / (rate.delivery_days || 5) * 0.3 + (reliabilityScores[rate.carrier?.toUpperCase()] || 75) / 100 * 0.3;
+            const bestScore = 1 / parseFloat(best.rate.toString()) * 0.4 + 1 / (best.delivery_days || 5) * 0.3 + (reliabilityScores[best.carrier?.toUpperCase()] || 75) / 100 * 0.3;
             return rateScore > bestScore ? rate : best;
           });
           break;
-          
         default:
           selectedRate = shipment.availableRates[0];
       }
-      
       if (selectedRate) {
         handleSelectRate(shipment.id, selectedRate.id);
       }
     };
-    
     if (shipmentId) {
       // Apply to specific shipment
       const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
@@ -173,7 +151,6 @@ const BulkUpload: React.FC = () => {
       results?.processedShipments?.forEach(shipment => {
         applyFilterToShipment(shipment);
       });
-      
       toast.success(`Applied "${filter}" optimization to all ${results?.processedShipments?.length || 0} shipments`);
     }
   };
@@ -282,30 +259,16 @@ const BulkUpload: React.FC = () => {
     handleDownloadLabelsClick();
   };
   return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
-        {/* Progress Bar */}
-        <div className="bg-white shadow-sm border-b rounded-3xl">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
+      {/* Sticky Progress Bar at the very top - translucent like normal shipping */}
+      <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
 
+      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl">
-              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <div className="space-y-6">
-                  {uploadStatus === 'idle' && <div className="text-center py-0">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                        <UploadCloud className="w-8 h-8 text-blue-600" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                        Upload Your CSV File
-                      </h2>
-                      <p className="text-gray-600 mb-6">
-                        Get started by uploading your CSV file. Our AI will handle the rest!
-                      </p>
-                    </div>}
-                  
+              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && 
                   <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />
-                </div>}
+              }
               
               {uploadStatus === 'editing' && results && <div className="space-y-8">
                   <div className="text-center py-0">
@@ -331,14 +294,14 @@ const BulkUpload: React.FC = () => {
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
                       <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
-                      setSortField(field as any);
-                      setSortDirection(direction as any);
-                    }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
+                    setSortField(field as any);
+                    setSortDirection(direction as any);
+                  }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
                     <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, updates: any) => {
-                    handleEditShipment(shipmentId, updates);
-                  }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
+                  handleEditShipment(shipmentId, updates);
+                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
@@ -352,7 +315,7 @@ const BulkUpload: React.FC = () => {
                             </span>
                             <span className="flex items-center">
                               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                              ${((results.totalCost || 0)).toFixed(2)} total
+                              ${(results.totalCost || 0).toFixed(2)} total
                             </span>
                           </div>
                           {pickupAddress && <p className="text-sm text-blue-600 font-medium">
@@ -366,7 +329,7 @@ const BulkUpload: React.FC = () => {
                             {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
                           </Button>
                           
-                          <PaymentDropdown amount={((results.totalCost || 0))} description={`Bulk Shipping (${processedShipmentsCount} shipments)`} shippingDetails={{
+                          <PaymentDropdown amount={results.totalCost || 0} description={`Bulk Shipping (${processedShipmentsCount} shipments)`} shippingDetails={{
                       shipmentCount: processedShipmentsCount,
                       pickupAddress: pickupAddress,
                       shipments: results.processedShipments
@@ -377,35 +340,16 @@ const BulkUpload: React.FC = () => {
                 </div>}
               
               {uploadStatus === 'success' && results && <div className="space-y-6">
-                  {(results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url) && (
-                    <div className="flex justify-center gap-3 mb-6">
-                      <PrintPreview
-                        labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url}
-                        trackingCode={null}
-                        isBatchPreview={!!results.batchResult}
-                        batchResult={results.batchResult}
-                        triggerButton={
-                          <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
+                  {(results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url) && <div className="flex justify-center gap-3 mb-6">
+                      <PrintPreview labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={!!results.batchResult} batchResult={results.batchResult} triggerButton={<Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
                             <PrinterIcon className="mr-2 h-4 w-4" />
                             Print Preview All Labels
-                          </Button>
-                        }
-                      />
-                      <PrintPreview
-                        labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url}
-                        trackingCode={null}
-                        isBatchPreview={!!results.batchResult}
-                        batchResult={results.batchResult}
-                        openToEmailTab={true}
-                        triggerButton={
-                          <Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
+                          </Button>} />
+                      <PrintPreview labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={!!results.batchResult} batchResult={results.batchResult} openToEmailTab={true} triggerButton={<Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
                             <Mail className="mr-2 h-4 w-4" />
                             Email All Labels
-                          </Button>
-                        }
-                      />
-                    </div>
-                  )}
+                          </Button>} />
+                    </div>}
                   <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
                 </div>}
               
@@ -423,11 +367,11 @@ const BulkUpload: React.FC = () => {
                   </div>
                   
                   <UploadError onRetry={() => window.location.reload()} onSelectNewFile={() => {
-                  const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-                  if (fileInput) {
-                    fileInput.click();
-                  }
-                }} errorMessage="Upload failed. Please check your file format and try again." />
+                const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                if (fileInput) {
+                  fileInput.click();
+                }
+              }} errorMessage="Upload failed. Please check your file format and try again." />
                 </div>}
             </CardContent>
           </Card>

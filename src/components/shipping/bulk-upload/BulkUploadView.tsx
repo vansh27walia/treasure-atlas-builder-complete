@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/components/ui/sonner';
-import { Download, UploadCloud } from 'lucide-react';
+import { Download, UploadCloud, Plus } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,6 +32,9 @@ import FreshEditModal from './FreshEditModal';
 import IndependentPrintPreview from '../IndependentPrintPreview';
 import BulkAIOverviewPanel from './BulkAIOverviewPanel';
 import { Sparkles } from 'lucide-react';
+import { computeDiscountPercent } from '@/utils/discount';
+import BulkShipmentFilters from './BulkShipmentFilters';
+import AddManualShipmentModal from './AddManualShipmentModal';
 
 interface BulkUploadViewProps {
   defaultPickupAddress?: any;
@@ -53,6 +56,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     sortField,
     sortDirection,
     selectedCarrierFilter,
+    advancedFilters,
     filteredShipments,
     pickupAddress,
     batchError,
@@ -77,6 +81,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
+    setAdvancedFilters,
     handlePaymentSuccess,
     handleAddPaymentMethod,
     handleEmailLabels,
@@ -130,9 +135,10 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
     return 'Address not available';
   };
 
-  // Insurance: Exactly $2 per $100 of declared value (rounds up to nearest $100, then multiply by 2)
-  const calcInsurance = (declared: number) => {
-    if (declared <= 0) return 0;
+  // Insurance: Exactly $2 per $100 of declared value - MUST BE 0 when disabled
+  const calcInsurance = (declared: number, enabled: boolean = true) => {
+    // CRITICAL: Return 0 if disabled or no declared value
+    if (!enabled || declared <= 0) return 0;
     // Always round up to nearest $100, then multiply by 2
     return Math.ceil(declared / 100) * 2;
   };
@@ -150,6 +156,38 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
       console.error('❌ BulkUploadView: Edit failed:', error);
     }
   };
+
+  // Auto-select UPS 2-Day Delivery for all shipments on load
+  React.useEffect(() => {
+    if (results && results.processedShipments && results.processedShipments.length > 0) {
+      console.log('🔄 Auto-selecting UPS 2-Day Delivery for all shipments...');
+      results.processedShipments.forEach((shipment: BulkShipment) => {
+        if (shipment.availableRates && shipment.availableRates.length > 0 && !shipment.selectedRateId) {
+          // Look for UPS 2-Day or UPS 2nd Day Air
+          const ups2DayRate = shipment.availableRates.find((rate: any) => 
+            rate.carrier === 'UPS' && (
+              rate.service.toLowerCase().includes('2') || 
+              rate.service.toLowerCase().includes('two') ||
+              rate.service.toLowerCase().includes('2nd day') ||
+              rate.service.toLowerCase().includes('2 day')
+            )
+          );
+          
+          if (ups2DayRate) {
+            console.log(`✅ Auto-selected UPS 2-Day for shipment ${shipment.id}`);
+            handleSelectRate(shipment.id, ups2DayRate.id);
+          } else {
+            // Fallback to first UPS rate if no 2-Day found
+            const anyUpsRate = shipment.availableRates.find((rate: any) => rate.carrier === 'UPS');
+            if (anyUpsRate) {
+              console.log(`⚠️ UPS 2-Day not found, using ${anyUpsRate.service} for shipment ${shipment.id}`);
+              handleSelectRate(shipment.id, anyUpsRate.id);
+            }
+          }
+        }
+      });
+    }
+  }, [results?.processedShipments?.length]);
 
   return (
     <div className="space-y-6">
@@ -218,29 +256,78 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             </Button>
           </div>
 
-          {/* Filters and Shipments List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              type="text"
-              placeholder="Search by recipient or carrier..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="carrierFilter" className="text-sm">Filter by Carrier:</Label>
-              <Select onValueChange={setSelectedCarrierFilter}>
-                <SelectTrigger id="carrierFilter" className="w-[180px]">
-                  <SelectValue placeholder="All Carriers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Carriers</SelectItem>
-                  {Array.from(new Set(results.processedShipments.map(s => s.carrier))).map((carrier: any) => (
-                    <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Filters */}
+          <BulkShipmentFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSortChange={(field, direction) => {
+              setSortField(field);
+              setSortDirection(direction);
+            }}
+            selectedCarrier={selectedCarrierFilter}
+            onCarrierFilterChange={setSelectedCarrierFilter}
+            onApplyCarrierToAll={handleBulkApplyCarrier}
+            onQuickOptimization={(filterId) => {
+              console.log('🚀 Quick optimization:', filterId);
+              // Apply optimization logic based on filter
+              filteredShipments.forEach(shipment => {
+                if (shipment.availableRates && shipment.availableRates.length > 0) {
+                  let selectedRate = shipment.availableRates[0];
+                  
+                  if (filterId === 'cheapest') {
+                    selectedRate = shipment.availableRates.reduce((prev, curr) => 
+                      Number(curr.rate) < Number(prev.rate) ? curr : prev
+                    );
+                  } else if (filterId === 'fastest') {
+                    selectedRate = shipment.availableRates.reduce((prev, curr) => 
+                      (curr.delivery_days || 99) < (prev.delivery_days || 99) ? curr : prev
+                    );
+                  } else if (filterId === 'balanced') {
+                    selectedRate = shipment.availableRates.reduce((prev, curr) => {
+                      const prevRatio = Number(prev.rate) / (prev.delivery_days || 1);
+                      const currRatio = Number(curr.rate) / (curr.delivery_days || 1);
+                      return currRatio < prevRatio ? curr : prev;
+                    });
+                  } else if (filterId === '2-day') {
+                    const twoDayRate = shipment.availableRates.find(r => r.delivery_days === 2);
+                    if (twoDayRate) selectedRate = twoDayRate;
+                  } else if (filterId === 'door-delivery' || filterId === 'po-box') {
+                    // Filter by service type
+                    const filtered = shipment.availableRates.filter(r => 
+                      filterId === 'door-delivery' ? !r.service.toLowerCase().includes('po box') : r.service.toLowerCase().includes('po box')
+                    );
+                    if (filtered.length > 0) selectedRate = filtered[0];
+                  } else if (filterId === 'eco-friendly') {
+                    const groundRate = shipment.availableRates.find(r => r.service.toLowerCase().includes('ground'));
+                    if (groundRate) selectedRate = groundRate;
+                  } else if (filterId === 'express') {
+                    const expressRate = shipment.availableRates.find(r => 
+                      r.service.toLowerCase().includes('express') || r.service.toLowerCase().includes('next day')
+                    );
+                    if (expressRate) selectedRate = expressRate;
+                  } else if (filterId === 'most-reliable') {
+                    const reliableRate = shipment.availableRates.find(r => 
+                      r.carrier === 'UPS' || r.carrier === 'FedEx'
+                    );
+                    if (reliableRate) selectedRate = reliableRate;
+                  } else if (filterId === 'ai-recommended') {
+                    // Use the first rate as AI recommended for now
+                    selectedRate = shipment.availableRates[0];
+                  }
+                  
+                  handleSelectRate(shipment.id, selectedRate.id);
+                }
+              });
+              toast.success(`Applied ${filterId} optimization to all shipments`);
+            }}
+            onAdvancedFilterChange={(filters) => {
+              console.log('📊 Advanced filters changed:', filters);
+              setAdvancedFilters(filters);
+            }}
+          />
+
 
           {/* Notice: Insurance is auto-calculated */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -297,7 +384,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                           </span>
                           <Badge variant="destructive" className="text-2xs">
                             Save {(() => {
-                              const raw = hasDiscount ? Math.round((1 - currentRate / Number(original)) * 100) : 0;
+                              const raw = hasDiscount ? computeDiscountPercent(original, currentRate, { clampMin: 60, clampMax: 90 }) : 0;
                               const pct = original ? Math.min(95, Math.max(50, raw)) : 50;
                               return pct;
                             })()}%
@@ -328,6 +415,52 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     </TableRow>
                   );
                 })}
+{/* Add Shipment Row - Empty row with only edit button */}
+              <TableRow className="border-t border-dashed border-muted">
+                <TableCell className="py-3 text-center font-medium text-muted-foreground">
+                  {filteredShipments.length + 1}
+                </TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell className="py-3">
+                  <FreshEditModal
+                    shipment={{
+                      id: `new-${Date.now()}`,
+                      details: {
+                        toName: '',
+                        toStreet: '',
+                        toCity: '',
+                        toState: '',
+                        toZip: '',
+                        toCountry: 'US',
+                        weight: 0,
+                        length: 0,
+                        width: 0,
+                        height: 0,
+                      },
+                      rates: [],
+                      status: 'pending'
+                    }}
+                    pickupAddress={pickupAddress}
+                    onUpdateShipment={(id, updatedShipment) => {
+                      if (results && setResults) {
+                        const updatedResults = {
+                          ...results,
+                          processedShipments: [...results.processedShipments, updatedShipment],
+                          successful: results.successful + 1
+                        };
+                        setResults(updatedResults);
+                        toast.success(`Shipment added!`);
+                      }
+                    }}
+                    buttonLabel="Add a shipment"
+                  />
+                </TableCell>
+              </TableRow>
               </TableBody>
               <TableFooter className="bg-gray-100">
                 <TableRow>
@@ -338,7 +471,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
                     ${(() => {
                       const actualTotal = filteredShipments.reduce((sum, shipment) => {
                         const declared = (shipment.declared_value ?? shipment.details?.declared_value ?? 0) as number;
-                        const insurance = calcInsurance(declared);
+                        const insuranceEnabled = shipment.insurance_enabled !== false;
+                        const insurance = calcInsurance(declared, insuranceEnabled);
                         const rate = Number(shipment.rate ?? 0);
                         return sum + rate + insurance;
                       }, 0);
@@ -355,13 +489,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({
             successfulCount={filteredShipments.length}
             totalCost={filteredShipments.reduce((sum, s: any) => {
               const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
-              const insurance = calcInsurance(declared);
+              const insuranceEnabled = s.insurance_enabled !== false;
+              const insurance = calcInsurance(declared, insuranceEnabled);
               const rate = Number(s.rate ?? 0);
               return sum + rate + insurance;
             }, 0)}
             totalInsurance={filteredShipments.reduce((sum, s: any) => {
               const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
-              return sum + calcInsurance(declared);
+              const insuranceEnabled = s.insurance_enabled !== false;
+              return sum + calcInsurance(declared, insuranceEnabled);
             }, 0)}
             onDownloadAllLabels={handleOpenBatchPrintPreview}
             onProceedToPayment={handlePaymentSuccess}

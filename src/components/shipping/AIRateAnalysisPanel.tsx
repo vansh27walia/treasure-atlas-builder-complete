@@ -15,6 +15,7 @@ interface AIRateAnalysisPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onOptimizationChange: (filter: string) => void;
+  onRateChange?: (rate: any) => void;
 }
 
 interface AIAnalysis {
@@ -39,7 +40,8 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   allRates,
   isOpen,
   onClose,
-  onOptimizationChange
+  onOptimizationChange,
+  onRateChange
 }) => {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -97,7 +99,8 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     setSelectedRateId(rateId);
     const newSelectedRate = allRates.find(rate => rate.id === rateId);
     if (newSelectedRate) {
-      document.dispatchEvent(new CustomEvent('select-shipping-rate', { 
+      onRateChange?.(newSelectedRate);
+      document.dispatchEvent(new CustomEvent('select-shipping-rate', {
         detail: { rateId } 
       }));
     }

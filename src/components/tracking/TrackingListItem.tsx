@@ -2,6 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink } from 'lucide-react';
+import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
 
 interface TrackingEvent {
   id: string;
@@ -54,9 +55,18 @@ const getStatusIcon = (status: string) => {
       return <Truck className="h-5 w-5 text-blue-500" />;
     case 'out_for_delivery': 
       return <MapPin className="h-5 w-5 text-purple-500" />;
+    case 'cancelled':
+    case 'canceled':
+      return <span className="text-red-600 font-bold text-xl">✕</span>;
     default: 
       return <Clock className="h-5 w-5 text-gray-500" />;
   }
+};
+
+// Helper function to check if label can be cancelled
+const canCancelLabel = (status: string) => {
+  const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
+  return !ineligibleStatuses.includes(status.toLowerCase());
 };
 
 const TrackingListItem: React.FC<TrackingListItemProps> = ({ 
@@ -72,9 +82,19 @@ const TrackingListItem: React.FC<TrackingListItemProps> = ({
         return <Badge className="bg-blue-500">In Transit</Badge>;
       case 'out_for_delivery': 
         return <Badge className="bg-purple-500">Out for Delivery</Badge>;
+      case 'cancelled':
+      case 'canceled':
+        return <Badge className="bg-red-500">Canceled</Badge>;
+      case 'refund_pending':
+        return <Badge className="bg-orange-500">Refund Pending</Badge>;
       default: 
         return <Badge className="bg-gray-500">Processing</Badge>;
     }
+  };
+
+  const canCancelLabel = (status: string) => {
+    const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
+    return !ineligibleStatuses.includes(status.toLowerCase());
   };
 
   const getEstimatedDeliveryText = (item: TrackingInfo) => {
@@ -93,10 +113,12 @@ const TrackingListItem: React.FC<TrackingListItemProps> = ({
     return 'No estimated delivery time';
   };
 
+  const isCanceled = item.status === 'cancelled' || item.status === 'canceled';
+
   return (
-    <div className="border rounded-md overflow-hidden bg-white shadow-sm">
+    <div className={`border rounded-md overflow-hidden shadow-sm ${isCanceled ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
       <div 
-        className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+        className={`p-4 flex justify-between items-center cursor-pointer ${isCanceled ? 'hover:bg-red-100' : 'hover:bg-gray-50'}`}
         onClick={() => onSelect(item.tracking_code)}
       >
         <div className="flex items-center">
@@ -143,8 +165,10 @@ interface TrackingDetailsProps {
 }
 
 export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
+  const isCanceled = item.status === 'cancelled' || item.status === 'canceled';
+  
   return (
-    <div className="px-4 pb-4 pt-2 border-t bg-gray-50">
+    <div className={`px-4 pb-4 pt-2 border-t ${isCanceled ? 'bg-red-50' : 'bg-gray-50'}`}>
       <div className="grid gap-4 md:grid-cols-3 mb-4">
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500">Package Details</p>
@@ -167,8 +191,32 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         </div>
       </div>
 
-      {/* Display Label URL if available */}
-      {item.label_url && (
+      {/* Display canceled message */}
+      {isCanceled && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-red-600 font-bold text-2xl">✕</span>
+            <p className="text-red-800 font-semibold text-lg">This label has been canceled</p>
+          </div>
+          <p className="text-red-700 text-sm mt-2">Tracking Number: {item.tracking_code}</p>
+        </div>
+      )}
+
+      {/* Display refund pending message */}
+      {item.status === 'refund_pending' && (
+        <div className="mb-4 p-4 bg-orange-100 border border-orange-300 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Clock className="h-6 w-6 text-orange-600" />
+            <div>
+              <p className="text-orange-800 font-semibold text-lg">Refund in Progress</p>
+              <p className="text-orange-700 text-sm mt-1">Your refund has been submitted and will be processed within 48 hours.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Display Label URL if available and not canceled */}
+      {!isCanceled && item.label_url && (
         <div className="mb-4 p-3 bg-blue-50 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
@@ -190,30 +238,32 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         </div>
       )}
       
-      <h4 className="text-sm font-semibold mb-3">Tracking History</h4>
-      <div className="relative">
-        <div className="absolute top-0 bottom-0 left-[16px] w-[2px] bg-gray-200"></div>
-        {item.tracking_events?.map((event, index) => (
-          <div key={event.id} className="flex mb-4 relative">
-            <div className={`h-8 w-8 rounded-full ${
-              event.status === 'delivered' ? 'bg-green-500' : 
-              event.status === 'in_transit' ? 'bg-blue-500' : 
-              event.status === 'out_for_delivery' ? 'bg-purple-500' : 
-              'bg-gray-500'
-            } flex items-center justify-center z-10`}>
-              {getStatusIcon(event.status)}
+      {!isCanceled && item.status !== 'refund_pending' && <h4 className="text-sm font-semibold mb-3">Tracking History</h4>}
+      {!isCanceled && item.status !== 'refund_pending' && (
+        <div className="relative">
+          <div className="absolute top-0 bottom-0 left-[16px] w-[2px] bg-gray-200"></div>
+          {item.tracking_events?.map((event, index) => (
+            <div key={event.id} className="flex mb-4 relative">
+              <div className={`h-8 w-8 rounded-full ${
+                event.status === 'delivered' ? 'bg-green-500' : 
+                event.status === 'in_transit' ? 'bg-blue-500' : 
+                event.status === 'out_for_delivery' ? 'bg-purple-500' : 
+                'bg-gray-500'
+              } flex items-center justify-center z-10`}>
+                {getStatusIcon(event.status)}
+              </div>
+              <div className="ml-4">
+                <div className="font-medium">{event.description}</div>
+                <div className="text-sm text-gray-600">{event.location}</div>
+                <div className="text-xs text-gray-500">{new Date(event.timestamp).toLocaleString()}</div>
+              </div>
             </div>
-            <div className="ml-4">
-              <div className="font-medium">{event.description}</div>
-              <div className="text-sm text-gray-600">{event.location}</div>
-              <div className="text-xs text-gray-500">{new Date(event.timestamp).toLocaleString()}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       
       <div className="flex justify-end mt-4 gap-2">
-        {item.label_url && (
+      {!isCanceled && item.status !== 'refund_pending' && item.label_url && (
           <>
             <a 
               href={item.label_url} 
@@ -232,6 +282,21 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
               <ExternalLink className="mr-1 h-4 w-4" /> View Online
             </a>
           </>
+        )}
+        {canCancelLabel(item.status) && item.label_url && (
+          <CancelLabelDialog
+            shipmentId={item.shipment_id}
+            trackingCode={item.tracking_code}
+            carrier={item.carrier}
+            service={item.package_details.service}
+            fromAddress="Pickup Address"
+            toAddress={item.recipient_address}
+            trigger={
+              <button className="flex items-center px-3 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 text-sm">
+                Cancel Label
+              </button>
+            }
+          />
         )}
       </div>
     </div>

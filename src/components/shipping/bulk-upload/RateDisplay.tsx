@@ -2,6 +2,7 @@
 import React from 'react';
 import { standardizeCarrierName } from '@/utils/carrierUtils';
 import CarrierLogo from '../CarrierLogo';
+import { computeDiscountPercent } from '@/utils/discount';
 
 interface RateDisplayProps {
   actualRate: number | string;
@@ -19,9 +20,9 @@ const RateDisplay: React.FC<RateDisplayProps> = ({
   const standardizedCarrier = standardizeCarrierName(carrier);
   const formattedRate = typeof actualRate === 'string' ? parseFloat(actualRate) : actualRate;
 
-  // Calculate mock retail price and discount (similar to ShippingRateCard)
-  const mockRetailPrice = formattedRate * (Math.random() * 0.5 + 1.5); // 1.5x to 2x the actual rate
-  const discountPercentage = Math.round(((mockRetailPrice - formattedRate) / mockRetailPrice) * 100);
+  // Calculate mock retail price and discount (60-90% range like normal shipping)
+  const mockRetailPrice = formattedRate * 2.5; // Create original rate for 60%+ discount
+  const discountPercentage = computeDiscountPercent(mockRetailPrice, formattedRate, { clampMin: 60, clampMax: 90 });
 
   return (
     <div className="flex items-center justify-between space-x-3 p-3 bg-white border border-gray-200 rounded-lg">
