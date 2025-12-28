@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Index from './pages/Index';
@@ -8,6 +7,7 @@ import LtlShippingPage from './pages/LtlShippingPage';
 import FtlShippingPage from './pages/FtlShippingPage';
 import InstantDeliveryPage from './pages/InstantDeliveryPage';
 import AuthPage from './pages/AuthPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import SidebarNavigation from './components/SidebarNavigation';
 import './App.css';
 import NotFound from './pages/NotFound';
@@ -41,6 +41,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/create-label" element={<CreateLabelPage />} />
               <Route path="/rate-calculator" element={<RateCalculatorPage />} />
               <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
