@@ -83,14 +83,44 @@ const AuthPage: React.FC = () => {
           }
         }
       });
+      
       if (error) {
+        // Handle specific error cases
+        if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
+          toast.error('This email is already registered. Please sign in instead.');
+          setActiveTab('login');
+          return;
+        }
+        if (error.message?.includes('timeout') || error.status === 504) {
+          // Account may have been created but email timed out
+          toast.success('Account may have been created. Please try signing in or check your email.');
+          setActiveTab('login');
+          return;
+        }
         throw error;
       }
+      
+      // Check if user needs to confirm email
+      if (data?.user && !data.session) {
+        toast.success('Account created! Please check your email to verify your account.');
+      } else if (data?.session) {
+        toast.success('Account created and logged in successfully!');
+        navigate('/');
+        return;
+      }
+      
       console.log('Signup successful:', data);
-      toast.success('Account created successfully! Please check your email to verify your account.');
       setActiveTab('login');
     } catch (error: any) {
       console.error('Signup error:', error);
+      
+      // Handle timeout errors gracefully
+      if (error.message?.includes('timeout') || error.message?.includes('504') || error.message?.includes('timed out')) {
+        toast.info('Request took too long. Your account may have been created. Try signing in.');
+        setActiveTab('login');
+        return;
+      }
+      
       toast.error(error.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
