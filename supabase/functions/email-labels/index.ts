@@ -251,32 +251,92 @@ serve(async (req) => {
     }
 
     // Prepare email content
-    const emailSubject = subject || (isBatch ? 'Your Batch Shipping Labels' : 'Your Shipping Label');
-    const emailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">${isBatch ? 'Batch Shipping Labels' : 'Shipping Label'}</h2>
-        <p>${description || 'Please find your shipping labels attached to this email.'}</p>
-        
-        ${trackingCode ? `
-          <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-            <p style="margin: 0; color: #1e40af;"><strong>Tracking Number:</strong> ${trackingCode}</p>
-          </div>
-        ` : ''}
-        
-        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #374151; margin-top: 0;">Attached Files:</h3>
-          ${labelsList.map(item => `<p style="margin: 5px 0;">${item}</p>`).join('')}
-        </div>
-        
-        <p style="color: #6b7280; font-size: 14px;">
-          These labels are ready to use for shipping. Please print them on appropriate label stock.
-        </p>
-        
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-        <p style="color: #9ca3af; font-size: 12px;">
-          This email was sent from your shipping management system.
-        </p>
+    const emailSubject = subject || (isBatch ? 'Your Batch Shipping Labels - ShippingQuick.io' : 'Your Shipping Label - ShippingQuick.io');
+    
+    // Build label URL section if available
+    const labelUrlSection = labelUrl ? `
+      <div style="background-color: #f0f9ff; padding: 16px; border-radius: 8px; margin: 20px 0; border: 1px solid #0ea5e9;">
+        <p style="margin: 0 0 8px 0; color: #0369a1; font-weight: 600; font-size: 14px;">📎 Label Download Link</p>
+        <a href="${labelUrl}" style="color: #0284c7; text-decoration: underline; word-break: break-all; font-size: 13px;" target="_blank">${labelUrl}</a>
+        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 12px;">Click the link above to download your label directly.</p>
       </div>
+    ` : '';
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          
+          <!-- Header with Logo -->
+          <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+            <div style="display: inline-block; background-color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 15px;">
+              <span style="font-size: 24px; font-weight: 700; color: #0284c7;">📦 ShippingQuick.io</span>
+            </div>
+            <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">
+              ${isBatch ? '📋 Batch Shipping Labels' : '🏷️ Your Shipping Label'}
+            </h1>
+          </div>
+          
+          <!-- Main Content -->
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            
+            <p style="color: #334155; font-size: 16px; line-height: 1.6; margin-top: 0;">
+              ${description || 'Hello! Your shipping label is ready. Please find it attached to this email for your convenience.'}
+            </p>
+            
+            ${trackingCode ? `
+              <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); padding: 20px; border-radius: 10px; margin: 24px 0; border-left: 5px solid #10b981;">
+                <p style="margin: 0 0 8px 0; color: #065f46; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Tracking Number</p>
+                <p style="margin: 0; color: #047857; font-size: 20px; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 1px;">${trackingCode}</p>
+              </div>
+            ` : ''}
+            
+            ${labelUrlSection}
+            
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; margin: 24px 0; border: 1px solid #e2e8f0;">
+              <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px; display: flex; align-items: center;">
+                📁 Attached Files
+              </h3>
+              <div style="color: #475569; font-size: 14px; line-height: 1.8;">
+                ${labelsList.map(item => `<p style="margin: 4px 0; padding-left: 10px; border-left: 3px solid #0ea5e9;">${item}</p>`).join('')}
+              </div>
+            </div>
+            
+            <div style="background-color: #fef3c7; padding: 16px; border-radius: 8px; margin: 24px 0; border: 1px solid #fcd34d;">
+              <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.5;">
+                <strong>💡 Pro Tip:</strong> Print these labels on 4x6" thermal paper or standard label stock for best results.
+              </p>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+              Thank you for using <strong style="color: #0284c7;">ShippingQuick.io</strong> for your shipping needs!
+            </p>
+            
+          </div>
+          
+          <!-- Footer -->
+          <div style="text-align: center; padding: 25px 20px;">
+            <p style="color: #64748b; font-size: 13px; margin: 0 0 10px 0;">
+              Powered by <strong style="color: #0284c7;">ShippingQuick.io</strong>
+            </p>
+            <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+              Fast, reliable, and affordable shipping solutions
+            </p>
+            <div style="margin-top: 15px;">
+              <a href="https://shippingquick.io" style="color: #0284c7; text-decoration: none; font-size: 12px;">Visit our website</a>
+              <span style="color: #cbd5e1; margin: 0 10px;">|</span>
+              <a href="mailto:support@shippingquick.io" style="color: #0284c7; text-decoration: none; font-size: 12px;">Contact Support</a>
+            </div>
+          </div>
+          
+        </div>
+      </body>
+      </html>
     `;
 
     // Convert single email to array if needed
@@ -285,7 +345,7 @@ serve(async (req) => {
     console.log(`Preparing to send email to ${emailArray.length} recipients with ${attachments.length} attachments`);
 
     const emailData = {
-      from: 'Shipping Labels <onboarding@resend.dev>',
+      from: 'ShippingQuick.io <onboarding@resend.dev>',
       to: emailArray,
       subject: emailSubject,
       html: emailHtml,
