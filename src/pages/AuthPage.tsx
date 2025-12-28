@@ -70,6 +70,9 @@ const AuthPage: React.FC = () => {
     }
     setIsLoading(true);
     try {
+      // Use production URL for email confirmation redirect
+      const productionUrl = 'https://app.shippingquick.io';
+      
       const {
         data,
         error
@@ -77,7 +80,7 @@ const AuthPage: React.FC = () => {
         email: values.email,
         password: values.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${productionUrl}/`,
           data: {
             full_name: values.fullName
           }
@@ -129,7 +132,9 @@ const AuthPage: React.FC = () => {
   const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      const resetUrl = `${window.location.origin}/reset-password`;
+      // Use production URL for reset
+      const productionUrl = 'https://app.shippingquick.io';
+      const resetUrl = `${productionUrl}/reset-password`;
       
       const {
         error
@@ -170,13 +175,16 @@ const AuthPage: React.FC = () => {
   };
   const handleGoogleLogin = async () => {
     try {
+      // Use production URL for Google OAuth redirect
+      const productionUrl = 'https://app.shippingquick.io';
+      
       const {
         data,
         error
       } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${productionUrl}/`
         }
       });
       if (error) {
