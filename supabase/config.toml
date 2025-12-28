@@ -90,3 +90,6 @@ verify_jwt = false
 
 [functions.shopify-orders]
 verify_jwt = true
+
+[functions.send-auth-email]
+verify_jwt = false

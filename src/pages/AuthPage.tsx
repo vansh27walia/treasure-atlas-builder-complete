@@ -129,15 +129,37 @@ const AuthPage: React.FC = () => {
   const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
+      const resetUrl = `${window.location.origin}/reset-password`;
+      
       const {
         error
       } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: resetUrl
       });
+      
       if (error) {
         throw error;
       }
-      toast.success('Password reset email sent. Please check your inbox.');
+
+      // Send custom branded email via edge function
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-auth-email', {
+          body: {
+            email: values.email,
+            type: 'password_reset',
+            resetUrl: resetUrl,
+            userName: values.email.split('@')[0]
+          }
+        });
+        
+        if (emailError) {
+          console.warn('Custom email failed, using Supabase default:', emailError);
+        }
+      } catch (emailErr) {
+        console.warn('Custom email service unavailable, using Supabase default email');
+      }
+
+      toast.success('Password reset email sent! Please check your inbox.');
       setActiveTab('login');
     } catch (error: any) {
       console.error('Password reset error:', error);
