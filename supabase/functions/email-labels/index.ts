@@ -253,6 +253,10 @@ serve(async (req) => {
     // Prepare email content
     const emailSubject = subject || (isBatch ? 'Your Batch Shipping Labels - ShippingQuick.io' : 'Your Shipping Label - ShippingQuick.io');
     
+    // Supabase Edge Function URL
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const edgeFunctionUrl = `${supabaseUrl}/functions/v1/email-labels`;
+    
     // Build label URL section if available
     const labelUrlSection = labelUrl ? `
       <div style="background-color: #f0f9ff; padding: 16px; border-radius: 8px; margin: 20px 0; border: 1px solid #0ea5e9;">
@@ -261,6 +265,15 @@ serve(async (req) => {
         <p style="margin: 8px 0 0 0; color: #64748b; font-size: 12px;">Click the link above to download your label directly.</p>
       </div>
     ` : '';
+    
+    // Build Edge Function URL section
+    const edgeFunctionSection = `
+      <div style="background-color: #faf5ff; padding: 16px; border-radius: 8px; margin: 20px 0; border: 1px solid #a855f7;">
+        <p style="margin: 0 0 8px 0; color: #7e22ce; font-weight: 600; font-size: 14px;">🔗 API Endpoint</p>
+        <code style="color: #9333ea; background-color: #ede9fe; padding: 8px 12px; border-radius: 4px; display: block; word-break: break-all; font-size: 12px;">${edgeFunctionUrl}</code>
+        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 12px;">Supabase Edge Function URL for email labels service.</p>
+      </div>
+    `;
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -297,6 +310,8 @@ serve(async (req) => {
             ` : ''}
             
             ${labelUrlSection}
+            
+            ${edgeFunctionSection}
             
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; margin: 24px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px; display: flex; align-items: center;">
