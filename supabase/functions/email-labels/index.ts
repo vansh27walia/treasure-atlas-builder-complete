@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -151,12 +152,13 @@ serve(async (req) => {
           ? `shipping_label_${trackingCode}.${extension}`
           : `shipping_label_${Date.now()}.${extension}`;
         
+        // Convert to base64 for Resend attachment
+        const base64Content = base64Encode(new Uint8Array(buffer));
+        console.log(`Label fetched successfully, size: ${buffer.byteLength} bytes, base64 length: ${base64Content.length}`);
+        
         attachments.push({
           filename,
-          content: new Uint8Array(buffer),
-          contentType: extension === 'pdf' ? 'application/pdf' : 
-                      extension === 'zpl' ? 'text/plain' : 
-                      'image/png'
+          content: base64Content,
         });
         
         labelsList.push(`• Shipping Label${trackingCode ? ` (${trackingCode})` : ''}`);
@@ -183,10 +185,11 @@ serve(async (req) => {
             const response = await fetch(batchResult.scanFormUrl);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
+              const base64Content = base64Encode(new Uint8Array(buffer));
+              console.log(`Scan form fetched, size: ${buffer.byteLength} bytes`);
               attachments.push({
                 filename: `pickup_manifest_${batchId || Date.now()}.pdf`,
-                content: new Uint8Array(buffer),
-                contentType: 'application/pdf'
+                content: base64Content,
               });
               labelsList.push('• Pickup Manifest (Scan Form)');
               console.log('Successfully attached scan form');
@@ -206,19 +209,25 @@ serve(async (req) => {
             const response = await fetch(url);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
+              const base64Content = base64Encode(new Uint8Array(buffer));
+              console.log(`${format} label fetched, size: ${buffer.byteLength} bytes`);
+              
+              // Determine proper extension from URL
+              let fileExtension = format;
+              if (url.includes('.png')) fileExtension = 'png';
+              else if (url.includes('.pdf')) fileExtension = 'pdf';
+              else if (url.includes('.zpl')) fileExtension = 'zpl';
+              
               const filename = batchId 
-                ? `batch_${batchId}_labels.${format}`
-                : `consolidated_labels_${Date.now()}.${format}`;
+                ? `batch_${batchId}_labels.${fileExtension}`
+                : `consolidated_labels_${Date.now()}.${fileExtension}`;
               
               attachments.push({
                 filename,
-                content: new Uint8Array(buffer),
-                contentType: format === 'pdf' ? 'application/pdf' : 
-                           format === 'zpl' || format === 'epl' ? 'text/plain' : 
-                           'image/png'
+                content: base64Content,
               });
               
-              labelsList.push(`• ${isBatch ? 'Batch' : 'Consolidated'} ${format.toUpperCase()} Labels`);
+              labelsList.push(`• ${isBatch ? 'Batch' : 'Consolidated'} ${fileExtension.toUpperCase()} Labels`);
               console.log(`Successfully attached ${format} label`);
             } else {
               console.error(`Failed to fetch ${format} label: ${response.status} ${response.statusText}`);
