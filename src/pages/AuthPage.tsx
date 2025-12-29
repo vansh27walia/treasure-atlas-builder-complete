@@ -132,39 +132,21 @@ const AuthPage: React.FC = () => {
   const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      // Use production URL for reset
-      const productionUrl = 'https://app.shippingquick.io';
-      const resetUrl = `${productionUrl}/reset-password`;
-      
-      const {
-        error
-      } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: resetUrl
+      // Use our custom edge function that generates proper recovery tokens
+      const { data, error } = await supabase.functions.invoke('request-password-reset', {
+        body: { email: values.email }
       });
-      
+
       if (error) {
-        throw error;
+        console.error('Password reset function error:', error);
+        throw new Error('Failed to send password reset email. Please try again.');
       }
 
-      // Send custom branded email via edge function
-      try {
-        const { error: emailError } = await supabase.functions.invoke('send-auth-email', {
-          body: {
-            email: values.email,
-            type: 'password_reset',
-            resetUrl: resetUrl,
-            userName: values.email.split('@')[0]
-          }
-        });
-        
-        if (emailError) {
-          console.warn('Custom email failed, using Supabase default:', emailError);
-        }
-      } catch (emailErr) {
-        console.warn('Custom email service unavailable, using Supabase default email');
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
-      toast.success('Password reset email sent! Please check your inbox.');
+      toast.success('If an account exists with this email, you will receive a password reset link.');
       setActiveTab('login');
     } catch (error: any) {
       console.error('Password reset error:', error);
