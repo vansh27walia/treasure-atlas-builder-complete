@@ -18,11 +18,49 @@ const ResetPasswordPage: React.FC = () => {
   const [userEmail, setUserEmail] = useState<string>('');
 
   useEffect(() => {
-    // Check if this is a valid password reset session
-    const checkSession = async () => {
+    // Handle Supabase auth callback with recovery token
+    const handleAuthCallback = async () => {
       try {
+        // Check if there's a hash fragment with tokens (from email link)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+
+        console.log('Reset password page - checking auth params:', { 
+          hasAccessToken: !!accessToken, 
+          type,
+          hash: window.location.hash.substring(0, 50) + '...'
+        });
+
+        // If we have tokens from the URL, set the session
+        if (accessToken && type === 'recovery') {
+          console.log('Setting session from recovery tokens...');
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || ''
+          });
+
+          if (error) {
+            console.error('Error setting session:', error);
+            setIsValidSession(false);
+            toast.error('Invalid or expired reset link. Please request a new one.');
+            return;
+          }
+
+          if (data.session) {
+            console.log('Session established for:', data.session.user?.email);
+            setIsValidSession(true);
+            setUserEmail(data.session.user?.email || '');
+            // Clear the hash from URL for cleaner look
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
+        }
+
+        // Otherwise check for existing session
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Reset password session check:', session?.user?.email);
+        console.log('Existing session check:', session?.user?.email);
         
         if (session) {
           setIsValidSession(true);
@@ -30,17 +68,15 @@ const ResetPasswordPage: React.FC = () => {
         } else {
           setIsValidSession(false);
           toast.error('Invalid or expired reset link. Please request a new one.');
-          setTimeout(() => navigate('/auth'), 2000);
         }
       } catch (error) {
         console.error('Session check error:', error);
         setIsValidSession(false);
         toast.error('Unable to verify session');
-        setTimeout(() => navigate('/auth'), 2000);
       }
     };
 
-    checkSession();
+    handleAuthCallback();
   }, [navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
