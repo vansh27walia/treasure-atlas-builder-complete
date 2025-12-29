@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Lock, Loader2, CheckCircle, Mail, ArrowLeft, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Lock, Loader2, CheckCircle, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -58,10 +56,6 @@ const ResetPasswordPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      toast.warning('Consider using a stronger password (8+ characters recommended)');
-    }
-
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({
@@ -90,11 +84,10 @@ const ResetPasswordPage: React.FC = () => {
   // Loading state
   if (isValidSession === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900">Verifying reset link...</h2>
-          <p className="text-gray-600 mt-2">Please wait while we verify your session</p>
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-gray-600">Verifying reset link...</p>
         </div>
       </div>
     );
@@ -103,23 +96,39 @@ const ResetPasswordPage: React.FC = () => {
   // Invalid session state
   if (isValidSession === false) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
-        <Card className="max-w-md w-full p-8 text-center shadow-xl border-0">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Lock className="h-8 w-8 text-red-600" />
+      <div className="min-h-screen flex flex-col bg-white">
+        {/* Header */}
+        <header className="border-b border-gray-200 py-4 px-6">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <Link to="/" className="text-2xl font-bold text-primary">
+              ShippingQuick
+            </Link>
+            <div className="flex items-center gap-4">
+              <Link to="/auth" className="text-gray-600 hover:text-gray-900 font-medium">
+                Login
+              </Link>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Link Expired</h2>
-          <p className="text-gray-600 mb-6">
-            This password reset link has expired or is invalid. Please request a new one.
-          </p>
-          <Button 
-            onClick={() => navigate('/auth')} 
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Login
-          </Button>
-        </Card>
+        </header>
+        
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Lock className="h-8 w-8 text-red-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">Link Expired</h1>
+            <p className="text-gray-600 mb-6">
+              This password reset link has expired or is invalid. Please request a new one.
+            </p>
+            <Button 
+              onClick={() => navigate('/auth')} 
+              className="bg-primary hover:bg-primary/90"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Login
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -127,172 +136,151 @@ const ResetPasswordPage: React.FC = () => {
   // Success state
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Card className="max-w-md w-full p-8 text-center shadow-xl border-0">
-          <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-            <CheckCircle className="h-10 w-10 text-white" />
+      <div className="min-h-screen flex flex-col bg-white">
+        {/* Header */}
+        <header className="border-b border-gray-200 py-4 px-6">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <Link to="/" className="text-2xl font-bold text-primary">
+              ShippingQuick
+            </Link>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Password Updated! 🎉</h2>
-          <p className="text-gray-600 mb-6">
-            Your password has been successfully reset. You can now log in with your new password.
-          </p>
-          <div className="bg-green-50 p-4 rounded-lg mb-6 border border-green-200">
-            <p className="text-green-700 text-sm">
-              Redirecting you to the login page in a few seconds...
+        </header>
+        
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="h-10 w-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">Password Updated!</h1>
+            <p className="text-gray-600 mb-6">
+              Your password has been successfully reset. You can now log in with your new password.
             </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Redirecting you to the login page...
+            </p>
+            <Button 
+              onClick={() => navigate('/auth')} 
+              className="bg-primary hover:bg-primary/90"
+            >
+              Go to Login Now
+            </Button>
           </div>
-          <Button 
-            onClick={() => navigate('/auth')} 
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-          >
-            Go to Login Now
-          </Button>
-        </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-            <ShieldCheck className="h-8 w-8 text-white" />
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-200 py-4 px-6">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link to="/" className="text-2xl font-bold text-primary">
+            ShippingQuick
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/auth" className="text-gray-600 hover:text-gray-900 font-medium">
+              Login
+            </Link>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create New Password
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Choose a strong password for your account
-          </p>
         </div>
-        
-        <Card className="mt-8 p-8 shadow-xl border-0">
-          {/* User Email Display */}
+      </header>
+      
+      {/* Main Content */}
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">
+            Create a new password
+          </h1>
+          
+          {/* Email display */}
           {userEmail && (
-            <div className="bg-indigo-50 p-4 rounded-lg mb-6 border border-indigo-200">
-              <div className="flex items-center">
-                <Mail className="h-5 w-5 text-indigo-600 mr-3" />
-                <div>
-                  <p className="text-xs text-indigo-600 font-medium uppercase tracking-wide">Resetting password for</p>
-                  <p className="text-sm font-semibold text-indigo-900">{userEmail}</p>
-                </div>
-              </div>
-            </div>
+            <p className="text-center text-gray-600 mb-6 text-sm">
+              Resetting password for: <span className="font-medium">{userEmail}</span>
+            </p>
           )}
-
-          <form onSubmit={handleResetPassword} className="space-y-6">
+          
+          <form onSubmit={handleResetPassword} className="space-y-4">
             {/* New Password Field */}
-            <div>
-              <Label htmlFor="password" className="text-gray-700 font-medium">New Password</Label>
-              <div className="mt-2 relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  className="pl-10 pr-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="Enter new password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <Lock className="h-5 w-5" />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Minimum 6 characters required</p>
+              <Input
+                type={showPassword ? "text" : "password"}
+                required
+                className="pl-10 pr-10 h-12 border-gray-300 rounded-lg"
+                placeholder="New Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
             
             {/* Confirm Password Field */}
-            <div>
-              <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">Confirm New Password</Label>
-              <div className="mt-2 relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  required
-                  className="pl-10 pr-10 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <Lock className="h-5 w-5" />
               </div>
+              <Input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                className="pl-10 pr-10 h-12 border-gray-300 rounded-lg"
+                placeholder="Confirm New Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
 
-            {/* Password Match Indicator */}
-            {confirmPassword && (
-              <div className={`p-3 rounded-lg ${password === confirmPassword ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                <p className={`text-sm flex items-center ${password === confirmPassword ? 'text-green-700' : 'text-red-700'}`}>
-                  {password === confirmPassword ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Passwords match
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4 mr-2" />
-                      Passwords do not match
-                    </>
-                  )}
-                </p>
+            {/* Password Match/Validation Feedback */}
+            {password && confirmPassword && (
+              <div className={`text-sm ${password === confirmPassword ? 'text-green-600' : 'text-red-600'}`}>
+                {password === confirmPassword ? (
+                  <span className="flex items-center gap-1">
+                    <CheckCircle className="h-4 w-4" /> Passwords match
+                  </span>
+                ) : (
+                  'Passwords do not match'
+                )}
               </div>
             )}
             
-            {/* Submit Button */}
+            {/* Submit Button - Styled like Pirateship */}
             <Button
               type="submit"
               disabled={isLoading || password !== confirmPassword || password.length < 6}
-              className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg"
+              className="w-full h-14 bg-[#d9534f] hover:bg-[#c9302c] text-white font-semibold text-lg rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Updating Password...
+                  Updating...
                 </>
               ) : (
-                <>
-                  <ShieldCheck className="mr-2 h-5 w-5" />
-                  Update Password
-                </>
+                'Change Password'
               )}
             </Button>
-
-            {/* Back to Login Link */}
-            <div className="text-center pt-4">
-              <Button 
-                type="button"
-                variant="ghost" 
-                onClick={() => navigate('/auth')}
-                className="text-indigo-600 hover:text-indigo-800"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Login
-              </Button>
-            </div>
           </form>
-        </Card>
 
-        {/* Security Tips */}
-        <div className="bg-white/60 backdrop-blur-sm p-4 rounded-lg border border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">🔒 Password Security Tips</h4>
-          <ul className="text-xs text-gray-600 space-y-1">
-            <li>• Use a mix of letters, numbers, and symbols</li>
-            <li>• Avoid using personal information</li>
-            <li>• Don't reuse passwords from other accounts</li>
-          </ul>
+          {/* Footer Links */}
+          <div className="mt-8 text-center text-sm text-gray-500 space-x-2">
+            <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+            <span>-</span>
+            <Link to="/terms" className="text-primary hover:underline">Terms of Use</Link>
+          </div>
         </div>
       </div>
     </div>
