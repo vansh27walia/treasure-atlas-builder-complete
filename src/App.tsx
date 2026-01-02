@@ -39,7 +39,7 @@ function AppContent() {
         <SidebarNavigation>
           <div className="w-full h-full overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/create-label" element={<CreateLabelPage />} />
