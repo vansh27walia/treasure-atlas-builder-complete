@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Mail, Key, Loader2, LogIn, User, UserPlus, Lock, AtSign, ArrowLeft } from 'lucide-react';
+import { Mail, Key, Loader2, LogIn, User, UserPlus, Lock, AtSign, ArrowLeft, Phone } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useForm } from 'react-hook-form';
@@ -19,9 +20,64 @@ interface LoginFormValues {
 interface SignupFormValues {
   fullName: string;
   email: string;
+  countryCode: string;
+  phoneNumber: string;
   password: string;
   confirmPassword: string;
 }
+
+// Country codes with dial codes
+const COUNTRY_CODES = [
+  { code: 'US', dial: '+1', name: 'United States' },
+  { code: 'CA', dial: '+1', name: 'Canada' },
+  { code: 'GB', dial: '+44', name: 'United Kingdom' },
+  { code: 'AU', dial: '+61', name: 'Australia' },
+  { code: 'DE', dial: '+49', name: 'Germany' },
+  { code: 'FR', dial: '+33', name: 'France' },
+  { code: 'IN', dial: '+91', name: 'India' },
+  { code: 'CN', dial: '+86', name: 'China' },
+  { code: 'JP', dial: '+81', name: 'Japan' },
+  { code: 'BR', dial: '+55', name: 'Brazil' },
+  { code: 'MX', dial: '+52', name: 'Mexico' },
+  { code: 'ES', dial: '+34', name: 'Spain' },
+  { code: 'IT', dial: '+39', name: 'Italy' },
+  { code: 'NL', dial: '+31', name: 'Netherlands' },
+  { code: 'AE', dial: '+971', name: 'UAE' },
+  { code: 'SA', dial: '+966', name: 'Saudi Arabia' },
+  { code: 'SG', dial: '+65', name: 'Singapore' },
+  { code: 'HK', dial: '+852', name: 'Hong Kong' },
+  { code: 'KR', dial: '+82', name: 'South Korea' },
+  { code: 'PH', dial: '+63', name: 'Philippines' },
+  { code: 'TH', dial: '+66', name: 'Thailand' },
+  { code: 'MY', dial: '+60', name: 'Malaysia' },
+  { code: 'ID', dial: '+62', name: 'Indonesia' },
+  { code: 'VN', dial: '+84', name: 'Vietnam' },
+  { code: 'PK', dial: '+92', name: 'Pakistan' },
+  { code: 'BD', dial: '+880', name: 'Bangladesh' },
+  { code: 'NG', dial: '+234', name: 'Nigeria' },
+  { code: 'ZA', dial: '+27', name: 'South Africa' },
+  { code: 'EG', dial: '+20', name: 'Egypt' },
+  { code: 'TR', dial: '+90', name: 'Turkey' },
+  { code: 'RU', dial: '+7', name: 'Russia' },
+  { code: 'PL', dial: '+48', name: 'Poland' },
+  { code: 'UA', dial: '+380', name: 'Ukraine' },
+  { code: 'AR', dial: '+54', name: 'Argentina' },
+  { code: 'CL', dial: '+56', name: 'Chile' },
+  { code: 'CO', dial: '+57', name: 'Colombia' },
+  { code: 'PE', dial: '+51', name: 'Peru' },
+  { code: 'NZ', dial: '+64', name: 'New Zealand' },
+  { code: 'IE', dial: '+353', name: 'Ireland' },
+  { code: 'SE', dial: '+46', name: 'Sweden' },
+  { code: 'NO', dial: '+47', name: 'Norway' },
+  { code: 'DK', dial: '+45', name: 'Denmark' },
+  { code: 'FI', dial: '+358', name: 'Finland' },
+  { code: 'CH', dial: '+41', name: 'Switzerland' },
+  { code: 'AT', dial: '+43', name: 'Austria' },
+  { code: 'BE', dial: '+32', name: 'Belgium' },
+  { code: 'PT', dial: '+351', name: 'Portugal' },
+  { code: 'GR', dial: '+30', name: 'Greece' },
+  { code: 'IL', dial: '+972', name: 'Israel' },
+];
 interface ForgotPasswordFormValues {
   email: string;
 }
@@ -73,6 +129,9 @@ const AuthPage: React.FC = () => {
       // Use production URL for email confirmation redirect
       const productionUrl = 'https://app.shippingquick.io';
       
+      // Combine country code and phone number
+      const fullPhoneNumber = values.phoneNumber ? `${values.countryCode}${values.phoneNumber}` : null;
+      
       const {
         data,
         error
@@ -82,7 +141,8 @@ const AuthPage: React.FC = () => {
         options: {
           emailRedirectTo: `${productionUrl}/`,
           data: {
-            full_name: values.fullName
+            full_name: values.fullName,
+            phone_number: fullPhoneNumber
           }
         }
       });
@@ -101,6 +161,15 @@ const AuthPage: React.FC = () => {
           return;
         }
         throw error;
+      }
+      
+      // Save phone number to user_profiles if user was created
+      if (data?.user && fullPhoneNumber) {
+        // Use upsert to handle both new and existing profiles
+        await supabase.from('user_profiles').upsert({
+          id: data.user.id,
+          phone_number: fullPhoneNumber
+        }, { onConflict: 'id' });
       }
       
       // Check if user needs to confirm email
@@ -316,6 +385,39 @@ const AuthPage: React.FC = () => {
                       <Input id="signupEmail" type="email" autoComplete="email" required className="pl-10" placeholder="Enter your email" {...signupForm.register('email', {
                     required: true
                   })} />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <div className="mt-1 flex gap-2">
+                      <Select 
+                        defaultValue="+1" 
+                        onValueChange={(value) => signupForm.setValue('countryCode', value)}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue placeholder="+1" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {COUNTRY_CODES.map((country) => (
+                            <SelectItem key={country.code} value={country.dial}>
+                              {country.dial} ({country.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex-1 relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input 
+                          id="phoneNumber" 
+                          type="tel" 
+                          autoComplete="tel" 
+                          required 
+                          className="pl-10" 
+                          placeholder="Phone number" 
+                          {...signupForm.register('phoneNumber', { required: true })} 
+                        />
+                      </div>
                     </div>
                   </div>
                   
