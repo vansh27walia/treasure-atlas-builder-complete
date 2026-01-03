@@ -1,12 +1,9 @@
-
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { CreditCard, Loader2 } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { CreditCard, ExternalLink, Shield, Lock } from 'lucide-react';
 
 interface AddPaymentMethodModalProps {
   isOpen: boolean;
@@ -20,158 +17,110 @@ const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
   onPaymentMethodAdded
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    cardNumber: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvc: '',
-    name: ''
-  });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCheckout = async () => {
     setIsLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Please log in to add a payment method');
-        return;
-      }
-
-      // Simulate payment method creation (in real app, use Stripe)
-      const { error } = await supabase
-        .from('payment_methods')
-        .insert({
-          user_id: user.id,
-          stripe_payment_method_id: `pm_${Date.now()}`, // Simulated ID
-          last4: formData.cardNumber.slice(-4),
-          brand: 'visa', // Would be determined by card number
-          exp_month: parseInt(formData.expiryMonth),
-          exp_year: parseInt(formData.expiryYear),
-          is_default: false
-        });
-
-      if (error) {
-        console.error('Error adding payment method:', error);
-        toast.error('Failed to add payment method');
-        return;
-      }
-
-      toast.success('Payment method added successfully');
-      onPaymentMethodAdded();
-      onClose();
-      setFormData({
-        cardNumber: '',
-        expiryMonth: '',
-        expiryYear: '',
-        cvc: '',
-        name: ''
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          mode: 'setup',
+          payment_method_types: ['card', 'us_bank_account', 'link']
+        },
       });
+
+      if (error) throw error;
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
-      toast.error('Failed to add payment method');
-    } finally {
+      console.error('Error creating checkout session:', error);
+      toast.error('Failed to start checkout. Please try again.');
       setIsLoading(false);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center">
-            <CreditCard className="w-5 h-5 mr-2" />
-            Add Payment Method
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-lg font-semibold text-white">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              Add Payment Method
+            </DialogTitle>
+            <DialogDescription className="text-primary-foreground/80 mt-2">
+              Securely add your payment details via Stripe
+            </DialogDescription>
+          </DialogHeader>
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cardNumber">Card Number</Label>
-            <Input
-              id="cardNumber"
-              type="text"
-              placeholder="1234 5678 9012 3456"
-              value={formData.cardNumber}
-              onChange={(e) => handleInputChange('cardNumber', e.target.value)}
-              required
-              maxLength={19}
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="expiryMonth">Month</Label>
-              <Input
-                id="expiryMonth"
-                type="text"
-                placeholder="MM"
-                value={formData.expiryMonth}
-                onChange={(e) => handleInputChange('expiryMonth', e.target.value)}
-                required
-                maxLength={2}
-              />
+        {/* Content */}
+        <div className="p-6 space-y-5">
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+              <CreditCard className="w-8 h-8 text-primary" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="expiryYear">Year</Label>
-              <Input
-                id="expiryYear"
-                type="text"
-                placeholder="YYYY"
-                value={formData.expiryYear}
-                onChange={(e) => handleInputChange('expiryYear', e.target.value)}
-                required
-                maxLength={4}
-              />
+            <div>
+              <h3 className="font-semibold text-foreground">Secure Payment Setup</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                You'll be redirected to Stripe's secure payment page to add your card, bank account, or digital wallet.
+              </p>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="cvc">CVC</Label>
-            <Input
-              id="cvc"
-              type="text"
-              placeholder="123"
-              value={formData.cvc}
-              onChange={(e) => handleInputChange('cvc', e.target.value)}
-              required
-              maxLength={4}
-            />
+
+          {/* Security Badge */}
+          <div className="bg-muted/50 border border-border rounded-xl p-4">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-foreground text-sm">Secured by Stripe</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  256-bit encryption • PCI DSS compliant
+                </p>
+              </div>
+              <Lock className="w-4 h-4 text-muted-foreground" />
+            </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="name">Cardholder Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="John Doe"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading} className="flex-1">
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Payment Method'
-              )}
-            </Button>
-          </div>
-        </form>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t bg-muted/30 p-4 flex gap-3">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onClose}
+            disabled={isLoading}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCheckout}
+            disabled={isLoading}
+            className="flex-1"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground mr-2" />
+                Redirecting...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Continue to Stripe
+              </>
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

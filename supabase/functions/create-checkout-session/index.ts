@@ -68,19 +68,22 @@ serve(async (req) => {
         });
     }
 
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Use the production domain or fallback to origin
+    const productionDomain = "https://app.shippingquick.io";
+    const origin = req.headers.get("origin") || productionDomain;
+    const baseUrl = origin.includes("localhost") ? origin : productionDomain;
 
     let sessionConfig: any = {
       customer: customerId,
-      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/settings?canceled=true`,
+      success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/settings?canceled=true`,
       payment_method_types: ['card', 'us_bank_account', 'link'],
     };
 
     if (mode === "setup") {
       // Setup mode for saving payment methods
       sessionConfig.mode = "setup";
-      sessionConfig.success_url = `${origin}/settings?session_id={CHECKOUT_SESSION_ID}&setup=true`;
+      sessionConfig.success_url = `${baseUrl}/settings?session_id={CHECKOUT_SESSION_ID}&setup=true`;
     } else if (mode === "payment" && amount) {
       // Payment mode for immediate charges
       sessionConfig.mode = "payment";
