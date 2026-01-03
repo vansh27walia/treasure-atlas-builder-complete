@@ -139,7 +139,9 @@ const AuthPage: React.FC = () => {
         email: values.email,
         password: values.password,
         options: {
-          emailRedirectTo: `${productionUrl}/`,
+          // Send the user back to /auth after confirming so the app can establish session
+          // and then redirect them to the protected homepage.
+          emailRedirectTo: `${productionUrl}/auth`,
           data: {
             full_name: values.fullName,
             phone_number: fullPhoneNumber

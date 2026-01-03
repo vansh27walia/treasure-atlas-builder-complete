@@ -31,8 +31,27 @@ serve(async (req) => {
       apiVersion: "2023-10-16",
     });
 
-    const { mode = "setup", amount = null, currency = "usd", description = "Payment Setup" } = await req.json();
+    const body = await req.json();
+    const {
+      mode = "setup",
+      amount = null,
+      currency = "usd",
+      description = "Payment Setup",
+      payment_method_types,
+    } = body;
 
+    const allowedPaymentMethodTypes = new Set([
+      "card",
+      "us_bank_account",
+      "sepa_debit",
+      "link",
+    ]);
+
+    const normalizedPaymentMethodTypes = Array.isArray(payment_method_types)
+      ? payment_method_types
+          .filter((t: unknown): t is string => typeof t === "string")
+          .filter((t) => allowedPaymentMethodTypes.has(t))
+      : undefined;
     // Get or create customer
     let customerId;
     const { data: profile } = await supabaseClient
@@ -77,7 +96,11 @@ serve(async (req) => {
       customer: customerId,
       success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/settings?canceled=true`,
-      payment_method_types: ['card', 'us_bank_account', 'link'],
+      // Default to card + bank transfer unless the client explicitly asks for something else.
+      payment_method_types:
+        normalizedPaymentMethodTypes && normalizedPaymentMethodTypes.length > 0
+          ? normalizedPaymentMethodTypes
+          : ["card", "us_bank_account"],
     };
 
     if (mode === "setup") {
