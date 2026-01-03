@@ -763,6 +763,7 @@ export type Database = {
           id: string
           onboarding_completed: boolean | null
           payment_info: Json | null
+          phone_number: string | null
           shopify_access_token: string | null
           shopify_store_url: string | null
           stripe_customer_id: string | null
@@ -777,6 +778,7 @@ export type Database = {
           id: string
           onboarding_completed?: boolean | null
           payment_info?: Json | null
+          phone_number?: string | null
           shopify_access_token?: string | null
           shopify_store_url?: string | null
           stripe_customer_id?: string | null
@@ -791,6 +793,7 @@ export type Database = {
           id?: string
           onboarding_completed?: boolean | null
           payment_info?: Json | null
+          phone_number?: string | null
           shopify_access_token?: string | null
           shopify_store_url?: string | null
           stripe_customer_id?: string | null
