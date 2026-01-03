@@ -59,11 +59,13 @@ serve(async (req) => {
     let emailHtml = '';
 
     const websiteUrl = 'https://shippingquick.io';
+    const appUrl = 'https://app.shippingquick.io';
     const displayName = userName || 'there';
 
     if (type === 'signup' || type === 'confirmation') {
       subject = 'Welcome to ShippingQuick.io - Confirm Your Email';
-      emailHtml = generateSignupEmailTemplate(displayName, confirmationUrl || websiteUrl, websiteUrl);
+      const safeConfirmationUrl = normalizeConfirmationUrl(confirmationUrl, `${appUrl}/auth`);
+      emailHtml = generateSignupEmailTemplate(displayName, safeConfirmationUrl, websiteUrl);
     } else if (type === 'password_reset' || type === 'recovery') {
       subject = 'Reset Your Password - ShippingQuick.io';
       emailHtml = generatePasswordResetEmailTemplate(displayName, resetUrl || websiteUrl, websiteUrl);
@@ -116,6 +118,19 @@ serve(async (req) => {
     });
   }
 });
+
+function normalizeConfirmationUrl(rawUrl: unknown, fallbackRedirectUrl: string): string {
+  if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return fallbackRedirectUrl;
+
+  try {
+    const url = new URL(rawUrl);
+    // Supabase uses redirect_to for email confirmation links
+    url.searchParams.set('redirect_to', fallbackRedirectUrl);
+    return url.toString();
+  } catch {
+    return fallbackRedirectUrl;
+  }
+}
 
 function generateSignupEmailTemplate(name: string, confirmationUrl: string, websiteUrl: string): string {
   return `

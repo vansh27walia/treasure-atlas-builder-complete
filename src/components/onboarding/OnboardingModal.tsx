@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -22,15 +21,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Building2, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { userProfileService } from '@/services/UserProfileService';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
 import { extractAddressComponents } from '@/utils/addressUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OnboardingModalProps {
   isOpen: boolean;
-  onComplete: () => void;
+  onComplete: () => void | Promise<void>;
 }
 
 interface OnboardingFormValues {
@@ -46,19 +46,15 @@ interface OnboardingFormValues {
   pickupZip: string;
   pickupCountry: string;
   pickupPhone: string;
-  
-  // Payment Info
-  cardNumber: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cardholderName: string;
-  cvv: string;
 }
+
+type PaymentChoice = 'card' | 'bank';
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('pickup');
-  
+  const [activeTab, setActiveTab] = useState<'pickup' | 'payment'>('pickup');
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>('card');
+
   const form = useForm<OnboardingFormValues>({
     defaultValues: {
       firstName: '',
@@ -72,15 +68,29 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
       pickupZip: '',
       pickupCountry: 'US',
       pickupPhone: '',
-      
-      cardNumber: '',
-      expiryMonth: '',
-      expiryYear: '',
-      cardholderName: '',
-      cvv: '',
-    }
+    },
   });
-  
+
+  const paymentOptions = useMemo(
+    () => [
+      {
+        id: 'card' as const,
+        title: 'Credit / Debit Card',
+        description: 'Visa, Mastercard, AmEx',
+        icon: <CreditCard className="w-5 h-5" />,
+        payment_method_types: ['card'],
+      },
+      {
+        id: 'bank' as const,
+        title: 'Bank Transfer',
+        description: 'US bank account (ACH)',
+        icon: <Building2 className="w-5 h-5" />,
+        payment_method_types: ['us_bank_account'],
+      },
+    ],
+    []
+  );
+
   // Handle Google Maps autocomplete selection
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     try {
@@ -89,10 +99,19 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
       if (city) form.setValue('pickupCity', city, { shouldValidate: true });
       if (state) form.setValue('pickupState', state, { shouldValidate: true });
       if (zip) form.setValue('pickupZip', zip, { shouldValidate: true });
-      toast.success('Address details populated from Google Maps');
+      toast.success('Address details populated');
     } catch (error) {
       console.error('Error processing Google place selection:', error);
       toast.error('Failed to process selected address');
+    }
+  };
+
+  const finishOnboarding = async () => {
+    setIsLoading(true);
+    try {
+      await onComplete();
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -100,29 +119,30 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     setActiveTab('payment');
   };
 
-  const handleSkipPayment = async () => {
-    try {
-      await userProfileService.completeOnboarding();
-      toast.success('Welcome! You can add your information later in settings.');
-      onComplete();
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      toast.error('There was an error. Please try again.');
-    }
+  const handleCancel = async () => {
+    toast.message('You can finish setup later in Settings.');
+    await finishOnboarding();
   };
-  
-  const handleNext = () => {
-    if (activeTab === 'pickup') {
-      setActiveTab('payment');
-    }
-  };
-  
+
   const handleBack = () => {
-    if (activeTab === 'payment') {
-      setActiveTab('pickup');
-    }
+    if (activeTab === 'payment') setActiveTab('pickup');
   };
-  
+
+  const validateAddress = (formPart: 'pickup') => {
+    const requiredFields = [
+      `${formPart}Street1`,
+      `${formPart}City`,
+      `${formPart}State`,
+      `${formPart}Zip`,
+      `${formPart}Country`,
+    ] as const;
+
+    return requiredFields.every((field) => {
+      const value = form.getValues(field);
+      return value && value.trim() !== '';
+    });
+  };
+
   const handleSavePickup = async () => {
     const isValid = validateAddress('pickup');
     if (!isValid) {
@@ -146,15 +166,12 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         is_default_from: true,
         is_default_to: false,
       };
-      
+
       const savedAddress = await addressService.createAddress(pickupAddress);
-      
-      if (!savedAddress) {
-        throw new Error('Failed to save pickup address');
-      }
+      if (!savedAddress) throw new Error('Failed to save pickup address');
 
       await userProfileService.updateDefaultPickupAddressId(savedAddress.id);
-      toast.success('Pickup address saved!');
+      toast.success('Pickup address saved');
       setActiveTab('payment');
     } catch (error) {
       console.error('Error saving pickup address:', error);
@@ -164,109 +181,59 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     }
   };
 
-  const onSubmit = async (values: OnboardingFormValues) => {
+  const handleStartStripeSetup = async () => {
+    const selected = paymentOptions.find((o) => o.id === paymentChoice) ?? paymentOptions[0];
+
     setIsLoading(true);
-    
     try {
-      // Save payment information using Stripe
-      const { supabase } = await import('@/integrations/supabase/client');
-      
-      const { data, error } = await supabase.functions.invoke('save-payment-method', {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
-          cardNumber: values.cardNumber,
-          expMonth: values.expiryMonth,
-          expYear: values.expiryYear,
-          cvc: values.cvv,
-          cardholderName: values.cardholderName,
-          setAsDefault: true
-        }
+          mode: 'setup',
+          payment_method_types: selected.payment_method_types,
+        },
       });
 
-      if (error) {
-        throw error;
-      }
-      
-      // Mark onboarding as complete
-      await userProfileService.completeOnboarding();
-      
-      toast.success('Payment method saved successfully!');
-      onComplete();
-    } catch (error) {
-      console.error('Error during onboarding:', error);
-      toast.error('Failed to save payment method. Please try again.');
-    } finally {
+      if (error) throw error;
+      if (!data?.url) throw new Error('No checkout URL received');
+
+      window.location.href = data.url;
+    } catch (error: any) {
+      console.error('Error creating checkout session:', error);
+      toast.error(error?.message || 'Failed to start Stripe checkout. Please try again.');
       setIsLoading(false);
     }
   };
-  
-  const validateAddress = (formPart: 'pickup') => {
-    const requiredFields = [
-      `${formPart}Street1`,
-      `${formPart}City`,
-      `${formPart}State`,
-      `${formPart}Zip`,
-      `${formPart}Country`,
-    ] as const;
-    
-    return requiredFields.every(field => {
-      const value = form.getValues(field);
-      return value && value.trim() !== '';
-    });
-  };
-  
-  const validatePayment = () => {
-    const requiredFields = [
-      'cardNumber',
-      'expiryMonth',
-      'expiryYear',
-      'cardholderName',
-      'cvv',
-    ] as const;
-    
-    const valid = requiredFields.every(field => {
-      const value = form.getValues(field);
-      return value && value.trim() !== '';
-    });
-    
-    // Basic card number validation
-    const cardNumber = form.getValues('cardNumber').replace(/\s/g, '');
-    const validCardNumber = cardNumber.length >= 13 && cardNumber.length <= 19 && /^\d+$/.test(cardNumber);
-    
-    return valid && validCardNumber;
-  };
-  
-  const isNextDisabled = () => {
-    if (activeTab === 'pickup') {
-      return !validateAddress('pickup');
-    }
-    return true;
-  };
-  
+
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) void handleCancel();
+      }}
+    >
+      <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Welcome! Let's set up your account</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Welcome! Let’s set up your account</DialogTitle>
           <DialogDescription>
-            Add your pickup address and payment method to get started faster. You can skip these steps and add them later.
+            Add your pickup address and optionally connect a payment method. You can cancel and do this later in Settings.
           </DialogDescription>
         </DialogHeader>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pickup' | 'payment')}>
           <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="pickup">Pickup Location</TabsTrigger>
-            <TabsTrigger value="payment">Payment Info</TabsTrigger>
+            <TabsTrigger value="payment">Payment Method</TabsTrigger>
           </TabsList>
-          
+
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
               <TabsContent value="pickup" className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-md mb-4">
-                  <p className="text-sm text-blue-700">
-                    <strong>Save your default pickup location</strong> - Add your primary shipping address now, or skip and add it later in settings.
+                <div className="bg-muted/40 border border-border p-4 rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Default pickup location</span> — save your primary shipping address now, or skip and add it later.
                   </p>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -281,7 +248,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="lastName"
@@ -296,7 +263,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -311,7 +278,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="pickupPhone"
@@ -326,7 +293,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     )}
                   />
                 </div>
-                
+
                 <FormField
                   control={form.control}
                   name="pickupName"
@@ -334,8 +301,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     <FormItem>
                       <FormLabel>Address Type *</FormLabel>
                       <FormControl>
-                        <select 
-                          {...field} 
+                        <select
+                          {...field}
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           required
                         >
@@ -351,13 +318,13 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="pickupStreet1"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Address Line 1 with Google Autocomplete *</FormLabel>
+                      <FormLabel>Address Line 1 *</FormLabel>
                       <FormControl>
                         <AddressAutoComplete
                           placeholder="Start typing your address..."
@@ -368,14 +335,12 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                           required
                         />
                       </FormControl>
-                      <FormDescription>
-                        Use Google autocomplete to quickly fill address details
-                      </FormDescription>
+                      <FormDescription>Use autocomplete to fill city/state/zip faster.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="pickupStreet2"
@@ -389,7 +354,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     </FormItem>
                   )}
                 />
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -404,7 +369,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="pickupState"
@@ -419,7 +384,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -434,7 +399,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="pickupCountry"
@@ -450,129 +415,66 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                   />
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="payment" className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-md mb-4">
-                  <p className="text-sm text-blue-700">
-                    <strong>Add a payment method</strong> - Save your card details for faster checkout, or skip and add it when needed.
+                <div className="bg-muted/40 border border-border p-4 rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Payment is handled on Stripe</span> — we never collect card or bank details inside ShippingQuick.
                   </p>
                 </div>
-                
-                <FormField
-                  control={form.control}
-                  name="cardholderName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cardholder Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Name on card" required {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="cardNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Card Number *</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="XXXX XXXX XXXX XXXX" 
-                          required 
-                          maxLength={19}
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="expiryMonth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Expiry Month *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="MM" 
-                            required 
-                            maxLength={2}
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="expiryYear"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Expiry Year *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="YY" 
-                            required 
-                            maxLength={2}
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="cvv"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CVV *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="XXX" 
-                            required 
-                            maxLength={4}
-                            type="password"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">Choose a payment method to add</label>
+                  <div className="grid gap-3">
+                    {paymentOptions.map((opt) => {
+                      const selected = paymentChoice === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setPaymentChoice(opt.id)}
+                          className={`text-left w-full p-4 rounded-xl border-2 transition-all ${
+                            selected
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`p-2 rounded-lg ${
+                                selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {opt.icon}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-semibold text-foreground">{opt.title}</div>
+                              <div className="text-sm text-muted-foreground">{opt.description}</div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </TabsContent>
-              
+
               <DialogFooter className="pt-4 flex justify-between">
                 <div className="flex gap-2">
                   {activeTab === 'payment' && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleBack}
-                    >
+                    <Button type="button" variant="outline" onClick={handleBack} disabled={isLoading}>
                       Back
                     </Button>
                   )}
                 </div>
-                
+
                 <div className="flex gap-2">
                   {activeTab === 'pickup' ? (
                     <>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={handleSkipPickup}
-                      >
+                      <Button type="button" variant="outline" onClick={handleCancel} disabled={isLoading}>
+                        Cancel
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={handleSkipPickup} disabled={isLoading}>
                         Skip
                       </Button>
                       <Button
@@ -586,20 +488,21 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     </>
                   ) : (
                     <>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={handleSkipPayment}
-                        disabled={isLoading}
-                      >
-                        Skip
+                      <Button type="button" variant="outline" onClick={handleCancel} disabled={isLoading}>
+                        Cancel
                       </Button>
-                      <Button
-                        type="submit"
-                        disabled={isLoading || !validatePayment()}
-                      >
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Complete Setup
+                      <Button type="button" onClick={handleStartStripeSetup} disabled={isLoading}>
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Redirecting…
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Continue to Stripe
+                          </>
+                        )}
                       </Button>
                     </>
                   )}
