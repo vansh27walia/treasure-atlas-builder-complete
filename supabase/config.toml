@@ -86,7 +86,7 @@ port = 9999
 verify_jwt = true
 
 [functions.get-google-api-key]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cancel-label]
 verify_jwt = true

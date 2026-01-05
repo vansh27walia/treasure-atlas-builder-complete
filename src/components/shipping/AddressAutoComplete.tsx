@@ -123,8 +123,22 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         setIsLoadingKey(true);
         console.log("Fetching Google Maps API key from Supabase...");
         
-        // Get the API key from the Supabase edge function
-        const { data, error } = await supabase.functions.invoke('get-google-api-key');
+        // Get current session for authentication
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.warn("No active session - Google Maps API requires authentication");
+          setIsLoadingKey(false);
+          toast.error("Please log in to use address autocomplete.");
+          return null;
+        }
+        
+        // Get the API key from the Supabase edge function with auth
+        const { data, error } = await supabase.functions.invoke('get-google-api-key', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
         
         if (error) {
           console.error("Error fetching API key from edge function:", error);
