@@ -49,8 +49,9 @@ interface BulkShipmentsListProps {
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
-  onRefreshRates: (shipmentId: string) => void;
+  onRefreshRates: (shipmentId: string) => Promise<void> | void;
   onAIAnalysis: (shipment?: any) => void;
+  onAddShipment?: () => void;
 }
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
