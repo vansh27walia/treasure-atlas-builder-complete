@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Mail, Key, Loader2, LogIn, User, UserPlus, Lock, AtSign, ArrowLeft, Phone } from 'lucide-react';
+import { Mail, Key, Loader2, LogIn, User, UserPlus, Lock, AtSign, ArrowLeft, Phone, Eye, EyeOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,8 +88,15 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'forgot-password'>('login');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const loginForm = useForm<LoginFormValues>();
-  const signupForm = useForm<SignupFormValues>();
+  const signupForm = useForm<SignupFormValues>({
+    defaultValues: {
+      countryCode: '+1'
+    }
+  });
   const forgotPasswordForm = useForm<ForgotPasswordFormValues>();
 
   // Redirect if already logged in
@@ -129,8 +136,13 @@ const AuthPage: React.FC = () => {
       // Use production URL for email confirmation redirect
       const productionUrl = 'https://app.shippingquick.io';
       
-      // Combine country code and phone number
-      const fullPhoneNumber = values.phoneNumber ? `${values.countryCode}${values.phoneNumber}` : null;
+      // Get country code from form (with fallback)
+      const countryCode = values.countryCode || '+1';
+      
+      // Combine country code and phone number properly
+      const fullPhoneNumber = values.phoneNumber ? `${countryCode}${values.phoneNumber}` : null;
+      
+      console.log('Signup with phone:', fullPhoneNumber);
       
       const {
         data,
@@ -139,8 +151,7 @@ const AuthPage: React.FC = () => {
         email: values.email,
         password: values.password,
         options: {
-          // Send the user back to /auth after confirming so the app can establish session
-          // and then redirect them to the protected homepage.
+          // Supabase built-in email will redirect here after confirmation
           emailRedirectTo: `${productionUrl}/auth`,
           data: {
             full_name: values.fullName,
@@ -203,18 +214,14 @@ const AuthPage: React.FC = () => {
   const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      // Use our custom edge function that generates proper recovery tokens
-      const { data, error } = await supabase.functions.invoke('request-password-reset', {
-        body: { email: values.email }
+      // Use Supabase's built-in password reset
+      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+        redirectTo: 'https://app.shippingquick.io/reset-password'
       });
 
       if (error) {
-        console.error('Password reset function error:', error);
-        throw new Error('Failed to send password reset email. Please try again.');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
+        console.error('Password reset error:', error);
+        throw error;
       }
 
       toast.success('If an account exists with this email, you will receive a password reset link.');
@@ -325,9 +332,22 @@ const AuthPage: React.FC = () => {
                     <Label htmlFor="password">Password</Label>
                     <div className="mt-1 relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input id="password" type="password" autoComplete="current-password" required className="pl-10" placeholder="Enter your password" {...loginForm.register('password', {
-                    required: true
-                  })} />
+                      <Input 
+                        id="password" 
+                        type={showLoginPassword ? "text" : "password"} 
+                        autoComplete="current-password" 
+                        required 
+                        className="pl-10 pr-10" 
+                        placeholder="Enter your password" 
+                        {...loginForm.register('password', { required: true })} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   
@@ -427,9 +447,22 @@ const AuthPage: React.FC = () => {
                     <Label htmlFor="signupPassword">Password</Label>
                     <div className="mt-1 relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input id="signupPassword" type="password" autoComplete="new-password" required className="pl-10" placeholder="Create a password" {...signupForm.register('password', {
-                    required: true
-                  })} />
+                      <Input 
+                        id="signupPassword" 
+                        type={showSignupPassword ? "text" : "password"} 
+                        autoComplete="new-password" 
+                        required 
+                        className="pl-10 pr-10" 
+                        placeholder="Create a password" 
+                        {...signupForm.register('password', { required: true })} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupPassword(!showSignupPassword)}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   
@@ -437,9 +470,22 @@ const AuthPage: React.FC = () => {
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <div className="mt-1 relative">
                       <Key className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input id="confirmPassword" type="password" autoComplete="new-password" required className="pl-10" placeholder="Confirm your password" {...signupForm.register('confirmPassword', {
-                    required: true
-                  })} />
+                      <Input 
+                        id="confirmPassword" 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        autoComplete="new-password" 
+                        required 
+                        className="pl-10 pr-10" 
+                        placeholder="Confirm your password" 
+                        {...signupForm.register('confirmPassword', { required: true })} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   
