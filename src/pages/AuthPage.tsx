@@ -133,17 +133,15 @@ const AuthPage: React.FC = () => {
     }
     setIsLoading(true);
     try {
-      // Use production URL for email confirmation redirect
-      const productionUrl = 'https://app.shippingquick.io';
-      
+      // Always use the current origin so the flow works in preview + production
+      const redirectBaseUrl = window.location.origin;
+
       // Get country code from form (with fallback)
       const countryCode = values.countryCode || '+1';
-      
+
       // Combine country code and phone number properly
       const fullPhoneNumber = values.phoneNumber ? `${countryCode}${values.phoneNumber}` : null;
-      
-      console.log('Signup with phone:', fullPhoneNumber);
-      
+
       const {
         data,
         error
@@ -152,7 +150,7 @@ const AuthPage: React.FC = () => {
         password: values.password,
         options: {
           // Supabase built-in email will redirect here after confirmation
-          emailRedirectTo: `${productionUrl}/auth`,
+          emailRedirectTo: `${redirectBaseUrl}/auth`,
           data: {
             full_name: values.fullName,
             phone_number: fullPhoneNumber
@@ -216,7 +214,7 @@ const AuthPage: React.FC = () => {
     try {
       // Use Supabase's built-in password reset
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: 'https://app.shippingquick.io/reset-password'
+        redirectTo: `${window.location.origin}/reset-password`
       });
 
       if (error) {
@@ -235,16 +233,10 @@ const AuthPage: React.FC = () => {
   };
   const handleGoogleLogin = async () => {
     try {
-      // Use production URL for Google OAuth redirect
-      const productionUrl = 'https://app.shippingquick.io';
-      
-      const {
-        data,
-        error
-      } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${productionUrl}/`
+          redirectTo: `${window.location.origin}/`
         }
       });
       if (error) {
