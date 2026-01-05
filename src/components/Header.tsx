@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Zap, Package, Box, Settings, CreditCard, User } from 'lucide-react';
+import { Package, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const Header: React.FC = () => {
@@ -9,7 +9,7 @@ const Header: React.FC = () => {
       <div className="shipping-container">
         <div className="flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
-            <Zap className="h-8 w-8 text-primary" />
+            <img src="/favicon.png" alt="ShippingQuick.io Logo" className="h-8 w-8" />
             <h1 className="text-2xl font-bold text-gray-900">ShippingQuick.io</h1>
           </div>
           
