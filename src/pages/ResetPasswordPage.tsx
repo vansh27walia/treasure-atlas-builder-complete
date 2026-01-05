@@ -261,28 +261,19 @@ const ResetPasswordPage: React.FC = () => {
 
   // Valid session - show password reset form
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-200 py-4 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link to="/" className="text-2xl font-bold text-primary">
-            ShippingQuick
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/auth" className="text-gray-600 hover:text-gray-900 font-medium">
-              Login
-            </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+            <Lock className="h-6 w-6 text-white" />
           </div>
+          <h2 className="mt-6 text-center font-extrabold text-slate-950 text-2xl">Create a new password</h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Enter your new password below
+          </p>
         </div>
-      </header>
-      
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">
-            Create a new password
-          </h1>
-          
+        
+        <div className="mt-8 p-6 shadow-xl border-0 bg-white rounded-lg">
           {/* Email (pre-filled) */}
           {userEmail && (
             <div className="mb-6">
@@ -351,11 +342,11 @@ const ResetPasswordPage: React.FC = () => {
               </div>
             )}
             
-            {/* Submit Button - Styled like Pirateship */}
+            {/* Submit Button */}
             <Button
               type="submit"
               disabled={isLoading || password !== confirmPassword || password.length < 6}
-              className="w-full h-14 bg-[#d9534f] hover:bg-[#c9302c] text-white font-semibold text-lg rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
               {isLoading ? (
                 <>
@@ -367,13 +358,6 @@ const ResetPasswordPage: React.FC = () => {
               )}
             </Button>
           </form>
-
-          {/* Footer Links */}
-          <div className="mt-8 text-center text-sm text-gray-500 space-x-2">
-            <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
-            <span>-</span>
-            <Link to="/terms" className="text-primary hover:underline">Terms of Use</Link>
-          </div>
         </div>
       </div>
     </div>
