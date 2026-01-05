@@ -13,7 +13,18 @@ export interface GeneratedAddress {
 
 export class GeocodingService {
   private static async getGoogleApiKey(): Promise<string> {
-    const { data, error } = await supabase.functions.invoke('get-google-api-key');
+    // Get current session for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('Authentication required to access Google Maps API');
+    }
+    
+    const { data, error } = await supabase.functions.invoke('get-google-api-key', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
     
     if (error || !data?.apiKey) {
       throw new Error('Google Maps API key not configured');
