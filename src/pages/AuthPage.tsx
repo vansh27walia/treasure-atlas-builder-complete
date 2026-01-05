@@ -307,6 +307,11 @@ const AuthPage: React.FC = () => {
       });
 
       if (error) {
+        // Show specific error for wrong OTP
+        if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('expired') || error.message?.toLowerCase().includes('token')) {
+          toast.error('Wrong OTP. Please check your code and try again.');
+          return;
+        }
         throw error;
       }
 
