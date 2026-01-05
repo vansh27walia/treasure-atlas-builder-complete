@@ -86,6 +86,8 @@ const COUNTRY_CODES = [
   { code: 'IL', dial: '+972', name: 'Israel' },
 ];
 
+const PENDING_SIGNUP_KEY = 'sq_pending_signup_v1';
+
 const AuthPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -100,6 +102,7 @@ const AuthPage: React.FC = () => {
   const [pendingEmail, setPendingEmail] = useState('');
   const [pendingPhoneNumber, setPendingPhoneNumber] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [profileSyncDone, setProfileSyncDone] = useState(false);
 
   const loginForm = useForm<LoginFormValues>();
   const signupForm = useForm<SignupFormValues>({
@@ -117,8 +120,69 @@ const AuthPage: React.FC = () => {
     }
   }, [resendCooldown]);
 
+  // Restore pending signup info after refresh (so OTP screen still works)
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_SIGNUP_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as { email?: string; phoneNumber?: string | null };
+      if (parsed?.email) setPendingEmail(parsed.email);
+      if (Object.prototype.hasOwnProperty.call(parsed ?? {}, 'phoneNumber')) {
+        setPendingPhoneNumber(parsed.phoneNumber ?? null);
+      }
+      setActiveTab('verify-otp');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Persist phone number even when the user verifies via the email link (not OTP)
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const syncPendingProfile = async () => {
+      if (!user) {
+        setProfileSyncDone(false);
+        return;
+      }
+
+      try {
+        const raw = localStorage.getItem(PENDING_SIGNUP_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { phoneNumber?: string | null };
+
+          if (parsed?.phoneNumber) {
+            const { error } = await supabase
+              .from('user_profiles')
+              .upsert({ id: user.id, phone_number: parsed.phoneNumber }, { onConflict: 'id' });
+
+            if (error) {
+              console.error('Failed to save phone number:', error);
+            }
+          }
+
+          localStorage.removeItem(PENDING_SIGNUP_KEY);
+        }
+      } catch (err) {
+        console.error('Failed to sync pending signup profile:', err);
+      } finally {
+        if (!cancelled) setProfileSyncDone(true);
+      }
+    };
+
+    syncPendingProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   // Redirect if already logged in - MUST be after all hooks
-  if (user) {
+  if (user && !profileSyncDone) {
+    return null;
+  }
+  if (user && profileSyncDone) {
     return <Navigate to="/" replace />;
   }
 
@@ -160,16 +224,17 @@ const AuthPage: React.FC = () => {
         ? `${countryCode}${values.phoneNumber.replace(/[^\d]/g, '')}` 
         : null;
 
-      // Use signUp with OTP type for email verification
+      // Create the account; Supabase will send a confirmation email (code and/or link, depending on template)
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: {
           data: {
             full_name: values.fullName,
-            phone_number: fullPhoneNumber
-          }
-        }
+            phone_number: fullPhoneNumber,
+          },
+          emailRedirectTo: `${window.location.origin}/auth`,
+        },
       });
       
       if (error) {
@@ -181,10 +246,17 @@ const AuthPage: React.FC = () => {
         throw error;
       }
       
-      // Store pending data for OTP verification
+      // Store pending data for OTP verification (and to support link-based confirmation)
       setPendingEmail(values.email);
       setPendingPhoneNumber(fullPhoneNumber);
-      
+      try {
+        localStorage.setItem(
+          PENDING_SIGNUP_KEY,
+          JSON.stringify({ email: values.email, phoneNumber: fullPhoneNumber })
+        );
+      } catch {
+        // ignore
+      }
       // If user needs email confirmation, switch to OTP view
       if (data?.user && !data.session) {
         toast.success('Account created! Please check your email for the verification code.');
@@ -193,11 +265,20 @@ const AuthPage: React.FC = () => {
       } else if (data?.session) {
         // Auto-confirmed, save phone and go to dashboard
         if (data.user && fullPhoneNumber) {
-          await supabase.from('user_profiles').upsert({
-            id: data.user.id,
-            phone_number: fullPhoneNumber
-          }, { onConflict: 'id' });
+          await supabase.from('user_profiles').upsert(
+            {
+              id: data.user.id,
+              phone_number: fullPhoneNumber,
+            },
+            { onConflict: 'id' }
+          );
         }
+        try {
+          localStorage.removeItem(PENDING_SIGNUP_KEY);
+        } catch {
+          // ignore
+        }
+        setProfileSyncDone(true);
         toast.success('Account created and logged in successfully!');
         navigate('/');
       }
@@ -222,7 +303,7 @@ const AuthPage: React.FC = () => {
       const { data, error } = await supabase.auth.verifyOtp({
         email: pendingEmail,
         token: otpValue,
-        type: 'email'
+        type: 'signup',
       });
 
       if (error) {
@@ -231,11 +312,17 @@ const AuthPage: React.FC = () => {
 
       // Save phone number to user_profiles after successful verification
       if (data.user && pendingPhoneNumber) {
-        await supabase.from('user_profiles').upsert({
-          id: data.user.id,
-          phone_number: pendingPhoneNumber
-        }, { onConflict: 'id' });
+        await supabase
+          .from('user_profiles')
+          .upsert({ id: data.user.id, phone_number: pendingPhoneNumber }, { onConflict: 'id' });
       }
+
+      try {
+        localStorage.removeItem(PENDING_SIGNUP_KEY);
+      } catch {
+        // ignore
+      }
+      setProfileSyncDone(true);
 
       toast.success('Email verified successfully! Welcome aboard!');
       navigate('/');
@@ -254,7 +341,10 @@ const AuthPage: React.FC = () => {
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: pendingEmail
+        email: pendingEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+        },
       });
 
       if (error) {
