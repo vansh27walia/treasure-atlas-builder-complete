@@ -109,11 +109,6 @@ const AuthPage: React.FC = () => {
   });
   const forgotPasswordForm = useForm<ForgotPasswordFormValues>();
 
-  // Redirect if already logged in
-  if (user) {
-    return <Navigate to="/" replace />;
-  }
-
   // Resend OTP cooldown timer
   React.useEffect(() => {
     if (resendCooldown > 0) {
@@ -121,6 +116,11 @@ const AuthPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  // Redirect if already logged in - MUST be after all hooks
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleLogin = async (values: LoginFormValues) => {
     setIsLoading(true);
