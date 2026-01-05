@@ -98,11 +98,15 @@ const AuthPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // OTP verification state
-  const [otpValue, setOtpValue] = useState('');
+  const [emailOtpValue, setEmailOtpValue] = useState('');
+  const [phoneOtpValue, setPhoneOtpValue] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
   const [pendingPhoneNumber, setPendingPhoneNumber] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendEmailCooldown, setResendEmailCooldown] = useState(0);
+  const [resendPhoneCooldown, setResendPhoneCooldown] = useState(0);
   const [profileSyncDone, setProfileSyncDone] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   const loginForm = useForm<LoginFormValues>();
   const signupForm = useForm<SignupFormValues>({
@@ -112,13 +116,20 @@ const AuthPage: React.FC = () => {
   });
   const forgotPasswordForm = useForm<ForgotPasswordFormValues>();
 
-  // Resend OTP cooldown timer
+  // Resend OTP cooldown timers
   React.useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    if (resendEmailCooldown > 0) {
+      const timer = setTimeout(() => setResendEmailCooldown(resendEmailCooldown - 1), 1000);
       return () => clearTimeout(timer);
     }
-  }, [resendCooldown]);
+  }, [resendEmailCooldown]);
+
+  React.useEffect(() => {
+    if (resendPhoneCooldown > 0) {
+      const timer = setTimeout(() => setResendPhoneCooldown(resendPhoneCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendPhoneCooldown]);
 
   // Restore pending signup info after refresh (so OTP screen still works)
   React.useEffect(() => {
@@ -259,9 +270,19 @@ const AuthPage: React.FC = () => {
       }
       // If user needs email confirmation, switch to OTP view
       if (data?.user && !data.session) {
-        toast.success('Account created! Please check your email for the verification code.');
+        toast.success('Account created! Please check your email and phone for verification codes.');
         setActiveTab('verify-otp');
-        setResendCooldown(60); // 60 second cooldown
+        setResendEmailCooldown(60);
+        
+        // Also send phone OTP if phone number provided
+        if (fullPhoneNumber) {
+          try {
+            await supabase.auth.signInWithOtp({ phone: fullPhoneNumber });
+            setResendPhoneCooldown(60);
+          } catch (phoneErr) {
+            console.log('Phone OTP not sent (phone auth may not be configured):', phoneErr);
+          }
+        }
       } else if (data?.session) {
         // Auto-confirmed, save phone and go to dashboard
         if (data.user && fullPhoneNumber) {
@@ -292,9 +313,10 @@ const AuthPage: React.FC = () => {
     }
   };
 
-  const handleVerifyOTP = async () => {
-    if (otpValue.length !== 6) {
-      toast.error('Please enter the complete 6-digit code');
+  // Handle Email OTP Verification
+  const handleVerifyEmailOTP = async () => {
+    if (emailOtpValue.length !== 6) {
+      toast.error('Please enter the complete 6-digit email code');
       return;
     }
 
@@ -302,18 +324,19 @@ const AuthPage: React.FC = () => {
     try {
       const { data, error } = await supabase.auth.verifyOtp({
         email: pendingEmail,
-        token: otpValue,
+        token: emailOtpValue,
         type: 'signup',
       });
 
       if (error) {
-        // Show specific error for wrong OTP
         if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('expired') || error.message?.toLowerCase().includes('token')) {
-          toast.error('Wrong OTP. Please check your code and try again.');
+          toast.error('Wrong Email OTP. Please check your code and try again.');
           return;
         }
         throw error;
       }
+
+      setEmailVerified(true);
 
       // Save phone number to user_profiles after successful verification
       if (data.user && pendingPhoneNumber) {
@@ -332,15 +355,69 @@ const AuthPage: React.FC = () => {
       toast.success('Email verified successfully! Welcome aboard!');
       navigate('/');
     } catch (error: any) {
-      console.error('OTP verification error:', error);
+      console.error('Email OTP verification error:', error);
       toast.error(error.message || 'Invalid or expired verification code');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
-    if (resendCooldown > 0) return;
+  // Handle Phone OTP Verification
+  const handleVerifyPhoneOTP = async () => {
+    if (phoneOtpValue.length !== 6) {
+      toast.error('Please enter the complete 6-digit phone code');
+      return;
+    }
+
+    if (!pendingPhoneNumber) {
+      toast.error('No phone number to verify');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: pendingPhoneNumber,
+        token: phoneOtpValue,
+        type: 'sms',
+      });
+
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('expired') || error.message?.toLowerCase().includes('token')) {
+          toast.error('Wrong Phone OTP. Please check your code and try again.');
+          return;
+        }
+        throw error;
+      }
+
+      setPhoneVerified(true);
+
+      // Save phone number to user_profiles after successful verification
+      if (data.user && pendingPhoneNumber) {
+        await supabase
+          .from('user_profiles')
+          .upsert({ id: data.user.id, phone_number: pendingPhoneNumber }, { onConflict: 'id' });
+      }
+
+      try {
+        localStorage.removeItem(PENDING_SIGNUP_KEY);
+      } catch {
+        // ignore
+      }
+      setProfileSyncDone(true);
+
+      toast.success('Phone verified successfully! Welcome aboard!');
+      navigate('/');
+    } catch (error: any) {
+      console.error('Phone OTP verification error:', error);
+      toast.error(error.message || 'Invalid or expired phone verification code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendEmailOTP = async () => {
+    if (resendEmailCooldown > 0) return;
 
     setIsLoading(true);
     try {
@@ -356,12 +433,36 @@ const AuthPage: React.FC = () => {
         throw error;
       }
 
-      toast.success('Verification code resent! Check your email.');
-      setResendCooldown(60);
-      setOtpValue('');
+      toast.success('Email verification code resent!');
+      setResendEmailCooldown(60);
+      setEmailOtpValue('');
     } catch (error: any) {
-      console.error('Resend OTP error:', error);
-      toast.error(error.message || 'Failed to resend verification code');
+      console.error('Resend Email OTP error:', error);
+      toast.error(error.message || 'Failed to resend email verification code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendPhoneOTP = async () => {
+    if (resendPhoneCooldown > 0 || !pendingPhoneNumber) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: pendingPhoneNumber,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Phone verification code resent!');
+      setResendPhoneCooldown(60);
+      setPhoneOtpValue('');
+    } catch (error: any) {
+      console.error('Resend Phone OTP error:', error);
+      toast.error(error.message || 'Failed to resend phone verification code');
     } finally {
       setIsLoading(false);
     }
@@ -418,7 +519,7 @@ const AuthPage: React.FC = () => {
             {activeTab === 'login' && 'Sign in to your account'}
             {activeTab === 'signup' && 'Create your account'}
             {activeTab === 'forgot-password' && 'Reset your password'}
-            {activeTab === 'verify-otp' && 'Verify your email'}
+            {activeTab === 'verify-otp' && 'Verify your account'}
           </p>
         </div>
         
@@ -431,73 +532,144 @@ const AuthPage: React.FC = () => {
                 className="mb-4 p-0 h-auto text-blue-600 hover:text-blue-800" 
                 onClick={() => {
                   setActiveTab('signup');
-                  setOtpValue('');
+                  setEmailOtpValue('');
+                  setPhoneOtpValue('');
                 }}
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Sign Up
               </Button>
               
-              <div className="text-center">
-                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Mail className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Check your email</h3>
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Verify Your Account</h3>
                 <p className="text-sm text-gray-600 mt-2">
-                  We sent a verification code to
+                  Enter the verification code from either your email or phone
                 </p>
-                <p className="text-sm font-medium text-gray-900 mt-1">{pendingEmail}</p>
               </div>
-              
-              <div className="flex flex-col items-center space-y-4">
-                <InputOTP 
-                  maxLength={6} 
-                  value={otpValue} 
-                  onChange={setOtpValue}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+
+              {/* Email OTP Section */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">Email Verification</h4>
+                    <p className="text-xs text-gray-600">{pendingEmail}</p>
+                  </div>
+                </div>
                 
-                <Button 
-                  onClick={handleVerifyOTP} 
-                  disabled={isLoading || otpValue.length !== 6}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Verify Email'
-                  )}
-                </Button>
-                
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">
-                    Didn't receive the code?
-                  </p>
+                <div className="flex flex-col items-center space-y-3">
+                  <InputOTP 
+                    maxLength={6} 
+                    value={emailOtpValue} 
+                    onChange={setEmailOtpValue}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                  
+                  <Button 
+                    onClick={handleVerifyEmailOTP} 
+                    disabled={isLoading || emailOtpValue.length !== 6}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    size="sm"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify Email'
+                    )}
+                  </Button>
+                  
                   <Button 
                     variant="link" 
-                    className="text-blue-600 hover:text-blue-800 p-0 h-auto"
-                    onClick={handleResendOTP}
-                    disabled={resendCooldown > 0 || isLoading}
+                    className="text-blue-600 hover:text-blue-800 p-0 h-auto text-xs"
+                    onClick={handleResendEmailOTP}
+                    disabled={resendEmailCooldown > 0 || isLoading}
                   >
                     <RefreshCw className={`mr-1 h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
-                    {resendCooldown > 0 
-                      ? `Resend in ${resendCooldown}s` 
-                      : 'Resend Code'
+                    {resendEmailCooldown > 0 
+                      ? `Resend in ${resendEmailCooldown}s` 
+                      : 'Resend Email Code'
                     }
                   </Button>
                 </div>
               </div>
+
+              {/* Phone OTP Section */}
+              {pendingPhoneNumber && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <Phone className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">Phone Verification</h4>
+                      <p className="text-xs text-gray-600">{pendingPhoneNumber}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center space-y-3">
+                    <InputOTP 
+                      maxLength={6} 
+                      value={phoneOtpValue} 
+                      onChange={setPhoneOtpValue}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                    
+                    <Button 
+                      onClick={handleVerifyPhoneOTP} 
+                      disabled={isLoading || phoneOtpValue.length !== 6}
+                      className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700"
+                      size="sm"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        'Verify Phone'
+                      )}
+                    </Button>
+                    
+                    <Button 
+                      variant="link" 
+                      className="text-green-600 hover:text-green-800 p-0 h-auto text-xs"
+                      onClick={handleResendPhoneOTP}
+                      disabled={resendPhoneCooldown > 0 || isLoading}
+                    >
+                      <RefreshCw className={`mr-1 h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+                      {resendPhoneCooldown > 0 
+                        ? `Resend in ${resendPhoneCooldown}s` 
+                        : 'Resend Phone Code'
+                      }
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-center text-gray-500">
+                Verify either your email or phone number to complete signup
+              </p>
             </div>
           )}
 
