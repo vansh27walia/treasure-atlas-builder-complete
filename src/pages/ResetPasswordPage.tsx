@@ -20,85 +20,82 @@ const ResetPasswordPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    // Process the recovery token from Supabase
     const processRecoveryToken = async () => {
       try {
-        console.log('ResetPasswordPage: Processing URL for recovery token');
-        console.log('Full URL:', window.location.href);
-        console.log('Hash:', window.location.hash);
-        console.log('Search:', window.location.search);
+        // 1) PKCE flow (most common now): ?code=...
+        const searchParams = new URLSearchParams(window.location.search);
+        const code = searchParams.get('code');
+        const errorDescription = searchParams.get('error_description');
 
-        // Supabase sends tokens in the URL hash fragment
-        // Format: #access_token=xxx&refresh_token=xxx&type=recovery&...
+        if (errorDescription) {
+          setErrorMessage(decodeURIComponent(errorDescription));
+          setPageState('invalid');
+          return;
+        }
+
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (error) {
+            setErrorMessage(error.message || 'The recovery link is invalid or has expired.');
+            setPageState('invalid');
+            return;
+          }
+
+          if (data.session?.user) {
+            setUserEmail(data.session.user.email || '');
+            setPageState('valid');
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
+        }
+
+        // 2) Legacy/implicit flow: #access_token=...&refresh_token=...&type=recovery
         const hashFragment = window.location.hash.substring(1);
-        
         if (hashFragment) {
           const params = new URLSearchParams(hashFragment);
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
           const type = params.get('type');
-          const errorCode = params.get('error_code');
-          const errorDescription = params.get('error_description');
+          const hashError = params.get('error_description');
 
-          console.log('Parsed params:', { 
-            hasAccessToken: !!accessToken, 
-            hasRefreshToken: !!refreshToken,
-            type,
-            errorCode,
-            errorDescription
-          });
-
-          // Check for error in the URL (expired link, etc.)
-          if (errorCode || errorDescription) {
-            console.error('Error in recovery link:', errorDescription);
-            setErrorMessage(errorDescription || 'The recovery link is invalid or has expired.');
+          if (hashError) {
+            setErrorMessage(decodeURIComponent(hashError));
             setPageState('invalid');
             return;
           }
 
-          // If we have recovery tokens, establish the session
           if (accessToken && type === 'recovery') {
-            console.log('Found recovery tokens, establishing session...');
-            
             const { data, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || ''
             });
 
             if (error) {
-              console.error('Failed to establish session:', error);
               setErrorMessage(error.message || 'The recovery link is invalid or has expired.');
               setPageState('invalid');
               return;
             }
 
-            if (data.session && data.session.user) {
-              console.log('Session established for:', data.session.user.email);
+            if (data.session?.user) {
               setUserEmail(data.session.user.email || '');
               setPageState('valid');
-              
-              // Clean URL by removing the hash
               window.history.replaceState(null, '', window.location.pathname);
               return;
             }
           }
         }
 
-        // Also check for existing valid session (user may have already clicked link)
+        // 3) Fallback: existing session
         const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session && session.user) {
-          console.log('Found existing session:', session.user.email);
+        if (session?.user) {
           setUserEmail(session.user.email || '');
           setPageState('valid');
           return;
         }
 
-        // No valid tokens or session found
-        console.log('No valid recovery tokens or session found');
         setErrorMessage('No valid recovery session found. Please request a new password reset link.');
         setPageState('invalid');
-
       } catch (error) {
         console.error('Error processing recovery token:', error);
         setErrorMessage('An error occurred while processing the recovery link.');
@@ -108,14 +105,9 @@ const ResetPasswordPage: React.FC = () => {
 
     // Also listen for auth state changes (PASSWORD_RECOVERY event)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state change:', event, session?.user?.email);
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        console.log('PASSWORD_RECOVERY event detected');
-        if (session?.user) {
-          setUserEmail(session.user.email || '');
-          setPageState('valid');
-        }
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        setUserEmail(session.user.email || '');
+        setPageState('valid');
       }
     });
 
@@ -291,11 +283,11 @@ const ResetPasswordPage: React.FC = () => {
             Create a new password
           </h1>
           
-          {/* Email display */}
+          {/* Email (pre-filled) */}
           {userEmail && (
-            <p className="text-center text-gray-600 mb-6 text-sm">
-              Resetting password for: <span className="font-medium">{userEmail}</span>
-            </p>
+            <div className="mb-6">
+              <Input value={userEmail} readOnly disabled className="h-12" />
+            </div>
           )}
           
           <form onSubmit={handleResetPassword} className="space-y-4">
