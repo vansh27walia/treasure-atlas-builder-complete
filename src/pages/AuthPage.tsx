@@ -133,14 +133,14 @@ const AuthPage: React.FC = () => {
     }
     setIsLoading(true);
     try {
-      // Always use the current origin so the flow works in preview + production
-      const redirectBaseUrl = window.location.origin;
+      // Always use the public app domain so Supabase Auth redirects are always allowed
+      const redirectBaseUrl = 'https://app.shippingquick.io';
 
       // Get country code from form (with fallback)
-      const countryCode = values.countryCode || '+1';
+      const countryCode = (values.countryCode || '+1').startsWith('+') ? (values.countryCode || '+1') : `+${values.countryCode || '1'}`;
 
       // Combine country code and phone number properly
-      const fullPhoneNumber = values.phoneNumber ? `${countryCode}${values.phoneNumber}` : null;
+      const fullPhoneNumber = values.phoneNumber ? `${countryCode}${values.phoneNumber.replace(/[^\d]/g, '')}` : null;
 
       const {
         data,
@@ -214,7 +214,7 @@ const AuthPage: React.FC = () => {
     try {
       // Use Supabase's built-in password reset
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: 'https://app.shippingquick.io/reset-password'
       });
 
       if (error) {
