@@ -6,17 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Mail, Key, Loader2, LogIn, User, UserPlus, Lock, AtSign, ArrowLeft, Phone, Eye, EyeOff } from 'lucide-react';
+import { Mail, Loader2, LogIn, User, UserPlus, Lock, AtSign, ArrowLeft, Phone, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+
 interface LoginFormValues {
   email: string;
   password: string;
 }
+
 interface SignupFormValues {
   fullName: string;
   email: string;
@@ -24,6 +27,10 @@ interface SignupFormValues {
   phoneNumber: string;
   password: string;
   confirmPassword: string;
+}
+
+interface ForgotPasswordFormValues {
+  email: string;
 }
 
 // Country codes with dial codes
@@ -78,19 +85,22 @@ const COUNTRY_CODES = [
   { code: 'GR', dial: '+30', name: 'Greece' },
   { code: 'IL', dial: '+972', name: 'Israel' },
 ];
-interface ForgotPasswordFormValues {
-  email: string;
-}
+
 const AuthPage: React.FC = () => {
-  const {
-    user
-  } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'forgot-password'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'forgot-password' | 'verify-otp'>('login');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // OTP verification state
+  const [otpValue, setOtpValue] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingPhoneNumber, setPendingPhoneNumber] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const loginForm = useForm<LoginFormValues>();
   const signupForm = useForm<SignupFormValues>({
     defaultValues: {
@@ -103,13 +113,19 @@ const AuthPage: React.FC = () => {
   if (user) {
     return <Navigate to="/" replace />;
   }
+
+  // Resend OTP cooldown timer
+  React.useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
   const handleLogin = async (values: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password
       });
@@ -126,6 +142,7 @@ const AuthPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const handleSignup = async (values: SignupFormValues) => {
     if (values.password !== values.confirmPassword) {
       toast.error('Passwords do not match');
@@ -133,24 +150,21 @@ const AuthPage: React.FC = () => {
     }
     setIsLoading(true);
     try {
-      // Always use the public app domain so Supabase Auth redirects are always allowed
-      const redirectBaseUrl = 'https://app.shippingquick.io';
-
       // Get country code from form (with fallback)
-      const countryCode = (values.countryCode || '+1').startsWith('+') ? (values.countryCode || '+1') : `+${values.countryCode || '1'}`;
+      const countryCode = (values.countryCode || '+1').startsWith('+') 
+        ? (values.countryCode || '+1') 
+        : `+${values.countryCode || '1'}`;
 
       // Combine country code and phone number properly
-      const fullPhoneNumber = values.phoneNumber ? `${countryCode}${values.phoneNumber.replace(/[^\d]/g, '')}` : null;
+      const fullPhoneNumber = values.phoneNumber 
+        ? `${countryCode}${values.phoneNumber.replace(/[^\d]/g, '')}` 
+        : null;
 
-      const {
-        data,
-        error
-      } = await supabase.auth.signUp({
+      // Use signUp with OTP type for email verification
+      const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: {
-          // Supabase built-in email will redirect here after confirmation
-          emailRedirectTo: `${redirectBaseUrl}/auth`,
           data: {
             full_name: values.fullName,
             phone_number: fullPhoneNumber
@@ -159,60 +173,108 @@ const AuthPage: React.FC = () => {
       });
       
       if (error) {
-        // Handle specific error cases
         if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
           toast.error('This email is already registered. Please sign in instead.');
-          setActiveTab('login');
-          return;
-        }
-        if (error.message?.includes('timeout') || error.status === 504) {
-          // Account may have been created but email timed out
-          toast.success('Account may have been created. Please try signing in or check your email.');
           setActiveTab('login');
           return;
         }
         throw error;
       }
       
-      // Save phone number to user_profiles if user was created
-      if (data?.user && fullPhoneNumber) {
-        // Use upsert to handle both new and existing profiles
-        await supabase.from('user_profiles').upsert({
-          id: data.user.id,
-          phone_number: fullPhoneNumber
-        }, { onConflict: 'id' });
-      }
+      // Store pending data for OTP verification
+      setPendingEmail(values.email);
+      setPendingPhoneNumber(fullPhoneNumber);
       
-      // Check if user needs to confirm email
+      // If user needs email confirmation, switch to OTP view
       if (data?.user && !data.session) {
-        toast.success('Account created! Please check your email to verify your account.');
+        toast.success('Account created! Please check your email for the verification code.');
+        setActiveTab('verify-otp');
+        setResendCooldown(60); // 60 second cooldown
       } else if (data?.session) {
+        // Auto-confirmed, save phone and go to dashboard
+        if (data.user && fullPhoneNumber) {
+          await supabase.from('user_profiles').upsert({
+            id: data.user.id,
+            phone_number: fullPhoneNumber
+          }, { onConflict: 'id' });
+        }
         toast.success('Account created and logged in successfully!');
         navigate('/');
-        return;
       }
       
       console.log('Signup successful:', data);
-      setActiveTab('login');
     } catch (error: any) {
       console.error('Signup error:', error);
-      
-      // Handle timeout errors gracefully
-      if (error.message?.includes('timeout') || error.message?.includes('504') || error.message?.includes('timed out')) {
-        toast.info('Request took too long. Your account may have been created. Try signing in.');
-        setActiveTab('login');
-        return;
-      }
-      
       toast.error(error.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleVerifyOTP = async () => {
+    if (otpValue.length !== 6) {
+      toast.error('Please enter the complete 6-digit code');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: otpValue,
+        type: 'email'
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Save phone number to user_profiles after successful verification
+      if (data.user && pendingPhoneNumber) {
+        await supabase.from('user_profiles').upsert({
+          id: data.user.id,
+          phone_number: pendingPhoneNumber
+        }, { onConflict: 'id' });
+      }
+
+      toast.success('Email verified successfully! Welcome aboard!');
+      navigate('/');
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
+      toast.error(error.message || 'Invalid or expired verification code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingEmail
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Verification code resent! Check your email.');
+      setResendCooldown(60);
+      setOtpValue('');
+    } catch (error: any) {
+      console.error('Resend OTP error:', error);
+      toast.error(error.message || 'Failed to resend verification code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      // Use Supabase's built-in password reset
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
         redirectTo: 'https://app.shippingquick.io/reset-password'
       });
@@ -231,12 +293,13 @@ const AuthPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const handleGoogleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: 'https://app.shippingquick.io/'
         }
       });
       if (error) {
@@ -247,7 +310,9 @@ const AuthPage: React.FC = () => {
       toast.error(error.message || 'Failed to log in with Google');
     }
   };
-  return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
@@ -258,12 +323,97 @@ const AuthPage: React.FC = () => {
             {activeTab === 'login' && 'Sign in to your account'}
             {activeTab === 'signup' && 'Create your account'}
             {activeTab === 'forgot-password' && 'Reset your password'}
+            {activeTab === 'verify-otp' && 'Verify your email'}
           </p>
         </div>
         
         <Card className="mt-8 p-6 shadow-xl border-0">
-          {activeTab === 'forgot-password' ? <div className="space-y-4">
-              <Button variant="ghost" className="mb-4 p-0 h-auto text-blue-600 hover:text-blue-800" onClick={() => setActiveTab('login')}>
+          {/* OTP Verification View */}
+          {activeTab === 'verify-otp' && (
+            <div className="space-y-6">
+              <Button 
+                variant="ghost" 
+                className="mb-4 p-0 h-auto text-blue-600 hover:text-blue-800" 
+                onClick={() => {
+                  setActiveTab('signup');
+                  setOtpValue('');
+                }}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Sign Up
+              </Button>
+              
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <Mail className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Check your email</h3>
+                <p className="text-sm text-gray-600 mt-2">
+                  We sent a verification code to
+                </p>
+                <p className="text-sm font-medium text-gray-900 mt-1">{pendingEmail}</p>
+              </div>
+              
+              <div className="flex flex-col items-center space-y-4">
+                <InputOTP 
+                  maxLength={6} 
+                  value={otpValue} 
+                  onChange={setOtpValue}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+                
+                <Button 
+                  onClick={handleVerifyOTP} 
+                  disabled={isLoading || otpValue.length !== 6}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify Email'
+                  )}
+                </Button>
+                
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    Didn't receive the code?
+                  </p>
+                  <Button 
+                    variant="link" 
+                    className="text-blue-600 hover:text-blue-800 p-0 h-auto"
+                    onClick={handleResendOTP}
+                    disabled={resendCooldown > 0 || isLoading}
+                  >
+                    <RefreshCw className={`mr-1 h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+                    {resendCooldown > 0 
+                      ? `Resend in ${resendCooldown}s` 
+                      : 'Resend Code'
+                    }
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Forgot Password View */}
+          {activeTab === 'forgot-password' && (
+            <div className="space-y-4">
+              <Button 
+                variant="ghost" 
+                className="mb-4 p-0 h-auto text-blue-600 hover:text-blue-800" 
+                onClick={() => setActiveTab('login')}
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Login
               </Button>
@@ -280,23 +430,42 @@ const AuthPage: React.FC = () => {
                   <Label htmlFor="forgotEmail">Email Address</Label>
                   <div className="mt-1 relative">
                     <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input id="forgotEmail" type="email" autoComplete="email" required className="pl-10" placeholder="Enter your email" {...forgotPasswordForm.register('email', {
-                  required: true
-                })} />
+                    <Input 
+                      id="forgotEmail" 
+                      type="email" 
+                      autoComplete="email" 
+                      required 
+                      className="pl-10" 
+                      placeholder="Enter your email" 
+                      {...forgotPasswordForm.register('email', { required: true })} 
+                    />
                   </div>
                 </div>
                 
-                <Button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                  {isLoading ? <>
+                <Button 
+                  type="submit" 
+                  disabled={isLoading} 
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  {isLoading ? (
+                    <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Sending Reset Link...
-                    </> : <>
+                    </>
+                  ) : (
+                    <>
                       <Mail className="mr-2 h-4 w-4" />
                       Send Reset Link
-                    </>}
+                    </>
+                  )}
                 </Button>
               </form>
-            </div> : <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'login' | 'signup')}>
+            </div>
+          )}
+
+          {/* Login/Signup Tabs */}
+          {(activeTab === 'login' || activeTab === 'signup') && (
+            <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'login' | 'signup')}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login" className="flex items-center gap-2">
                   <LogIn className="h-4 w-4" />
@@ -314,9 +483,15 @@ const AuthPage: React.FC = () => {
                     <Label htmlFor="email">Email Address</Label>
                     <div className="mt-1 relative">
                       <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input id="email" type="email" autoComplete="email" required className="pl-10" placeholder="Enter your email" {...loginForm.register('email', {
-                    required: true
-                  })} />
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        autoComplete="email" 
+                        required 
+                        className="pl-10" 
+                        placeholder="Enter your email" 
+                        {...loginForm.register('email', { required: true })} 
+                      />
                     </div>
                   </div>
                   
@@ -344,19 +519,32 @@ const AuthPage: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Button type="button" variant="link" className="text-sm text-blue-600 hover:text-blue-800" onClick={() => setActiveTab('forgot-password')}>
+                    <Button 
+                      type="button" 
+                      variant="link" 
+                      className="text-sm text-blue-600 hover:text-blue-800" 
+                      onClick={() => setActiveTab('forgot-password')}
+                    >
                       Forgot your password?
                     </Button>
                   </div>
                   
-                  <Button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                    {isLoading ? <>
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    {isLoading ? (
+                      <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Signing in...
-                      </> : <>
+                      </>
+                    ) : (
+                      <>
                         <LogIn className="mr-2 h-4 w-4" />
                         Sign In
-                      </>}
+                      </>
+                    )}
                   </Button>
                   
                   <div className="relative">
@@ -386,9 +574,15 @@ const AuthPage: React.FC = () => {
                     <Label htmlFor="fullName">Full Name</Label>
                     <div className="mt-1 relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input id="fullName" type="text" autoComplete="name" required className="pl-10" placeholder="Enter your full name" {...signupForm.register('fullName', {
-                    required: true
-                  })} />
+                      <Input 
+                        id="fullName" 
+                        type="text" 
+                        autoComplete="name" 
+                        required 
+                        className="pl-10" 
+                        placeholder="Enter your full name" 
+                        {...signupForm.register('fullName', { required: true })} 
+                      />
                     </div>
                   </div>
                   
@@ -396,17 +590,23 @@ const AuthPage: React.FC = () => {
                     <Label htmlFor="signupEmail">Email Address</Label>
                     <div className="mt-1 relative">
                       <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input id="signupEmail" type="email" autoComplete="email" required className="pl-10" placeholder="Enter your email" {...signupForm.register('email', {
-                    required: true
-                  })} />
+                      <Input 
+                        id="signupEmail" 
+                        type="email" 
+                        autoComplete="email" 
+                        required 
+                        className="pl-10" 
+                        placeholder="Enter your email" 
+                        {...signupForm.register('email', { required: true })} 
+                      />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="phoneNumber">Phone Number</Label>
                     <div className="mt-1 flex gap-2">
                       <Select 
-                        defaultValue="+1" 
+                        value={signupForm.watch('countryCode') || '+1'}
                         onValueChange={(value) => signupForm.setValue('countryCode', value)}
                       >
                         <SelectTrigger className="w-[120px]">
@@ -420,16 +620,15 @@ const AuthPage: React.FC = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      <div className="flex-1 relative">
+                      <div className="relative flex-1">
                         <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input 
                           id="phoneNumber" 
                           type="tel" 
                           autoComplete="tel" 
-                          required 
                           className="pl-10" 
                           placeholder="Phone number" 
-                          {...signupForm.register('phoneNumber', { required: true })} 
+                          {...signupForm.register('phoneNumber')} 
                         />
                       </div>
                     </div>
@@ -461,7 +660,7 @@ const AuthPage: React.FC = () => {
                   <div>
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <div className="mt-1 relative">
-                      <Key className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input 
                         id="confirmPassword" 
                         type={showConfirmPassword ? "text" : "password"} 
@@ -481,14 +680,22 @@ const AuthPage: React.FC = () => {
                     </div>
                   </div>
                   
-                  <Button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                    {isLoading ? <>
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    {isLoading ? (
+                      <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Account...
-                      </> : <>
+                        Creating account...
+                      </>
+                    ) : (
+                      <>
                         <UserPlus className="mr-2 h-4 w-4" />
                         Create Account
-                      </>}
+                      </>
+                    )}
                   </Button>
                   
                   <div className="relative">
@@ -511,9 +718,12 @@ const AuthPage: React.FC = () => {
                   </Button>
                 </form>
               </TabsContent>
-            </Tabs>}
+            </Tabs>
+          )}
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default AuthPage;
