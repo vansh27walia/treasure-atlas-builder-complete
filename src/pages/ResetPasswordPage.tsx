@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { Lock, Loader2, CheckCircle, ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -273,7 +274,7 @@ const ResetPasswordPage: React.FC = () => {
           </p>
         </div>
         
-        <div className="mt-8 p-6 shadow-xl border-0 bg-white rounded-lg">
+        <Card className="mt-8 p-6 shadow-xl border-0">
           {/* Email (pre-filled) */}
           {userEmail && (
             <div className="mb-6">
@@ -358,7 +359,7 @@ const ResetPasswordPage: React.FC = () => {
               )}
             </Button>
           </form>
-        </div>
+        </Card>
       </div>
     </div>
   );
