@@ -1,9 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { UPSService } from "../_shared/ups-service.ts";
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
+
+// 🔒 CLIENT AUTHENTICATION KEY - Endpoint is locked if this environment variable is set
+const CLIENT_API_KEY = Deno.env.get('CLIENT_API_KEY');
 
 // ------------------------------------
 // Set up CORS headers
@@ -173,39 +175,36 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // 1. Authentication Check - Always require valid Supabase JWT
-  const authHeader = req.headers.get('Authorization');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.warn('🔒 Authorization failed: Missing or invalid Authorization header.');
-    const duration = Date.now() - startTime;
-    console.log(`--- Request End: Unauthorized (Duration: ${duration}ms) ---`);
-    return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid token' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 401
-    });
+  // 1. Client Authentication Check (The "Login" Lock)
+  if (CLIENT_API_KEY) {
+    const authHeader = req.headers.get('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('🔒 Authorization failed: Missing or invalid Authorization header.');
+      const duration = Date.now() - startTime;
+      console.log(`--- Request End: Unauthorized (Duration: ${duration}ms) ---`);
+      return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid token' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+    
+    const clientToken = authHeader.split(' ')[1];
+    
+    if (clientToken !== CLIENT_API_KEY) {
+      console.warn('🔒 Authorization failed: Invalid client token.');
+      const duration = Date.now() - startTime;
+      console.log(`--- Request End: Forbidden (Duration: ${duration}ms) ---`);
+      return new Response(JSON.stringify({ error: 'Unauthorized: Invalid credentials' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403
+      });
+    }
+    
+    console.log('✅ Client Authorization successful.');
+  } else {
+    console.warn('⚠️ CLIENT_API_KEY is not set. Endpoint is unsecured.');
   }
-
-  // Validate JWT using Supabase auth
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-  
-  if (userError || !user) {
-    console.warn('🔒 Authorization failed: Invalid JWT token.', userError?.message);
-    const duration = Date.now() - startTime;
-    console.log(`--- Request End: Unauthorized (Duration: ${duration}ms) ---`);
-    return new Response(JSON.stringify({ error: 'Unauthorized: Invalid credentials' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 401
-    });
-  }
-
-  console.log(`✅ User authenticated: ${user.id}`);
 
   try {
     console.log(`🎛️ Using rate markup: ${RATE_MARKUP_PERCENTAGE}%`);
