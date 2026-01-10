@@ -25,7 +25,7 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   shipmentId,
   shipmentDetails
 }) => {
-  const convertPngToPdf = async (imageUrl: string): Promise<Blob> => {
+  const convertPngTo4x6Pdf = async (imageUrl: string): Promise<Blob> => {
     const { PDFDocument } = await import('pdf-lib');
     
     // Fetch the PNG image
@@ -41,18 +41,32 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
     // Embed the PNG image
     const pngImage = await pdfDoc.embedPng(imageBytes);
     
-    // Get image dimensions
-    const { width, height } = pngImage.scale(1);
+    // 4x6 inches in PDF points (72 points per inch)
+    const labelWidth = 288;  // 4 inches
+    const labelHeight = 432; // 6 inches
     
-    // Create a page with the same dimensions as the image
-    const page = pdfDoc.addPage([width, height]);
+    // Create a page with 4x6 dimensions
+    const page = pdfDoc.addPage([labelWidth, labelHeight]);
+    
+    // Get the original image dimensions to scale properly
+    const { width: imgWidth, height: imgHeight } = pngImage.scale(1);
+    const scaleX = labelWidth / imgWidth;
+    const scaleY = labelHeight / imgHeight;
+    const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
+    
+    const scaledWidth = imgWidth * scale;
+    const scaledHeight = imgHeight * scale;
+    
+    // Center the image on the page
+    const x = (labelWidth - scaledWidth) / 2;
+    const y = (labelHeight - scaledHeight) / 2;
     
     // Draw the image on the page
     page.drawImage(pngImage, {
-      x: 0,
-      y: 0,
-      width: width,
-      height: height,
+      x,
+      y,
+      width: scaledWidth,
+      height: scaledHeight,
     });
     
     // Save the PDF
@@ -61,53 +75,53 @@ const NormalShippingLabelOptions: React.FC<NormalShippingLabelOptionsProps> = ({
   };
 
   const handleDirectDownload = async () => {
-    if (labelUrl) {
-      try {
-        toast.loading('Converting and downloading PDF label...');
-        
-        let blob: Blob;
-        
-        if (labelUrl.toLowerCase().includes('.png')) {
-          // Convert PNG to PDF
-          blob = await convertPngToPdf(labelUrl);
-        } else {
-          // Direct download for PDF
-          const response = await fetch(labelUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/pdf'
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
-          }
-          
-          blob = await response.blob();
-        }
-        
-        // Create download link
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `shipping_label_${trackingCode || shipmentId || Date.now()}.pdf`;
-        link.style.display = 'none';
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up
-        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
-        
-        toast.success('PDF label downloaded successfully');
-      } catch (error) {
-        console.error('Error downloading PDF:', error);
-        toast.error('Failed to convert and download PDF. Please try again.');
-      }
-    } else {
+    if (!labelUrl) {
       toast.error('Label URL not available');
+      return;
+    }
+    
+    try {
+      toast.loading('Preparing 4x6 PDF label...');
+      
+      let blob: Blob;
+      
+      // Always convert to proper 4x6 PDF format
+      if (labelUrl.toLowerCase().includes('.png')) {
+        // Convert PNG to 4x6 PDF
+        blob = await convertPngTo4x6Pdf(labelUrl);
+      } else if (labelUrl.toLowerCase().includes('.pdf')) {
+        // For PDF, fetch and return as-is (already 4x6 from backend)
+        const response = await fetch(labelUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.status}`);
+        }
+        blob = await response.blob();
+      } else {
+        // Try to fetch and convert as PNG
+        blob = await convertPngTo4x6Pdf(labelUrl);
+      }
+      
+      // Create download link
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `shipping_label_4x6_${trackingCode || shipmentId || Date.now()}.pdf`;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+      
+      toast.dismiss();
+      toast.success('4x6 PDF label downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.dismiss();
+      toast.error('Failed to download PDF. Please try again.');
     }
   };
 

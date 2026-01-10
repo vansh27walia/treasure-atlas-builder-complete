@@ -287,18 +287,47 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     return await outputPdf.save();
 };
 
-  const handlePrint = () => {
-    if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
+  const handlePrint = async () => {
+    if (previewType === 'pdf' && currentPreviewUrl) {
       try {
-        iframeRef.current.contentWindow.focus();
-        iframeRef.current.contentWindow.print();
-        setIsOpen(false);
+        // Open PDF in a new window for printing (more reliable cross-browser)
+        const printWindow = window.open(currentPreviewUrl, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.focus();
+              printWindow.print();
+            }, 500);
+          };
+        } else {
+          // Fallback: try iframe print
+          if (iframeRef.current && iframeRef.current.contentWindow) {
+            iframeRef.current.contentWindow.focus();
+            iframeRef.current.contentWindow.print();
+          } else {
+            toast.error("Please allow pop-ups or download the PDF to print.");
+          }
+        }
       } catch (error) {
-        console.error("Error printing PDF from iframe:", error);
-        toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
+        console.error("Error printing PDF:", error);
+        toast.error("Failed to print. Please download the PDF and print manually.");
+      }
+    } else if (previewType === 'image' && currentPreviewUrl) {
+      // For images, open in new window and print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head><title>Print Label</title></head>
+            <body style="margin:0;display:flex;justify-content:center;align-items:center;">
+              <img src="${currentPreviewUrl}" style="max-width:100%;height:auto;" onload="window.print();"/>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
       }
     } else {
-      toast.error("No PDF preview available to print directly. Please download the label.");
+      toast.error("No preview available to print. Please download the label.");
     }
   };
 
@@ -519,9 +548,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </div>
       )}
 
-      <DialogContent className="max-w-5xl bg-white sm:rounded-lg h-[90vh] max-h-[800px] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center justify-between pr-6">
+      <DialogContent className="max-w-4xl bg-white sm:rounded-lg max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0 pb-2">
+          <DialogTitle className="flex items-center justify-between pr-6 text-base">
             <span>{dialogTitleText}</span>
           </DialogTitle>
           <Button
@@ -536,7 +565,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </Button>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col pt-4 overflow-y-auto min-h-0">
+        <div className="flex-1 flex flex-col pt-2 overflow-y-auto min-h-0">
           {/* Tabs for Preview/Download/Email */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             {!isBatchPreview && (
@@ -556,62 +585,46 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               </TabsList>
             )}
 
-            <TabsContent value="preview" className="flex-1 flex flex-col space-y-4">
-              {/* Format Selection - Only in Preview Tab */}
-              <div className="flex-shrink-0">
-                <Label className="text-sm font-medium mb-2 block">Print Format</Label>
+            <TabsContent value="preview" className="flex-1 flex flex-col space-y-3">
+              {/* Format Selection - Compact */}
+              <div className="flex-shrink-0 flex items-center gap-3">
+                <Label className="text-sm font-medium whitespace-nowrap">Format:</Label>
                 <Select
                   value={selectedFormat}
                   onValueChange={handleFormatChange}
                   disabled={isRegeneratingLabel}
                 >
-                  <SelectTrigger className="w-full h-10 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
-                    <SelectValue placeholder="Select Print Format" />
+                  <SelectTrigger className="w-48 h-9 bg-white border border-gray-300 hover:border-gray-400 focus:border-blue-500">
+                    <SelectValue placeholder="Select Format" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60] max-h-[200px] overflow-y-auto">
+                  <SelectContent className="bg-white border border-gray-300 shadow-lg z-[60]">
                     {labelFormats.map(format => (
-                      <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-3">
-                        <div className="flex flex-col py-1">
-                          <span className="font-medium text-gray-900">{format.label}</span>
-                          <span className="text-xs text-gray-500">{format.description}</span>
-                        </div>
+                      <SelectItem key={format.value} value={format.value} className="cursor-pointer hover:bg-gray-50 py-2">
+                        <span className="font-medium text-gray-900">{format.label}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Single PDF Preview Container */}
-              <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 bg-gray-50 border rounded-lg relative">
+              {/* Compact PDF Preview Container */}
+              <div className="flex-1 flex flex-col items-center justify-center p-3 bg-gray-50 border rounded-lg relative min-h-0">
                 {isRegeneratingLabel && (
                   <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                     <div className="flex flex-col items-center gap-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                      <span className="text-sm text-gray-600">Updating label format...</span>
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                      <span className="text-sm text-gray-600">Updating format...</span>
                     </div>
                   </div>
                 )}
 
-                <div className="mb-3 text-center">
+                {/* Single PDF/Image Preview - More compact */}
+                <div className={`bg-white p-2 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-xs' : 'max-w-lg'} w-full`}>
                   {isRegeneratingLabel ? (
-                    <div className="flex items-center justify-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Generating {labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat} format...</span>
-                    </div>
-                  ) : isBatchPreview ? (
-                    <p className="text-sm text-gray-600">Consolidated PDF Preview for Batch ({labelFormats.find(f => f.value === selectedFormat)?.label || selectedFormat})</p>
-                  ) : (
-                    <p className="text-sm text-gray-600">Preview: {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}</p>
-                  )}
-                </div>
-
-                {/* Single PDF/Image Preview */}
-                <div className={`bg-white p-3 shadow-lg rounded-lg ${selectedFormat === '4x6' ? 'max-w-sm' : 'max-w-2xl'} w-full`}>
-                  {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center rounded-lg">
+                    <div className="border border-gray-300 h-48 flex items-center justify-center rounded-lg">
                       <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
-                        <p className="text-purple-800">Regenerating label...</p>
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-600 mb-2" />
+                        <p className="text-sm text-purple-800">Regenerating...</p>
                       </div>
                     </div>
                   ) : previewType === 'pdf' && currentPreviewUrl ? (
@@ -620,7 +633,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       src={currentPreviewUrl} 
                       style={{ 
                         width: '100%', 
-                        height: selectedFormat === '4x6' ? '350px' : '420px', 
+                        height: selectedFormat === '4x6' ? '280px' : '320px', 
                         border: '1px solid #ccc',
                         borderRadius: '6px'
                       }} 
@@ -635,7 +648,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <img 
                       src={currentPreviewUrl} 
                       alt="Shipping Label" 
-                      className="max-w-full h-auto border border-gray-300 rounded-lg"
+                      className="max-w-full max-h-64 h-auto border border-gray-300 rounded-lg mx-auto"
                       onLoad={() => console.log('Image loaded successfully')}
                       onError={(e) => {
                         console.error('Image load error:', e);
@@ -643,21 +656,18 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       }}
                     />
                   ) : (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500 rounded-lg">
+                    <div className="border border-gray-300 h-48 flex items-center justify-center text-gray-500 rounded-lg">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf ? (
                         <div className="text-center">
-                          <Files className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                          <p>A batch PDF is needed for preview.</p>
+                          <Files className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm">Batch PDF needed for preview.</p>
                         </div>
                       ) : (
                         <div className="text-center">
-                          <Package className="h-16 w-16 mb-4 text-gray-400" />
-                          <h3 className="text-lg font-medium mb-2">No Preview Available</h3>
-                          <p className="text-sm text-center">
-                            {currentPreviewUrl 
-                              ? 'Loading preview...' 
-                              : 'Label preview is not available. You can still download the label below.'
-                            }
+                          <Package className="h-12 w-12 mb-3 text-gray-400 mx-auto" />
+                          <h3 className="text-sm font-medium mb-1">No Preview Available</h3>
+                          <p className="text-xs text-center">
+                            {currentPreviewUrl ? 'Loading...' : 'Download the label below.'}
                           </p>
                         </div>
                       )}
@@ -666,23 +676,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons - Print and Download */}
-              <div className="flex-shrink-0 grid grid-cols-2 gap-3 pt-4 border-t">
+              {/* Action Buttons - Always visible at bottom */}
+              <div className="flex-shrink-0 grid grid-cols-2 gap-3 pt-3 border-t">
                 <Button
                   onClick={handlePrint}
                   disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 font-semibold rounded-lg shadow-md"
                 >
-                  <Printer className="h-5 w-5 mr-2" />
+                  <Printer className="h-4 w-4 mr-2" />
                   Print Label
                 </Button>
                 <Button
                   onClick={() => handleDownload('pdf')}
                   disabled={isRegeneratingLabel || !currentPreviewUrl}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold rounded-lg shadow-md"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-11 font-semibold rounded-lg shadow-md"
                 >
-                  <Download className="h-5 w-5 mr-2" />
-                  Download
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
                 </Button>
               </div>
             </TabsContent>
