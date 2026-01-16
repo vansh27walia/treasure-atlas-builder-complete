@@ -260,12 +260,12 @@ const BulkUpload: React.FC = () => {
   };
   return <>
       {/* Sticky Progress Bar at the very top - translucent like normal shipping */}
-      <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+      <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} className="" />
 
       <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-72' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-8 rounded-xl">
+            <CardContent className="p-8 rounded-xl py-[40px] px-[45px]">
               {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />}
               
               {uploadStatus === 'editing' && results && <div className="space-y-8">

@@ -209,7 +209,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex-wrap gap-4 flex items-start justify-start">
             {/* Replace EmailLabelsModal with the new PrintPreview component */}
             <PrintPreview isOpenProp={showEmailModal} onOpenChangeProp={setShowEmailModal} openToEmailTab={true} labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || ''} // Or any available label URL
         trackingCode={`Batch-${results.batchResult.batchId}`} batchResult={results.batchResult} isBatchPreview={true} triggerButton={<Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg" size="lg">
