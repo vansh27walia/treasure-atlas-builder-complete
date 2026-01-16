@@ -266,9 +266,7 @@ const BulkUpload: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl">
-              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && 
-                  <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />
-              }
+              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />}
               
               {uploadStatus === 'editing' && results && <div className="space-y-8">
                   <div className="text-center py-0">
@@ -340,16 +338,7 @@ const BulkUpload: React.FC = () => {
                 </div>}
               
               {uploadStatus === 'success' && results && <div className="space-y-6">
-                  {(results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url) && <div className="flex justify-center gap-3 mb-6">
-                      <PrintPreview labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={!!results.batchResult} batchResult={results.batchResult} triggerButton={<Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                            <PrinterIcon className="mr-2 h-4 w-4" />
-                            Print Preview All Labels
-                          </Button>} />
-                      <PrintPreview labelUrl={results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={!!results.batchResult} batchResult={results.batchResult} openToEmailTab={true} triggerButton={<Button variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                            <Mail className="mr-2 h-4 w-4" />
-                            Email All Labels
-                          </Button>} />
-                    </div>}
+                  {results.batchResult?.consolidatedLabelUrls?.pdf || results.bulk_label_pdf_url}
                   <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
                 </div>}
               
