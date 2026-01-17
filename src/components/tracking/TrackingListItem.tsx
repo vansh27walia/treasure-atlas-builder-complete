@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink } from 'lucide-react';
+import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink, Eye, Mail } from 'lucide-react';
 import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
+import PrintPreview from '@/components/shipping/PrintPreview';
+import { toast } from 'sonner';
 
 interface TrackingEvent {
   id: string;
@@ -166,6 +168,87 @@ interface TrackingDetailsProps {
 
 export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
   const isCanceled = item.status === 'cancelled' || item.status === 'canceled';
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [openToEmailTab, setOpenToEmailTab] = useState(false);
+
+  const convertPngTo4x6Pdf = async (imageUrl: string): Promise<Blob> => {
+    const { PDFDocument } = await import('pdf-lib');
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    const imageBytes = await response.arrayBuffer();
+    const pdfDoc = await PDFDocument.create();
+    const pngImage = await pdfDoc.embedPng(imageBytes);
+    const labelWidth = 288;
+    const labelHeight = 432;
+    const page = pdfDoc.addPage([labelWidth, labelHeight]);
+    const { width: imgWidth, height: imgHeight } = pngImage.scale(1);
+    const scaleX = labelWidth / imgWidth;
+    const scaleY = labelHeight / imgHeight;
+    const scale = Math.min(scaleX, scaleY);
+    const scaledWidth = imgWidth * scale;
+    const scaledHeight = imgHeight * scale;
+    const x = (labelWidth - scaledWidth) / 2;
+    const y = (labelHeight - scaledHeight) / 2;
+    page.drawImage(pngImage, { x, y, width: scaledWidth, height: scaledHeight });
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+  };
+
+  const handleDirectDownload = async () => {
+    if (!item.label_url) {
+      toast.error('Label URL not available');
+      return;
+    }
+    try {
+      toast.loading('Preparing 4x6 PDF label...');
+      let blob: Blob;
+      if (item.label_url.toLowerCase().includes('.png')) {
+        blob = await convertPngTo4x6Pdf(item.label_url);
+      } else if (item.label_url.toLowerCase().includes('.pdf')) {
+        const response = await fetch(item.label_url);
+        if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+        blob = await response.blob();
+      } else {
+        blob = await convertPngTo4x6Pdf(item.label_url);
+      }
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `shipping_label_4x6_${item.tracking_code || item.shipment_id || Date.now()}.pdf`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+      toast.dismiss();
+      toast.success('4x6 PDF label downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.dismiss();
+      toast.error('Failed to download PDF. Please try again.');
+    }
+  };
+
+  const handlePrintPreview = () => {
+    setOpenToEmailTab(false);
+    setIsPreviewOpen(true);
+  };
+
+  const handleEmailLabel = () => {
+    setOpenToEmailTab(true);
+    setIsPreviewOpen(true);
+  };
+
+  const shipmentDetails = {
+    fromAddress: 'Pickup Address',
+    toAddress: item.recipient_address,
+    weight: item.package_details.weight,
+    dimensions: item.package_details.dimensions,
+    service: item.package_details.service,
+    carrier: item.carrier
+  };
   
   return (
     <div className={`px-4 pb-4 pt-2 border-t ${isCanceled ? 'bg-red-50' : 'bg-gray-50'}`}>
@@ -262,25 +345,66 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
         </div>
       )}
       
-      <div className="flex justify-end mt-4 gap-2">
-      {!isCanceled && item.status !== 'refund_pending' && item.label_url && (
+      {/* Action Buttons */}
+      <div className="flex flex-wrap justify-end mt-4 gap-2">
+        {!isCanceled && item.status !== 'refund_pending' && item.label_url && (
           <>
-            <a 
-              href={item.label_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+            {/* View Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-gray-200 hover:bg-gray-50"
+              asChild
             >
-              <Download className="mr-1 h-4 w-4" /> Download Label
-            </a>
-            <a 
-              href={item.label_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+              <a href={item.label_url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-1" />
+                View
+              </a>
+            </Button>
+
+            {/* Download Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-blue-200 hover:bg-blue-50 text-blue-700"
+              onClick={handleDirectDownload}
             >
-              <ExternalLink className="mr-1 h-4 w-4" /> View Online
-            </a>
+              <Download className="h-4 w-4 mr-1" />
+              Download
+            </Button>
+
+            {/* Print Preview Button */}
+            <PrintPreview
+              labelUrl={item.label_url}
+              trackingCode={item.tracking_code}
+              shipmentId={item.shipment_id}
+              shipmentDetails={shipmentDetails}
+              isOpenProp={isPreviewOpen}
+              onOpenChangeProp={setIsPreviewOpen}
+              openToEmailTab={openToEmailTab}
+              triggerButton={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-purple-200 hover:bg-purple-50 text-purple-700"
+                  onClick={handlePrintPreview}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Print Preview
+                </Button>
+              }
+            />
+
+            {/* Email Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-green-200 hover:bg-green-50 text-green-700"
+              onClick={handleEmailLabel}
+            >
+              <Mail className="h-4 w-4 mr-1" />
+              Email
+            </Button>
           </>
         )}
         {canCancelLabel(item.status) && item.label_url && (
@@ -292,9 +416,12 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
             fromAddress="Pickup Address"
             toAddress={item.recipient_address}
             trigger={
-              <button className="flex items-center px-3 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 text-sm">
+              <Button
+                size="sm"
+                variant="destructive"
+              >
                 Cancel Label
-              </button>
+              </Button>
             }
           />
         )}
