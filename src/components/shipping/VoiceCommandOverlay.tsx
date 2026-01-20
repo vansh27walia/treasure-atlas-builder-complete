@@ -199,16 +199,20 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
     utterance.rate = 1;
     utterance.pitch = 1;
     
-    // Try to use a more natural voice
+    // Force American English voice - prioritize Google US voices
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => 
-      v.name.includes('Google') || 
-      v.name.includes('Samantha') ||
-      v.name.includes('Daniel')
+    const americanVoice = voices.find(voice => 
+      voice.lang === 'en-US' && voice.name.includes('Google')
+    ) || voices.find(voice => 
+      voice.lang === 'en-US' && (voice.name.includes('Samantha') || voice.name.includes('Alex'))
+    ) || voices.find(voice => 
+      voice.lang === 'en-US'
     );
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    
+    if (americanVoice) {
+      utterance.voice = americanVoice;
     }
+    utterance.lang = 'en-US';
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
