@@ -1,15 +1,12 @@
+
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { Zap, Mic } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import SidebarContent from './sidebar/SidebarContent';
 import ToggleButton from './sidebar/ToggleButton';
-import VoiceCommandOverlay from './shipping/VoiceCommandOverlay';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
 
 interface SidebarNavigationProps {
   children: React.ReactNode;
@@ -17,12 +14,8 @@ interface SidebarNavigationProps {
 
 const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [aiResponse, setAiResponse] = useState('');
   const isMobile = useIsMobile();
   const location = useLocation();
-  const navigate = useNavigate();
   
   // Hide sidebar on auth pages
   const isAuthPage = location.pathname === '/auth' || location.pathname === '/reset-password';
@@ -30,47 +23,6 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   // Handle sidebar collapse toggle
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
-  };
-
-  // Handle voice transcript
-  const handleVoiceTranscript = async (text: string) => {
-    setIsProcessing(true);
-    setAiResponse('');
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('ship-ai-chat', {
-        body: {
-          message: text,
-          context: 'voice_command'
-        }
-      });
-
-      if (error) throw error;
-
-      const response = data.response || "I'm processing your request.";
-      setAiResponse(response);
-
-      // Handle navigation actions
-      if (data.action === 'NAVIGATE' && data.data?.path) {
-        setTimeout(() => {
-          navigate(data.data.path);
-          setVoiceOverlayOpen(false);
-        }, 2000);
-      }
-
-      // Dispatch AI events to the chatbot
-      if (data.action && data.action !== 'SHOW_INFO') {
-        document.dispatchEvent(new CustomEvent('ai-voice-action', { 
-          detail: { action: data.action, data: data.data } 
-        }));
-      }
-    } catch (error) {
-      console.error('Voice command error:', error);
-      toast.error('Failed to process voice command');
-      setAiResponse('Sorry, I had trouble processing that. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   if (isAuthPage) {
@@ -103,20 +55,6 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
           <ToggleButton collapsed={collapsed} onClick={toggleSidebar} />
         </div>
 
-        {/* Voice Command Button */}
-        <div className={cn("p-3 border-b border-blue-800", collapsed && "px-2")}>
-          <Button
-            onClick={() => setVoiceOverlayOpen(true)}
-            className={cn(
-              "w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all",
-              collapsed ? "h-12 p-0" : "h-12"
-            )}
-          >
-            <Mic className={cn("h-5 w-5", !collapsed && "mr-2")} />
-            {!collapsed && <span>Voice Command</span>}
-          </Button>
-        </div>
-
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto">
           <SidebarContent collapsed={collapsed} />
@@ -127,18 +65,6 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
       <div className="flex-1 h-full overflow-y-auto bg-gray-50 w-full">
         {children}
       </div>
-
-      {/* Voice Command Overlay */}
-      <VoiceCommandOverlay
-        isOpen={voiceOverlayOpen}
-        onClose={() => {
-          setVoiceOverlayOpen(false);
-          setAiResponse('');
-        }}
-        onTranscript={handleVoiceTranscript}
-        isProcessing={isProcessing}
-        aiResponse={aiResponse}
-      />
     </div>
   );
 };
