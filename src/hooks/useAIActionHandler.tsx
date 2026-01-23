@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export interface AIAction {
@@ -15,12 +14,10 @@ export interface AIActionHandlerCallbacks {
   onConfirmRate?: (data: { carrier_name?: string; service_type?: string; price?: number }) => void;
   onTriggerPayment?: (data: { method_type?: string }) => void;
   onGenerateLabel?: (data: { label_type?: string; format?: string }) => void;
-  onNavigate?: (data: { path?: string; tab?: string; highlight?: string }) => void;
-  onAutoFillHistory?: (data: { shipment_id?: string; use_last?: boolean }) => void;
   onStepChange?: (step: string) => void;
 }
 
-export const useAIActionHandler = (callbacks: AIActionHandlerCallbacks, navigate?: ReturnType<typeof useNavigate>) => {
+export const useAIActionHandler = (callbacks: AIActionHandlerCallbacks) => {
   const handleAIAction = useCallback((aiResponse: AIAction) => {
     const { action, data, currentStep } = aiResponse;
     
@@ -143,43 +140,6 @@ export const useAIActionHandler = (callbacks: AIActionHandlerCallbacks, navigate
         }
         break;
         
-      case 'NAVIGATE':
-        if (navigate && data.path) {
-          // Navigate to the specified path
-          const fullPath = data.tab ? `${data.path}?tab=${data.tab}` : data.path;
-          navigate(fullPath);
-          
-          // Highlight element if specified
-          if (data.highlight) {
-            setTimeout(() => {
-              const element = document.querySelector(`[data-ai-highlight="${data.highlight}"]`);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element.classList.add('ring-2', 'ring-purple-500', 'ring-offset-2', 'animate-pulse');
-                setTimeout(() => {
-                  element.classList.remove('ring-2', 'ring-purple-500', 'ring-offset-2', 'animate-pulse');
-                }, 3000);
-              }
-            }, 500);
-          }
-          
-          if (callbacks.onNavigate) {
-            callbacks.onNavigate(data);
-          }
-          toast.info(`Navigating to ${data.path.replace('/', '')}...`);
-        }
-        break;
-        
-      case 'AUTO_FILL_HISTORY':
-        if (callbacks.onAutoFillHistory) {
-          document.dispatchEvent(new CustomEvent('ai-auto-fill-history', {
-            detail: data
-          }));
-          callbacks.onAutoFillHistory(data);
-          toast.info('Loading your previous shipment data...');
-        }
-        break;
-        
       case 'ASK_QUESTION':
         // Just show the message, no action needed
         console.log('AI is asking for more info:', data.question_type);
@@ -215,10 +175,6 @@ function getSystemMessage(action: string, data: any): string | null {
       return '💳 System: Opening payment options';
     case 'GENERATE_LABEL':
       return '🏷️ System: Generating shipping label';
-    case 'NAVIGATE':
-      return `🧭 System: Navigating to ${data.path || 'page'}`;
-    case 'AUTO_FILL_HISTORY':
-      return '📋 System: Loading previous shipment data';
     default:
       return null;
   }
