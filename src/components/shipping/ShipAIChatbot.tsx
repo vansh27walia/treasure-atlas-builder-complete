@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Send, X, MessageCircle, Clock, DollarSign, Package, MapPin, CreditCard, FileText } from 'lucide-react';
+import { Sparkles, Send, X, MessageCircle, Clock, DollarSign, Package, MapPin, CreditCard, FileText, Mic, MicOff, Volume2, VolumeX, Settings, LayoutGrid, Play, Pause } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { useAIActionHandler } from '@/hooks/useAIActionHandler';
+import { AIRateCard, AIBatchUploader, AIAddressCard, AIDimensionsCard } from './ai-tools';
 
 interface Message {
   id: string;
@@ -15,6 +17,10 @@ interface Message {
   isUser: boolean;
   isSystem?: boolean;
   timestamp: Date;
+  toolData?: {
+    type: 'rate_card' | 'batch_uploader' | 'address_card' | 'dimensions_card' | 'rate_list';
+    data: any;
+  };
 }
 
 interface ShipAIChatbotProps {
@@ -30,14 +36,19 @@ const WORKFLOW_STEPS = [
 ];
 
 const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState('address');
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
-  // AI Action Handler
+  // AI Action Handler with navigation support
   const { handleAIAction } = useAIActionHandler({
     onFillAddress: (data) => console.log('Fill address:', data),
     onFillDimensions: (data) => console.log('Fill dimensions:', data),
@@ -45,8 +56,10 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
     onConfirmRate: (data) => console.log('Confirm rate:', data),
     onTriggerPayment: (data) => console.log('Trigger payment:', data),
     onGenerateLabel: (data) => console.log('Generate label:', data),
+    onNavigate: (data) => console.log('Navigate:', data),
+    onAutoFillHistory: (data) => console.log('Auto fill history:', data),
     onStepChange: (step) => setCurrentStep(step),
-  });
+  }, navigate);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,6 +68,93 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputMessage(transcript);
+        setIsListening(false);
+        // Auto-send after voice input
+        setTimeout(() => handleSendMessage(transcript), 300);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        toast.error('Voice input failed. Please try again.');
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  // Text-to-speech for AI responses
+  const speakText = (text: string) => {
+    if (!voiceEnabled || !('speechSynthesis' in window)) return;
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    // Force American English voice - prioritize Google US voices
+    const voices = window.speechSynthesis.getVoices();
+    const americanVoice = voices.find(voice => 
+      voice.lang === 'en-US' && voice.name.includes('Google')
+    ) || voices.find(voice => 
+      voice.lang === 'en-US' && (voice.name.includes('Samantha') || voice.name.includes('Alex'))
+    ) || voices.find(voice => 
+      voice.lang === 'en-US'
+    );
+    
+    if (americanVoice) {
+      utterance.voice = americanVoice;
+    }
+    utterance.lang = 'en-US';
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      toast.error('Voice input is not supported in your browser');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+      toast.info('Listening... Speak now');
+    }
+  };
+
+  const toggleSpeaker = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+    setVoiceEnabled(!voiceEnabled);
+  };
   
   // Listen for auto-send event from AI Rate Analysis panel
   useEffect(() => {
@@ -155,14 +255,59 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
         setCurrentStep(data.currentStep);
       }
 
+      // Determine if we should add a tool UI component
+      let toolData: Message['toolData'] | undefined;
+      
+      if (data.action === 'FILL_ADDRESS' && data.data) {
+        toolData = {
+          type: 'address_card',
+          data: {
+            pickupAddress: data.data.pickup_address,
+            dropoffAddress: data.data.dropoff_address
+          }
+        };
+      } else if (data.action === 'FILL_DIMENSIONS' && data.data) {
+        toolData = {
+          type: 'dimensions_card',
+          data: {
+            weight: data.data.weight || 5,
+            length: data.data.length || 12,
+            width: data.data.width || 10,
+            height: data.data.height || 8,
+            packageType: data.data.packageType || 'box'
+          }
+        };
+      } else if (data.action === 'CONFIRM_RATE' && data.data) {
+        toolData = {
+          type: 'rate_card',
+          data: {
+            carrier_name: data.data.carrier_name,
+            service_type: data.data.service_type,
+            price: data.data.price || 0,
+            isBestValue: true
+          }
+        };
+      } else if (data.action === 'NAVIGATE' && data.data?.path === '/bulk-upload') {
+        toolData = {
+          type: 'batch_uploader',
+          data: {}
+        };
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: data.response || "I'm here to help with your shipping needs. Can you please rephrase your question?",
         isUser: false,
-        timestamp: new Date()
+        timestamp: new Date(),
+        toolData
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Speak AI response if voice is enabled
+      if (voiceEnabled && data.response) {
+        speakText(data.response);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
@@ -228,18 +373,29 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
                   <div>
-                    <h3 className="font-semibold">ShipAI Assistant</h3>
-                    <p className="text-xs text-purple-100">Smart shipping automation</p>
+                    <h3 className="font-semibold">QuickShip AI</h3>
+                    <p className="text-xs text-purple-100">Master Orchestrator</p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClose}
-                  className="text-white hover:bg-purple-500/20 h-8 w-8 p-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleSpeaker}
+                    className="text-white hover:bg-purple-500/20 h-8 w-8 p-0"
+                    title={voiceEnabled ? 'Disable voice' : 'Enable voice'}
+                  >
+                    {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClose}
+                    className="text-white hover:bg-purple-500/20 h-8 w-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               
               {/* Progress Stepper */}
@@ -284,9 +440,9 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                     <div className="inline-flex items-center justify-center w-14 h-14 bg-purple-100 rounded-full mb-3">
                       <Sparkles className="w-7 h-7 text-purple-600" />
                     </div>
-                    <h4 className="font-medium text-gray-900 mb-2">Welcome to ShipAI!</h4>
+                    <h4 className="font-medium text-gray-900 mb-2">Welcome to QuickShip AI!</h4>
                     <p className="text-sm text-gray-600 mb-4">
-                      Tell me what you want to ship and I'll handle the rest automatically.
+                      I can assist you with everything from batch creation and rate calculation to managing your shipping settings.
                     </p>
                     <div className="space-y-2">
                       <Button
@@ -310,11 +466,20 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleSendMessage('I need fastest delivery to California')}
+                        onClick={() => handleSendMessage('How do I upload a batch?')}
                         className="text-xs w-full justify-start"
                       >
-                        <Clock className="w-3 h-3 mr-2" />
-                        "Fastest delivery to California"
+                        <LayoutGrid className="w-3 h-3 mr-2" />
+                        "How do I upload a batch?"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendMessage('Take me to settings')}
+                        className="text-xs w-full justify-start"
+                      >
+                        <Settings className="w-3 h-3 mr-2" />
+                        "Take me to settings"
                       </Button>
                     </div>
                   </div>
@@ -330,17 +495,52 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                         {message.content}
                       </div>
                     ) : (
-                      <div
-                        className={`max-w-[85%] rounded-lg px-3 py-2 ${
-                          message.isUser
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                      <div className={`max-w-[90%] ${message.isUser ? '' : 'w-full'}`}>
+                        <div
+                          className={`rounded-lg px-3 py-2 ${
+                            message.isUser
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs opacity-70">
+                              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            {!message.isUser && voiceEnabled && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => speakText(message.content)}
+                                className="h-5 w-5 p-0 opacity-50 hover:opacity-100"
+                              >
+                                <Play className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Generative UI Components */}
+                        {message.toolData && (
+                          <div className="mt-2">
+                            {message.toolData.type === 'address_card' && (
+                              <AIAddressCard
+                                pickupAddress={message.toolData.data.pickupAddress}
+                                dropoffAddress={message.toolData.data.dropoffAddress}
+                              />
+                            )}
+                            {message.toolData.type === 'dimensions_card' && (
+                              <AIDimensionsCard dimensions={message.toolData.data} />
+                            )}
+                            {message.toolData.type === 'rate_card' && (
+                              <AIRateCard rate={message.toolData.data} />
+                            )}
+                            {message.toolData.type === 'batch_uploader' && (
+                              <AIBatchUploader compact />
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -367,6 +567,14 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
             {/* Input */}
             <div className="p-3 border-t bg-gray-50 rounded-b-lg">
               <div className="flex gap-2">
+                <Button
+                  onClick={toggleVoiceInput}
+                  variant={isListening ? "destructive" : "outline"}
+                  className={`h-10 w-10 p-0 ${isListening ? 'animate-pulse' : ''}`}
+                  title={isListening ? 'Stop listening' : 'Voice input'}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </Button>
                 <Textarea
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
@@ -383,7 +591,7 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                 </Button>
               </div>
               <p className="text-[10px] text-gray-400 mt-1 text-center">
-                AI will auto-fill forms and navigate for you
+                🎤 Voice enabled • AI will auto-fill forms and navigate for you
               </p>
             </div>
           </Card>
