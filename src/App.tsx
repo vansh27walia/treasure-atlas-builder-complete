@@ -86,8 +86,7 @@ function AppContent() {
               <Route path="/ai/customer-support" element={<ProtectedRoute><CustomerSupportAIPage /></ProtectedRoute>} />
               <Route path="/ai/route-optimization" element={<ProtectedRoute><RouteOptimizationPage /></ProtectedRoute>} />
               <Route path="/ai/alerts" element={<ProtectedRoute><AIAlertsPage /></ProtectedRoute>} />
-              <Route path="/ai/settings" element={<ProtectedRoute><AISettingsPage /></ProtectedRoute>
-              />
+              <Route path="/ai/settings" element={<ProtectedRoute><AISettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
