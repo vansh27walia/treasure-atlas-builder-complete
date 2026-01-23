@@ -10,12 +10,12 @@ import ToggleButton from './sidebar/ToggleButton';
 import VoiceCommandOverlay from './shipping/VoiceCommandOverlay';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-
 interface SidebarNavigationProps {
   children: React.ReactNode;
 }
-
-const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
+const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
+  children
+}) => {
   const [collapsed, setCollapsed] = useState(false);
   const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -23,10 +23,10 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Hide sidebar on auth pages
   const isAuthPage = location.pathname === '/auth' || location.pathname === '/reset-password';
-  
+
   // Handle sidebar collapse toggle
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
@@ -36,17 +36,17 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const handleVoiceTranscript = async (text: string) => {
     setIsProcessing(true);
     setAiResponse('');
-    
     try {
-      const { data, error } = await supabase.functions.invoke('ship-ai-chat', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('ship-ai-chat', {
         body: {
           message: text,
           context: 'voice_command'
         }
       });
-
       if (error) throw error;
-
       const response = data.response || "I'm processing your request.";
       setAiResponse(response);
 
@@ -60,8 +60,11 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
 
       // Dispatch AI events to the chatbot
       if (data.action && data.action !== 'SHOW_INFO') {
-        document.dispatchEvent(new CustomEvent('ai-voice-action', { 
-          detail: { action: data.action, data: data.data } 
+        document.dispatchEvent(new CustomEvent('ai-voice-action', {
+          detail: {
+            action: data.action,
+            data: data.data
+          }
         }));
       }
     } catch (error) {
@@ -72,49 +75,28 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
       setIsProcessing(false);
     }
   };
-
   if (isAuthPage) {
-    return (
-      <div className="h-screen w-full overflow-hidden">
+    return <div className="h-screen w-full overflow-hidden">
         <div className="h-full overflow-y-auto bg-gray-50 w-full">
           {children}
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="flex h-screen w-full overflow-hidden">
+  return <div className="flex h-screen w-full overflow-hidden">
       {/* Sidebar */}
-      <div
-        className={cn(
-          'bg-blue-950 text-white transition-all duration-300 h-full flex flex-col relative',
-          collapsed ? 'w-20' : 'w-64'
-        )}
-      >
+      <div className={cn('bg-blue-950 text-white transition-all duration-300 h-full flex flex-col relative', collapsed ? 'w-20' : 'w-64')}>
         {/* Logo and Brand */}
         <div className="flex items-center justify-between p-4 border-b border-blue-800">
           <div className={cn("flex items-center gap-2", collapsed && "justify-center w-full")}>
             <Zap className="h-8 w-8 text-blue-400 flex-shrink-0" />
-            {!collapsed && (
-              <span className="font-bold text-lg text-white">ShippingQuick.io</span>
-            )}
+            {!collapsed && <span className="font-bold text-lg text-white">ShippingQuick.io</span>}
           </div>
           <ToggleButton collapsed={collapsed} onClick={toggleSidebar} />
         </div>
 
         {/* Voice Command Button */}
         <div className={cn("p-3 border-b border-blue-800", collapsed && "px-2")}>
-          <Button
-            onClick={() => setVoiceOverlayOpen(true)}
-            className={cn(
-              "w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all",
-              collapsed ? "h-12 p-0" : "h-12"
-            )}
-          >
-            <Mic className={cn("h-5 w-5", !collapsed && "mr-2")} />
-            {!collapsed && <span>Voice Command</span>}
-          </Button>
+          
         </div>
 
         {/* Main Content */}
@@ -129,18 +111,10 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
       </div>
 
       {/* Voice Command Overlay */}
-      <VoiceCommandOverlay
-        isOpen={voiceOverlayOpen}
-        onClose={() => {
-          setVoiceOverlayOpen(false);
-          setAiResponse('');
-        }}
-        onTranscript={handleVoiceTranscript}
-        isProcessing={isProcessing}
-        aiResponse={aiResponse}
-      />
-    </div>
-  );
+      <VoiceCommandOverlay isOpen={voiceOverlayOpen} onClose={() => {
+      setVoiceOverlayOpen(false);
+      setAiResponse('');
+    }} onTranscript={handleVoiceTranscript} isProcessing={isProcessing} aiResponse={aiResponse} />
+    </div>;
 };
-
 export default SidebarNavigation;
