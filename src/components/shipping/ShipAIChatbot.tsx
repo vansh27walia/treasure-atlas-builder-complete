@@ -5,11 +5,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Send, X, MessageCircle, Clock, DollarSign, Package, MapPin, CreditCard, FileText, Mic, MicOff, Volume2, VolumeX, Settings, LayoutGrid, Play, Pause } from 'lucide-react';
+import { Sparkles, Send, X, MessageCircle, Clock, DollarSign, Package, MapPin, CreditCard, FileText, Mic, MicOff, Volume2, VolumeX, Settings, LayoutGrid } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { useAIActionHandler } from '@/hooks/useAIActionHandler';
-import { AIRateCard, AIBatchUploader, AIAddressCard, AIDimensionsCard } from './ai-tools';
 
 interface Message {
   id: string;
@@ -17,10 +16,6 @@ interface Message {
   isUser: boolean;
   isSystem?: boolean;
   timestamp: Date;
-  toolData?: {
-    type: 'rate_card' | 'batch_uploader' | 'address_card' | 'dimensions_card' | 'rate_list';
-    data: any;
-  };
 }
 
 interface ShipAIChatbotProps {
@@ -109,21 +104,6 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
     utterance.rate = 1;
     utterance.pitch = 1;
     utterance.volume = 1;
-    
-    // Force American English voice - prioritize Google US voices
-    const voices = window.speechSynthesis.getVoices();
-    const americanVoice = voices.find(voice => 
-      voice.lang === 'en-US' && voice.name.includes('Google')
-    ) || voices.find(voice => 
-      voice.lang === 'en-US' && (voice.name.includes('Samantha') || voice.name.includes('Alex'))
-    ) || voices.find(voice => 
-      voice.lang === 'en-US'
-    );
-    
-    if (americanVoice) {
-      utterance.voice = americanVoice;
-    }
-    utterance.lang = 'en-US';
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -255,51 +235,11 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
         setCurrentStep(data.currentStep);
       }
 
-      // Determine if we should add a tool UI component
-      let toolData: Message['toolData'] | undefined;
-      
-      if (data.action === 'FILL_ADDRESS' && data.data) {
-        toolData = {
-          type: 'address_card',
-          data: {
-            pickupAddress: data.data.pickup_address,
-            dropoffAddress: data.data.dropoff_address
-          }
-        };
-      } else if (data.action === 'FILL_DIMENSIONS' && data.data) {
-        toolData = {
-          type: 'dimensions_card',
-          data: {
-            weight: data.data.weight || 5,
-            length: data.data.length || 12,
-            width: data.data.width || 10,
-            height: data.data.height || 8,
-            packageType: data.data.packageType || 'box'
-          }
-        };
-      } else if (data.action === 'CONFIRM_RATE' && data.data) {
-        toolData = {
-          type: 'rate_card',
-          data: {
-            carrier_name: data.data.carrier_name,
-            service_type: data.data.service_type,
-            price: data.data.price || 0,
-            isBestValue: true
-          }
-        };
-      } else if (data.action === 'NAVIGATE' && data.data?.path === '/bulk-upload') {
-        toolData = {
-          type: 'batch_uploader',
-          data: {}
-        };
-      }
-
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: data.response || "I'm here to help with your shipping needs. Can you please rephrase your question?",
         isUser: false,
-        timestamp: new Date(),
-        toolData
+        timestamp: new Date()
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -495,52 +435,17 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                         {message.content}
                       </div>
                     ) : (
-                      <div className={`max-w-[90%] ${message.isUser ? '' : 'w-full'}`}>
-                        <div
-                          className={`rounded-lg px-3 py-2 ${
-                            message.isUser
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-xs opacity-70">
-                              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            {!message.isUser && voiceEnabled && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => speakText(message.content)}
-                                className="h-5 w-5 p-0 opacity-50 hover:opacity-100"
-                              >
-                                <Play className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Generative UI Components */}
-                        {message.toolData && (
-                          <div className="mt-2">
-                            {message.toolData.type === 'address_card' && (
-                              <AIAddressCard
-                                pickupAddress={message.toolData.data.pickupAddress}
-                                dropoffAddress={message.toolData.data.dropoffAddress}
-                              />
-                            )}
-                            {message.toolData.type === 'dimensions_card' && (
-                              <AIDimensionsCard dimensions={message.toolData.data} />
-                            )}
-                            {message.toolData.type === 'rate_card' && (
-                              <AIRateCard rate={message.toolData.data} />
-                            )}
-                            {message.toolData.type === 'batch_uploader' && (
-                              <AIBatchUploader compact />
-                            )}
-                          </div>
-                        )}
+                      <div
+                        className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                          message.isUser
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <p className="text-xs opacity-70 mt-1">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
                     )}
                   </div>

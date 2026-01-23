@@ -29,15 +29,6 @@ import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import ImportPage from './pages/ImportPage';
 import ShopifyCallbackPage from './pages/ShopifyCallbackPage';
 import OnboardingModal from './components/onboarding/OnboardingModal';
-// AI Logistics Intelligence Pages
-import AICommandCenterPage from './pages/ai/AICommandCenterPage';
-import ShipmentIntelligencePage from './pages/ai/ShipmentIntelligencePage';
-import DelayPredictionPage from './pages/ai/DelayPredictionPage';
-import CarrierPerformancePage from './pages/ai/CarrierPerformancePage';
-import CustomerSupportAIPage from './pages/ai/CustomerSupportAIPage';
-import RouteOptimizationPage from './pages/ai/RouteOptimizationPage';
-import AIAlertsPage from './pages/ai/AIAlertsPage';
-import AISettingsPage from './pages/ai/AISettingsPage';
 
 function AppContent() {
   const { hasCompletedOnboarding, completeOnboarding } = useOnboarding();
@@ -78,15 +69,6 @@ function AppContent() {
                 path="/bulk-upload"
                 element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
               />
-              {/* AI Logistics Intelligence Routes */}
-              <Route path="/ai/command-center" element={<ProtectedRoute><AICommandCenterPage /></ProtectedRoute>} />
-              <Route path="/ai/shipment-intelligence" element={<ProtectedRoute><ShipmentIntelligencePage /></ProtectedRoute>} />
-              <Route path="/ai/delay-prediction" element={<ProtectedRoute><DelayPredictionPage /></ProtectedRoute>} />
-              <Route path="/ai/carrier-performance" element={<ProtectedRoute><CarrierPerformancePage /></ProtectedRoute>} />
-              <Route path="/ai/customer-support" element={<ProtectedRoute><CustomerSupportAIPage /></ProtectedRoute>} />
-              <Route path="/ai/route-optimization" element={<ProtectedRoute><RouteOptimizationPage /></ProtectedRoute>} />
-              <Route path="/ai/alerts" element={<ProtectedRoute><AIAlertsPage /></ProtectedRoute>} />
-              <Route path="/ai/settings" element={<ProtectedRoute><AISettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
