@@ -12,7 +12,14 @@ import {
   ChartBar,
   Plane,
   Container,
-  FileText
+  FileText,
+  Brain,
+  AlertTriangle,
+  Clock,
+  MessageSquare,
+  Route,
+  Bell,
+  Cog
 } from 'lucide-react';
 import SidebarNavItem from './SidebarNavItem';
 import SidebarNavSection from './SidebarNavSection';
@@ -27,76 +34,68 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
   const location = useLocation();
   
-  // Main navigation items (reordered as requested)
-  const mainNavItems = [
+  // AI Logistics Intelligence items (NEW - above freight)
+  const aiItems = [
     {
-      icon: <Home className="h-5 w-5" />,
-      title: 'Home',
-      to: '/'
+      icon: <Brain className="h-5 w-5" />,
+      title: 'AI Command Center',
+      to: '/ai/command-center'
     },
     {
       icon: <Package className="h-5 w-5" />,
-      title: 'Shipping',
-      to: '/create-label'
+      title: 'Shipment Intelligence',
+      to: '/ai/shipment-intelligence'
     },
     {
-      icon: <Upload className="h-5 w-5" />,
-      title: 'Batch Label Creation',
-      to: '/bulk-upload'
-    },
-    {
-      icon: <FileText className="h-5 w-5" />,
-      title: 'Import',
-      to: '/import'
-    },
-    {
-      icon: <Calculator className="h-5 w-5" />,
-      title: 'Rate Calculator',
-      to: '/rate-calculator'
+      icon: <Clock className="h-5 w-5" />,
+      title: 'Delay Prediction',
+      to: '/ai/delay-prediction'
     },
     {
       icon: <Truck className="h-5 w-5" />,
-      title: 'Tracking',
-      to: '/tracking'
+      title: 'Carrier Performance',
+      to: '/ai/carrier-performance'
     },
     {
-      icon: <MapPin className="h-5 w-5" />,
-      title: 'Pickup Scheduling',
-      to: '/pickup'
+      icon: <MessageSquare className="h-5 w-5" />,
+      title: 'Customer Support AI',
+      to: '/ai/customer-support'
+    },
+    {
+      icon: <Route className="h-5 w-5" />,
+      title: 'Route Optimization',
+      to: '/ai/route-optimization'
+    },
+    {
+      icon: <Bell className="h-5 w-5" />,
+      title: 'Alerts',
+      to: '/ai/alerts'
     }
   ];
 
-  // Freight services with tabs
+  // Main navigation items
+  const mainNavItems = [
+    { icon: <Home className="h-5 w-5" />, title: 'Home', to: '/' },
+    { icon: <Package className="h-5 w-5" />, title: 'Shipping', to: '/create-label' },
+    { icon: <Upload className="h-5 w-5" />, title: 'Batch Label Creation', to: '/bulk-upload' },
+    { icon: <FileText className="h-5 w-5" />, title: 'Import', to: '/import' },
+    { icon: <Calculator className="h-5 w-5" />, title: 'Rate Calculator', to: '/rate-calculator' },
+    { icon: <Truck className="h-5 w-5" />, title: 'Tracking', to: '/tracking' },
+    { icon: <MapPin className="h-5 w-5" />, title: 'Pickup Scheduling', to: '/pickup' }
+  ];
+
+  // Freight services
   const freightItems = [
-    {
-      icon: <Container className="h-5 w-5" />,
-      title: 'LTL Shipping',
-      to: '/ltl-shipping'
-    },
-    {
-      icon: <Truck className="h-5 w-5" />,
-      title: 'FTL Shipping',
-      to: '/ftl-shipping'
-    },
-    {
-      icon: <Plane className="h-5 w-5" />,
-      title: 'Freight Forwarding',
-      to: '/freight-forwarding'
-    }
+    { icon: <Container className="h-5 w-5" />, title: 'LTL Shipping', to: '/ltl-shipping' },
+    { icon: <Truck className="h-5 w-5" />, title: 'FTL Shipping', to: '/ftl-shipping' },
+    { icon: <Plane className="h-5 w-5" />, title: 'Freight Forwarding', to: '/freight-forwarding' }
   ];
 
-  // Tools and analytics
+  // Tools
   const toolsItems = [
-    {
-      icon: <ChartBar className="h-5 w-5" />,
-      title: 'Analytics',
-      to: '/dashboard?tab=history'
-    },
-    {
-      icon: <Settings className="h-5 w-5" />,
-      title: 'Settings',
-      to: '/settings'
-    }
+    { icon: <ChartBar className="h-5 w-5" />, title: 'Analytics', to: '/dashboard?tab=history' },
+    { icon: <Cog className="h-5 w-5" />, title: 'AI Settings', to: '/ai/settings' },
+    { icon: <Settings className="h-5 w-5" />, title: 'Settings', to: '/settings' }
   ];
 
   return (
@@ -112,6 +111,20 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
       <div className="flex-1 overflow-y-auto py-4">
         <SidebarNavSection title="Main" collapsed={collapsed}>
           {mainNavItems.map((item, index) => (
+            <SidebarNavItem
+              key={index}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+              collapsed={collapsed}
+            />
+          ))}
+        </SidebarNavSection>
+
+        <Separator className="bg-blue-800 my-4" />
+
+        <SidebarNavSection title="AI Intelligence" collapsed={collapsed}>
+          {aiItems.map((item, index) => (
             <SidebarNavItem
               key={index}
               icon={item.icon}

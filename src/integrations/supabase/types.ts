@@ -88,6 +88,312 @@ export type Database = {
           },
         ]
       }
+      ai_alerts: {
+        Row: {
+          alert_type: string
+          carrier: string | null
+          created_at: string
+          description: string
+          id: string
+          is_read: boolean | null
+          is_resolved: boolean | null
+          resolved_at: string | null
+          severity: string | null
+          shipment_id: string | null
+          suggested_action: string | null
+          title: string
+          tracking_code: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          carrier?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          is_read?: boolean | null
+          is_resolved?: boolean | null
+          resolved_at?: string | null
+          severity?: string | null
+          shipment_id?: string | null
+          suggested_action?: string | null
+          title: string
+          tracking_code?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          carrier?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          is_read?: boolean | null
+          is_resolved?: boolean | null
+          resolved_at?: string | null
+          severity?: string | null
+          shipment_id?: string | null
+          suggested_action?: string | null
+          title?: string
+          tracking_code?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_carrier_scores: {
+        Row: {
+          ai_recommendation: string | null
+          analysis_period_end: string | null
+          analysis_period_start: string | null
+          average_delay_hours: number | null
+          best_lanes: Json | null
+          carrier: string
+          cost_efficiency_score: number | null
+          created_at: string
+          id: string
+          on_time_percentage: number | null
+          overall_score: number | null
+          performance_trend: string | null
+          reliability_score: number | null
+          service: string | null
+          speed_score: number | null
+          total_shipments_analyzed: number | null
+          updated_at: string
+          user_id: string
+          worst_lanes: Json | null
+        }
+        Insert: {
+          ai_recommendation?: string | null
+          analysis_period_end?: string | null
+          analysis_period_start?: string | null
+          average_delay_hours?: number | null
+          best_lanes?: Json | null
+          carrier: string
+          cost_efficiency_score?: number | null
+          created_at?: string
+          id?: string
+          on_time_percentage?: number | null
+          overall_score?: number | null
+          performance_trend?: string | null
+          reliability_score?: number | null
+          service?: string | null
+          speed_score?: number | null
+          total_shipments_analyzed?: number | null
+          updated_at?: string
+          user_id: string
+          worst_lanes?: Json | null
+        }
+        Update: {
+          ai_recommendation?: string | null
+          analysis_period_end?: string | null
+          analysis_period_start?: string | null
+          average_delay_hours?: number | null
+          best_lanes?: Json | null
+          carrier?: string
+          cost_efficiency_score?: number | null
+          created_at?: string
+          id?: string
+          on_time_percentage?: number | null
+          overall_score?: number | null
+          performance_trend?: string | null
+          reliability_score?: number | null
+          service?: string | null
+          speed_score?: number | null
+          total_shipments_analyzed?: number | null
+          updated_at?: string
+          user_id?: string
+          worst_lanes?: Json | null
+        }
+        Relationships: []
+      }
+      ai_customer_messages: {
+        Row: {
+          created_at: string
+          customer_ready_message: string
+          escalation_needed: boolean | null
+          escalation_reason: string | null
+          id: string
+          internal_notes: string | null
+          message_type: string | null
+          sentiment: string | null
+          shipment_id: string | null
+          tracking_code: string | null
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_ready_message: string
+          escalation_needed?: boolean | null
+          escalation_reason?: string | null
+          id?: string
+          internal_notes?: string | null
+          message_type?: string | null
+          sentiment?: string | null
+          shipment_id?: string | null
+          tracking_code?: string | null
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_ready_message?: string
+          escalation_needed?: boolean | null
+          escalation_reason?: string | null
+          id?: string
+          internal_notes?: string | null
+          message_type?: string | null
+          sentiment?: string | null
+          shipment_id?: string | null
+          tracking_code?: string | null
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_decision_logs: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          decision_type: string
+          id: string
+          input_data: Json
+          model_used: string | null
+          output_data: Json
+          processing_time_ms: number | null
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          decision_type: string
+          id?: string
+          input_data: Json
+          model_used?: string | null
+          output_data: Json
+          processing_time_ms?: number | null
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          decision_type?: string
+          id?: string
+          input_data?: Json
+          model_used?: string | null
+          output_data?: Json
+          processing_time_ms?: number | null
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_delay_predictions: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          delay_probability: number
+          delay_type: string | null
+          expires_at: string | null
+          id: string
+          predicted_delay_hours: number | null
+          reasoning: string | null
+          root_cause: string | null
+          shipment_id: string
+          similar_shipments_analyzed: number | null
+          suggested_actions: Json | null
+          tracking_code: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          delay_probability?: number
+          delay_type?: string | null
+          expires_at?: string | null
+          id?: string
+          predicted_delay_hours?: number | null
+          reasoning?: string | null
+          root_cause?: string | null
+          shipment_id: string
+          similar_shipments_analyzed?: number | null
+          suggested_actions?: Json | null
+          tracking_code?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          delay_probability?: number
+          delay_type?: string | null
+          expires_at?: string | null
+          id?: string
+          predicted_delay_hours?: number | null
+          reasoning?: string | null
+          root_cause?: string | null
+          shipment_id?: string
+          similar_shipments_analyzed?: number | null
+          suggested_actions?: Json | null
+          tracking_code?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_shipment_insights: {
+        Row: {
+          ai_summary: string
+          confidence_score: number | null
+          created_at: string
+          current_interpretation: string | null
+          delay_probability: number | null
+          delay_reason: string | null
+          id: string
+          predicted_delivery_date: string | null
+          raw_analysis: Json | null
+          recommendations: Json | null
+          risk_level: string | null
+          shipment_id: string
+          tracking_code: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_summary: string
+          confidence_score?: number | null
+          created_at?: string
+          current_interpretation?: string | null
+          delay_probability?: number | null
+          delay_reason?: string | null
+          id?: string
+          predicted_delivery_date?: string | null
+          raw_analysis?: Json | null
+          recommendations?: Json | null
+          risk_level?: string | null
+          shipment_id: string
+          tracking_code?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_summary?: string
+          confidence_score?: number | null
+          created_at?: string
+          current_interpretation?: string | null
+          delay_probability?: number | null
+          delay_reason?: string | null
+          id?: string
+          predicted_delivery_date?: string | null
+          raw_analysis?: Json | null
+          recommendations?: Json | null
+          risk_level?: string | null
+          shipment_id?: string
+          tracking_code?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           created_at: string
