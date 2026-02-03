@@ -211,7 +211,7 @@ const CarrierPerformancePage: React.FC = () => {
                       <p className="text-slate-400 text-xs">On-Time</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xl font-bold text-orange-400">{carrier.average_delay_hours.toFixed(1)}h</p>
+                      <p className="text-xl font-bold text-orange-400">{(carrier.average_delay_hours ?? 0).toFixed(1)}h</p>
                       <p className="text-slate-400 text-xs">Avg Delay</p>
                     </div>
                   </div>
