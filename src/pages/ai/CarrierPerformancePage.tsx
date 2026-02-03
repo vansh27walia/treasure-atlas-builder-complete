@@ -3,34 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Truck, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus,
-  RefreshCw,
-  Star,
-  Clock,
-  DollarSign,
-  Shield,
-  Zap,
-  Award
-} from 'lucide-react';
+import { Truck, TrendingUp, TrendingDown, Minus, RefreshCw, Star, Clock, DollarSign, Shield, Zap, Award } from 'lucide-react';
 import { useAILogistics } from '@/hooks/useAILogistics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-
 const CarrierPerformancePage: React.FC = () => {
-  const { user } = useAuth();
-  const { isLoading, carrierScores, analyzeCarriers } = useAILogistics();
+  const {
+    user
+  } = useAuth();
+  const {
+    isLoading,
+    carrierScores,
+    analyzeCarriers
+  } = useAILogistics();
   const [recommendation, setRecommendation] = useState<string>('');
-
   useEffect(() => {
     if (user) {
       handleAnalyzeCarriers();
     }
   }, [user]);
-
   const handleAnalyzeCarriers = async () => {
     try {
       const result = await analyzeCarriers();
@@ -41,35 +32,33 @@ const CarrierPerformancePage: React.FC = () => {
       console.error('Analysis error:', error);
     }
   };
-
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'improving': return <TrendingUp className="w-4 h-4 text-green-400" />;
-      case 'declining': return <TrendingDown className="w-4 h-4 text-red-400" />;
-      default: return <Minus className="w-4 h-4 text-slate-400" />;
+      case 'improving':
+        return <TrendingUp className="w-4 h-4 text-green-400" />;
+      case 'declining':
+        return <TrendingDown className="w-4 h-4 text-red-400" />;
+      default:
+        return <Minus className="w-4 h-4 text-slate-400" />;
     }
   };
-
   const getTrendColor = (trend: string) => {
     switch (trend) {
-      case 'improving': return 'text-green-400 bg-green-500/20';
-      case 'declining': return 'text-red-400 bg-red-500/20';
-      default: return 'text-slate-400 bg-slate-500/20';
+      case 'improving':
+        return 'text-green-400 bg-green-500/20';
+      case 'declining':
+        return 'text-red-400 bg-red-500/20';
+      default:
+        return 'text-slate-400 bg-slate-500/20';
     }
   };
-
   const getScoreColor = (score: number) => {
     if (score >= 0.8) return 'text-green-400';
     if (score >= 0.6) return 'text-yellow-400';
     return 'text-red-400';
   };
-
-  const topCarrier = carrierScores.length > 0 
-    ? carrierScores.reduce((a, b) => a.overall_score > b.overall_score ? a : b)
-    : null;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 p-6">
+  const topCarrier = carrierScores.length > 0 ? carrierScores.reduce((a, b) => a.overall_score > b.overall_score ? a : b) : null;
+  return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -82,19 +71,14 @@ const CarrierPerformancePage: React.FC = () => {
               <p className="text-green-200">AI-powered carrier analytics & optimization</p>
             </div>
           </div>
-          <Button 
-            onClick={handleAnalyzeCarriers} 
-            disabled={isLoading}
-            className="bg-green-600 hover:bg-green-700"
-          >
+          <Button onClick={handleAnalyzeCarriers} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Analyze Carriers
           </Button>
         </div>
 
         {/* Top Performer */}
-        {topCarrier && (
-          <Card className="bg-gradient-to-r from-yellow-600/30 to-amber-600/30 border-yellow-500/30 backdrop-blur-sm">
+        {topCarrier && <Card className="bg-gradient-to-r from-yellow-600/30 to-amber-600/30 border-yellow-500/30 backdrop-blur-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-yellow-500 rounded-2xl flex items-center justify-center">
@@ -118,35 +102,26 @@ const CarrierPerformancePage: React.FC = () => {
                 </div>
               </div>
             </CardContent>
-          </Card>
-        )}
+          </Card>}
 
         {/* Recommendation */}
-        {recommendation && (
-          <Card className="bg-gradient-to-r from-green-800/50 to-emerald-800/50 border-green-500/30 backdrop-blur-sm">
-            <CardContent className="pt-6">
+        {recommendation && <Card className="bg-gradient-to-r from-green-800/50 to-emerald-800/50 border-green-500/30 backdrop-blur-sm">
+            <CardContent className="pt-6 text-lime-700">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <Zap className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-2">AI Recommendation</h3>
-                  <p className="text-green-200">{recommendation}</p>
+                  <p className="text-destructive-foreground">{recommendation}</p>
                 </div>
               </div>
             </CardContent>
-          </Card>
-        )}
+          </Card>}
 
         {/* Carrier Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {isLoading ? (
-            Array(4).fill(0).map((_, i) => (
-              <Skeleton key={i} className="h-64 w-full" />
-            ))
-          ) : carrierScores.length > 0 ? (
-            carrierScores.map((carrier) => (
-              <Card key={carrier.id} className="bg-slate-800/80 border-slate-700 backdrop-blur-sm">
+          {isLoading ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-64 w-full" />) : carrierScores.length > 0 ? carrierScores.map(carrier => <Card key={carrier.id} className="bg-slate-800/80 border-slate-700 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-white flex items-center justify-between">
                     <span className="flex items-center gap-2">
@@ -218,54 +193,38 @@ const CarrierPerformancePage: React.FC = () => {
 
                   {/* Best For / Weaknesses */}
                   <div className="grid grid-cols-2 gap-3">
-                    {carrier.best_lanes && carrier.best_lanes.length > 0 && (
-                      <div>
+                    {carrier.best_lanes && carrier.best_lanes.length > 0 && <div>
                         <p className="text-green-400 text-xs mb-1">Best For</p>
                         <div className="flex flex-wrap gap-1">
-                          {carrier.best_lanes.slice(0, 2).map((lane: string, i: number) => (
-                            <Badge key={i} variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-green-300">
+                          {carrier.best_lanes.slice(0, 2).map((lane: string, i: number) => <Badge key={i} variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-green-300">
                               {lane}
-                            </Badge>
-                          ))}
+                            </Badge>)}
                         </div>
-                      </div>
-                    )}
-                    {carrier.worst_lanes && carrier.worst_lanes.length > 0 && (
-                      <div>
+                      </div>}
+                    {carrier.worst_lanes && carrier.worst_lanes.length > 0 && <div>
                         <p className="text-red-400 text-xs mb-1">Weaknesses</p>
                         <div className="flex flex-wrap gap-1">
-                          {carrier.worst_lanes.slice(0, 2).map((lane: string, i: number) => (
-                            <Badge key={i} variant="outline" className="text-xs bg-red-500/10 border-red-500/30 text-red-300">
+                          {carrier.worst_lanes.slice(0, 2).map((lane: string, i: number) => <Badge key={i} variant="outline" className="text-xs bg-red-500/10 border-red-500/30 text-red-300">
                               {lane}
-                            </Badge>
-                          ))}
+                            </Badge>)}
                         </div>
-                      </div>
-                    )}
+                      </div>}
                   </div>
 
                   {/* AI Recommendation */}
-                  {carrier.ai_recommendation && (
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  {carrier.ai_recommendation && <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                       <p className="text-green-300 text-sm">{carrier.ai_recommendation}</p>
-                    </div>
-                  )}
+                    </div>}
                 </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card className="lg:col-span-2 bg-slate-800/80 border-slate-700 backdrop-blur-sm">
+              </Card>) : <Card className="lg:col-span-2 bg-slate-800/80 border-slate-700 backdrop-blur-sm">
               <CardContent className="py-12 text-center text-slate-400">
                 <Truck className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium text-white mb-2">No Carrier Data</h3>
                 <p>Click "Analyze Carriers" to generate performance insights</p>
               </CardContent>
-            </Card>
-          )}
+            </Card>}
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default CarrierPerformancePage;
