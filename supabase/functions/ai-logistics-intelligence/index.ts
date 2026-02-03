@@ -104,8 +104,14 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('AI Logistics Intelligence error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    const status = (error as any).status || 500;
+    const message = status === 429 
+      ? 'Rate limit exceeded. Please wait a moment and try again.' 
+      : status === 402 
+        ? 'AI credits exhausted. Please add funds to continue.'
+        : error.message;
+    return new Response(JSON.stringify({ error: message }), {
+      status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
@@ -135,7 +141,9 @@ async function callAI(prompt: string, apiKey: string): Promise<any> {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('AI API error:', response.status, errorText);
-    throw new Error(`AI service error: ${response.status}`);
+    const error = new Error(`AI service error: ${response.status}`);
+    (error as any).status = response.status;
+    throw error;
   }
 
   const data = await response.json();
