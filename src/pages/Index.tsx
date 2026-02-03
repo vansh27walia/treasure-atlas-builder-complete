@@ -170,7 +170,7 @@ const Index: React.FC = () => {
       <div className="p-8 space-y-8">
         {/* Enhanced Header Section */}
         <div className="text-center space-y-6">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 bg-clip-text text-slate-950">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 bg-clip-text text-primary bg-[#77caca]">
             ShippingQuick.io Dashboard
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
