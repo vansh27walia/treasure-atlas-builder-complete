@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
+import { X, Mic, MicOff, Loader2, Sparkles } from 'lucide-react';
 
 interface VoiceCommandOverlayProps {
   isOpen: boolean;
@@ -19,7 +19,6 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -189,57 +188,16 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
     }
   };
 
-  // Speak AI response
-  const speakResponse = useCallback((text: string) => {
-    if (!text || !('speechSynthesis' in window)) return;
-    
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    
-    // Force American English voice - prioritize Google US voices
-    const voices = window.speechSynthesis.getVoices();
-    const americanVoice = voices.find(voice => 
-      voice.lang === 'en-US' && voice.name.includes('Google')
-    ) || voices.find(voice => 
-      voice.lang === 'en-US' && (voice.name.includes('Samantha') || voice.name.includes('Alex'))
-    ) || voices.find(voice => 
-      voice.lang === 'en-US'
-    );
-    
-    if (americanVoice) {
-      utterance.voice = americanVoice;
-    }
-    utterance.lang = 'en-US';
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    
-    window.speechSynthesis.speak(utterance);
-  }, []);
-
-  // Speak AI response when received
-  useEffect(() => {
-    if (aiResponse && !isProcessing) {
-      speakResponse(aiResponse);
-    }
-  }, [aiResponse, isProcessing, speakResponse]);
-
   // Cleanup on close
   useEffect(() => {
     if (!isOpen) {
       stopListening();
-      window.speechSynthesis.cancel();
     }
   }, [isOpen]);
 
   // Handle close with interrupt
   const handleClose = () => {
     stopListening();
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
     setTranscript('');
     onClose();
   };
@@ -261,7 +219,7 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
       <div className="text-center mb-8">
         <h2 className="text-4xl font-bold text-white mb-2">QuickShip AI Voice</h2>
         <p className="text-purple-200">
-          {isListening ? 'Listening...' : isSpeaking ? 'Speaking...' : isProcessing ? 'Processing...' : 'Click the mic to start'}
+          {isListening ? 'Listening...' : isProcessing ? 'Processing...' : 'Click the mic to start'}
         </p>
       </div>
 
@@ -273,7 +231,7 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
           height={100}
           className="rounded-lg bg-black/20"
         />
-        {!isListening && !isSpeaking && !isProcessing && (
+        {!isListening && !isProcessing && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-purple-300 text-sm">Audio waveform will appear here</div>
           </div>
@@ -295,8 +253,6 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
             <Loader2 className="w-10 h-10 text-white animate-spin" />
           ) : isListening ? (
             <MicOff className="w-10 h-10 text-white" />
-          ) : isSpeaking ? (
-            <Volume2 className="w-10 h-10 text-white animate-pulse" />
           ) : (
             <Mic className="w-10 h-10 text-white" />
           )}
@@ -325,7 +281,7 @@ const VoiceCommandOverlay: React.FC<VoiceCommandOverlayProps> = ({
         <div className="mt-6 w-full max-w-2xl px-8">
           <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-md rounded-xl p-6 border border-purple-400/30">
             <div className="flex items-center gap-2 mb-2">
-              <Volume2 className={`w-5 h-5 text-purple-300 ${isSpeaking ? 'animate-pulse' : ''}`} />
+              <Sparkles className="w-5 h-5 text-purple-300" />
               <span className="text-purple-200 text-sm">QuickShip AI Response</span>
             </div>
             <p className="text-white text-lg">{aiResponse}</p>
