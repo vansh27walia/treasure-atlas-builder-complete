@@ -7,7 +7,6 @@ import { Truck, TrendingUp, TrendingDown, Minus, RefreshCw, Star, Clock, DollarS
 import { useAILogistics } from '@/hooks/useAILogistics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-
 const CarrierPerformancePage: React.FC = () => {
   const {
     user
@@ -20,13 +19,11 @@ const CarrierPerformancePage: React.FC = () => {
   } = useAILogistics();
   const [recommendation, setRecommendation] = useState<string>('');
   const [hasError, setHasError] = useState(false);
-
   useEffect(() => {
     if (user) {
       handleAnalyzeCarriers();
     }
   }, [user]);
-
   const handleAnalyzeCarriers = async () => {
     setHasError(false);
     try {
@@ -85,8 +82,7 @@ const CarrierPerformancePage: React.FC = () => {
         </div>
 
         {/* Rate Limit / Error State */}
-        {(hasError || rateLimited) && !isLoading && carrierScores.length === 0 && (
-          <Card className="bg-amber-900/30 border-amber-500/30 backdrop-blur-sm">
+        {(hasError || rateLimited) && !isLoading && carrierScores.length === 0 && <Card className="bg-amber-900/30 border-amber-500/30 backdrop-blur-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center">
@@ -95,24 +91,16 @@ const CarrierPerformancePage: React.FC = () => {
                 <div className="flex-1">
                   <h3 className="text-white font-semibold">AI Service Temporarily Unavailable</h3>
                   <p className="text-amber-200 text-sm mt-1">
-                    {rateLimited 
-                      ? 'Rate limit exceeded. Please wait a moment before trying again.'
-                      : 'Unable to analyze carriers at this time. Please try again shortly.'}
+                    {rateLimited ? 'Rate limit exceeded. Please wait a moment before trying again.' : 'Unable to analyze carriers at this time. Please try again shortly.'}
                   </p>
                 </div>
-                <Button 
-                  onClick={handleAnalyzeCarriers} 
-                  disabled={isLoading}
-                  variant="outline"
-                  className="border-amber-500 text-amber-400 hover:bg-amber-500/20"
-                >
+                <Button onClick={handleAnalyzeCarriers} disabled={isLoading} variant="outline" className="border-amber-500 text-amber-400 hover:bg-amber-500/20">
                   <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                   Retry
                 </Button>
               </div>
             </CardContent>
-          </Card>
-        )}
+          </Card>}
 
         {/* Top Performer */}
         {topCarrier && <Card className="bg-gradient-to-r from-yellow-600/30 to-amber-600/30 border-yellow-500/30 backdrop-blur-sm">
@@ -126,7 +114,7 @@ const CarrierPerformancePage: React.FC = () => {
                     <Badge className="bg-yellow-500 text-white">Top Performer</Badge>
                   </div>
                   <h2 className="text-2xl font-bold text-white">{topCarrier.carrier}</h2>
-                  <p className="text-yellow-200">
+                  <p className="text-[#e7b008]">
                     Overall Score: {Math.round(topCarrier.overall_score * 100)}% | 
                     {topCarrier.total_shipments_analyzed} shipments analyzed
                   </p>
