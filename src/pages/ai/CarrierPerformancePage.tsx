@@ -3,33 +3,40 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Truck, TrendingUp, TrendingDown, Minus, RefreshCw, Star, Clock, DollarSign, Shield, Zap, Award } from 'lucide-react';
+import { Truck, TrendingUp, TrendingDown, Minus, RefreshCw, Star, Clock, DollarSign, Shield, Zap, Award, AlertCircle } from 'lucide-react';
 import { useAILogistics } from '@/hooks/useAILogistics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+
 const CarrierPerformancePage: React.FC = () => {
   const {
     user
   } = useAuth();
   const {
     isLoading,
+    rateLimited,
     carrierScores,
     analyzeCarriers
   } = useAILogistics();
   const [recommendation, setRecommendation] = useState<string>('');
+  const [hasError, setHasError] = useState(false);
+
   useEffect(() => {
     if (user) {
       handleAnalyzeCarriers();
     }
   }, [user]);
+
   const handleAnalyzeCarriers = async () => {
+    setHasError(false);
     try {
       const result = await analyzeCarriers();
-      if (result.overallRecommendation) {
+      if (result?.overallRecommendation) {
         setRecommendation(result.overallRecommendation);
       }
     } catch (error) {
       console.error('Analysis error:', error);
+      setHasError(true);
     }
   };
   const getTrendIcon = (trend: string) => {
@@ -76,6 +83,36 @@ const CarrierPerformancePage: React.FC = () => {
             Analyze Carriers
           </Button>
         </div>
+
+        {/* Rate Limit / Error State */}
+        {(hasError || rateLimited) && !isLoading && carrierScores.length === 0 && (
+          <Card className="bg-amber-900/30 border-amber-500/30 backdrop-blur-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-amber-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-semibold">AI Service Temporarily Unavailable</h3>
+                  <p className="text-amber-200 text-sm mt-1">
+                    {rateLimited 
+                      ? 'Rate limit exceeded. Please wait a moment before trying again.'
+                      : 'Unable to analyze carriers at this time. Please try again shortly.'}
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleAnalyzeCarriers} 
+                  disabled={isLoading}
+                  variant="outline"
+                  className="border-amber-500 text-amber-400 hover:bg-amber-500/20"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Top Performer */}
         {topCarrier && <Card className="bg-gradient-to-r from-yellow-600/30 to-amber-600/30 border-yellow-500/30 backdrop-blur-sm">
