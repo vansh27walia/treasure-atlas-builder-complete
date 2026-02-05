@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { 
   Brain, 
   AlertTriangle, 
@@ -11,7 +10,6 @@ import {
   Clock, 
   RefreshCw,
   CheckCircle2,
-  XCircle,
   Zap,
   Target,
   Shield,
@@ -20,6 +18,7 @@ import {
 import { useAILogistics } from '@/hooks/useAILogistics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+ import ShipmentSearchBar from '@/components/shipping/ShipmentSearchBar';
 
 const AICommandCenterPage: React.FC = () => {
   const { user } = useAuth();
@@ -35,11 +34,15 @@ const AICommandCenterPage: React.FC = () => {
   } = useAILogistics();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+   const [selectedShipment, setSelectedShipment] = useState<any>(null);
+   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   useEffect(() => {
-    if (user) {
+     if (user && !initialLoadDone) {
+       setInitialLoadDone(true);
       let cancelled = false;
-      (async () => {
+       // Defer AI call to allow instant page render
+       const timer = setTimeout(async () => {
         try {
           setLoadError(null);
           await fetchOverview();
@@ -53,13 +56,14 @@ const AICommandCenterPage: React.FC = () => {
             setLoadError('Failed to load AI intelligence. Please try again.');
           }
         }
-      })();
+       }, 100);
 
       return () => {
         cancelled = true;
+         clearTimeout(timer);
       };
     }
-  }, [user, fetchOverview]);
+   }, [user, fetchOverview, initialLoadDone]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -114,6 +118,30 @@ const AICommandCenterPage: React.FC = () => {
           </Button>
         </div>
 
+         {/* Search Bar */}
+         <ShipmentSearchBar 
+           compact
+           placeholder="Search shipments for AI analysis..."
+           onSelect={(shipment) => setSelectedShipment(shipment)}
+         />
+ 
+         {selectedShipment && (
+           <Card className="bg-slate-800/80 border-purple-500/30 backdrop-blur-sm">
+             <CardContent className="pt-4">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <p className="text-purple-200 text-sm">Selected for Analysis</p>
+                   <p className="text-white font-mono">{selectedShipment.tracking_code}</p>
+                   <p className="text-slate-400 text-sm">{selectedShipment.carrier} • {selectedShipment.status}</p>
+                 </div>
+                 <Button size="sm" variant="outline" onClick={() => setSelectedShipment(null)}>
+                   Clear
+                 </Button>
+               </div>
+             </CardContent>
+           </Card>
+         )}
+ 
         {(loadError || rateLimited) && (
           <Card className="bg-slate-800/80 border-slate-700 backdrop-blur-sm">
             <CardContent className="pt-6">
