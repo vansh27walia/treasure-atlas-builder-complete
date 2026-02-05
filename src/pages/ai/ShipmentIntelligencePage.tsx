@@ -38,10 +38,11 @@ interface ShipmentRecord {
 
 const ShipmentIntelligencePage: React.FC = () => {
   const { user } = useAuth();
-  const { isLoading, analyzeShipment, insights, fetchInsights } = useAILogistics();
+  const { isLoading, rateLimited, analyzeShipment, insights, fetchInsights } = useAILogistics();
   const [shipments, setShipments] = useState<ShipmentRecord[]>([]);
   const [selectedShipment, setSelectedShipment] = useState<ShipmentRecord | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingShipments, setLoadingShipments] = useState(true);
 
@@ -72,11 +73,19 @@ const ShipmentIntelligencePage: React.FC = () => {
 
   const handleAnalyze = async (shipment: ShipmentRecord) => {
     setSelectedShipment(shipment);
+    setAnalysisError(null);
     try {
       const result = await analyzeShipment(shipment.shipment_id, shipment.tracking_code);
       setAnalysis(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Analysis error:', error);
+      if (error?.message === 'RATE_LIMITED') {
+        setAnalysisError('Rate limit exceeded. Please wait ~30 seconds and try again.');
+      } else if (error?.message === 'PAYMENT_REQUIRED') {
+        setAnalysisError('AI credits exhausted. Please add funds to continue.');
+      } else {
+        setAnalysisError('Failed to analyze shipment. Please try again.');
+      }
     }
   };
 
@@ -251,7 +260,25 @@ const ShipmentIntelligencePage: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {isLoading ? (
+                    {analysisError || rateLimited ? (
+                      <div className="text-center py-8 text-slate-300">
+                        <Brain className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-white font-medium">AI temporarily unavailable</p>
+                        <p className="text-slate-400 text-sm mt-2">
+                          {analysisError || 'Rate limit exceeded. Please wait ~30 seconds and try again.'}
+                        </p>
+                        <div className="mt-4">
+                          <Button
+                            onClick={() => handleAnalyze(selectedShipment)}
+                            disabled={isLoading}
+                            variant="outline"
+                          >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    ) : isLoading ? (
                       <div className="space-y-4">
                         <Skeleton className="h-6 w-3/4" />
                         <Skeleton className="h-4 w-full" />

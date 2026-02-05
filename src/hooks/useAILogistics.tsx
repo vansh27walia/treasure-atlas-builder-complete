@@ -2,6 +2,11 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
+// Module-level guards to prevent duplicate calls across components / StrictMode double-effects
+const inFlightRequests = new Map<string, Promise<any>>();
+let aiCooldownUntilMs = 0;
+const AI_COOLDOWN_MS = 30_000;
+
 interface AIOverview {
   headline: string;
   riskSummary: string;
@@ -91,67 +96,88 @@ export const useAILogistics = () => {
   const [rateLimited, setRateLimited] = useState(false);
 
   const callAIFunction = useCallback(async (action: string, params: any = {}, retryCount = 0): Promise<any> => {
-    const MAX_RETRIES = 2;
+    // IMPORTANT: on 429 we don't want to amplify load; prefer cooldown + user-driven retry
+    const MAX_RETRIES = 0;
     const RETRY_DELAY = 3000; // 3 seconds
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-logistics-intelligence', {
-        body: { action, ...params }
-      });
 
-      if (error) {
-        // Try to get the actual error response from the context
-        let errorBody: any = null;
-        try {
-          // FunctionsHttpError stores the response in context
-          if ((error as any).context?.json) {
-            errorBody = await (error as any).context.json();
+    const now = Date.now();
+    if (now < aiCooldownUntilMs) {
+      setRateLimited(true);
+      throw new Error('RATE_LIMITED');
+    }
+
+    const requestKey = `${action}:${JSON.stringify(params ?? {})}`;
+    const existing = inFlightRequests.get(requestKey);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-logistics-intelligence', {
+          body: { action, ...params }
+        });
+
+        if (error) {
+          // Try to get the actual error response from the context
+          let errorBody: any = null;
+          try {
+            // FunctionsHttpError stores the response in context
+            if ((error as any).context?.json) {
+              errorBody = await (error as any).context.json();
+            }
+          } catch (e) {
+            console.log('Could not parse error context');
           }
-        } catch (e) {
-          console.log('Could not parse error context');
+          const errorMessage = errorBody?.error || error.message || '';
+
+          // Check if it's a rate limit error
+          if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit')) {
+            setRateLimited(true);
+            aiCooldownUntilMs = Date.now() + AI_COOLDOWN_MS;
+
+            if (retryCount < MAX_RETRIES) {
+              console.log(`Rate limited, retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+              return callAIFunction(action, params, retryCount + 1);
+            }
+
+            throw new Error('RATE_LIMITED');
+          }
+
+          // Check for payment required
+          if (errorMessage.includes('402') || errorMessage.toLowerCase().includes('payment')) {
+            throw new Error('PAYMENT_REQUIRED');
+          }
+
+          throw error;
         }
-        
-        const errorMessage = errorBody?.error || error.message || '';
-        
-        // Check if it's a rate limit error
-        if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit')) {
+
+        // Check response body for rate limit error
+        if (data?.error && (data.error.includes('Rate limit') || data.error.includes('429'))) {
           setRateLimited(true);
-          
+          aiCooldownUntilMs = Date.now() + AI_COOLDOWN_MS;
+
           if (retryCount < MAX_RETRIES) {
-            console.log(`Rate limited, retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+            console.log(`Rate limited (from response), retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
             return callAIFunction(action, params, retryCount + 1);
           }
-          
+
           throw new Error('RATE_LIMITED');
         }
-        
-        // Check for payment required
-        if (errorMessage.includes('402') || errorMessage.toLowerCase().includes('payment')) {
-          throw new Error('PAYMENT_REQUIRED');
-        }
-        
+
+        setRateLimited(false);
+        return data;
+      } catch (error: any) {
+        console.error('AI Logistics error:', error);
         throw error;
       }
-      
-      // Check response body for rate limit error
-      if (data?.error && (data.error.includes('Rate limit') || data.error.includes('429'))) {
-        setRateLimited(true);
-        
-        if (retryCount < MAX_RETRIES) {
-          console.log(`Rate limited (from response), retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
-          return callAIFunction(action, params, retryCount + 1);
-        }
-        
-        throw new Error('RATE_LIMITED');
-      }
-      
-      setRateLimited(false);
-      return data;
-    } catch (error: any) {
-      console.error('AI Logistics error:', error);
-      throw error;
+    })();
+
+    inFlightRequests.set(requestKey, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightRequests.delete(requestKey);
     }
   }, []);
 
