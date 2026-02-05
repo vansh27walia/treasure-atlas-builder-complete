@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Package, 
@@ -19,13 +19,17 @@ import {
   MessageSquare,
   Route,
   Bell,
-  Cog
+  Cog,
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import SidebarNavItem from './SidebarNavItem';
 import SidebarNavSection from './SidebarNavSection';
 import SidebarAuthButton from './SidebarAuthButton';
 import SidebarUserProfile from './SidebarUserProfile';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
 interface SidebarContentProps {
   collapsed: boolean;
@@ -33,7 +37,19 @@ interface SidebarContentProps {
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [aiOpen, setAiOpen] = React.useState(false);
   
+  // Check if current route is an AI route
+  const isAIRoute = location.pathname.startsWith('/ai/');
+  
+  // Auto-expand AI section when on AI route
+  React.useEffect(() => {
+    if (isAIRoute) {
+      setAiOpen(true);
+    }
+  }, [isAIRoute]);
+
   // AI Logistics Intelligence items (NEW - above freight)
   const aiItems = [
     {
@@ -123,17 +139,72 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
 
         <Separator className="bg-blue-800 my-4" />
 
-        <SidebarNavSection title="AI Intelligence" collapsed={collapsed}>
-          {aiItems.map((item, index) => (
-            <SidebarNavItem
-              key={index}
-              icon={item.icon}
-              title={item.title}
-              to={item.to}
-              collapsed={collapsed}
-            />
-          ))}
-        </SidebarNavSection>
+        {/* Collapsible AI Intelligence Section */}
+        <div className="mb-6">
+          {collapsed ? (
+            // When sidebar is collapsed, show single AI icon that opens menu
+            <div 
+              className={cn(
+                "flex items-center justify-center p-2 mx-2 rounded-lg cursor-pointer transition-all",
+                isAIRoute 
+                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white" 
+                  : "text-blue-200 hover:bg-blue-800/50"
+              )}
+              onClick={() => navigate('/ai/command-center')}
+              title="AI Intelligence"
+            >
+              <Sparkles className="h-5 w-5" />
+            </div>
+          ) : (
+            <Collapsible open={aiOpen} onOpenChange={setAiOpen}>
+              <CollapsibleTrigger className="w-full">
+                <div 
+                  className={cn(
+                    "flex items-center justify-between px-4 py-2 mx-2 rounded-lg transition-all cursor-pointer",
+                    isAIRoute 
+                      ? "bg-gradient-to-r from-purple-600/30 to-indigo-600/30 border border-purple-500/50" 
+                      : "hover:bg-blue-800/50"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center",
+                      isAIRoute 
+                        ? "bg-gradient-to-r from-purple-500 to-indigo-500" 
+                        : "bg-blue-800"
+                    )}>
+                      <Sparkles className="h-4 w-4 text-white" />
+                    </div>
+                    <span className={cn(
+                      "font-medium text-sm",
+                      isAIRoute ? "text-white" : "text-blue-200"
+                    )}>
+                      AI Intelligence
+                    </span>
+                  </div>
+                  <ChevronDown 
+                    className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      aiOpen ? "rotate-180" : "",
+                      isAIRoute ? "text-purple-300" : "text-blue-400"
+                    )} 
+                  />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-1 space-y-1 pl-4">
+                {aiItems.map((item, index) => (
+                  <SidebarNavItem
+                    key={index}
+                    icon={item.icon}
+                    title={item.title}
+                    to={item.to}
+                    collapsed={collapsed}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </div>
 
         <Separator className="bg-blue-800 my-4" />
 
