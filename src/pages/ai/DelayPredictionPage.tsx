@@ -168,7 +168,7 @@ const DelayPredictionPage: React.FC = () => {
                 {predictions.sort((a, b) => b.delay_probability - a.delay_probability).map(prediction => <div key={prediction.id} className="bg-slate-700/50 rounded-xl p-5 border border-slate-600">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="gap-3 mb-3 flex items-center justify-start">
                           <span className="text-2xl">{getDelayTypeIcon(prediction.delay_type)}</span>
                           <div>
                             <p className="text-white font-medium font-mono">
