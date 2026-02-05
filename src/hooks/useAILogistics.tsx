@@ -88,20 +88,88 @@ export const useAILogistics = () => {
     unresolvedAlerts: 0,
     recentInsights: 0
   });
+  const [rateLimited, setRateLimited] = useState(false);
 
-  const callAIFunction = useCallback(async (action: string, params: any = {}) => {
+  const callAIFunction = useCallback(async (action: string, params: any = {}, retryCount = 0): Promise<any> => {
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY = 3000; // 3 seconds
+    
     try {
       const { data, error } = await supabase.functions.invoke('ai-logistics-intelligence', {
         body: { action, ...params }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to get the actual error response from the context
+        let errorBody: any = null;
+        try {
+          // FunctionsHttpError stores the response in context
+          if ((error as any).context?.json) {
+            errorBody = await (error as any).context.json();
+          }
+        } catch (e) {
+          console.log('Could not parse error context');
+        }
+        
+        const errorMessage = errorBody?.error || error.message || '';
+        
+        // Check if it's a rate limit error
+        if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit')) {
+          setRateLimited(true);
+          
+          if (retryCount < MAX_RETRIES) {
+            console.log(`Rate limited, retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+            return callAIFunction(action, params, retryCount + 1);
+          }
+          
+          throw new Error('RATE_LIMITED');
+        }
+        
+        // Check for payment required
+        if (errorMessage.includes('402') || errorMessage.toLowerCase().includes('payment')) {
+          throw new Error('PAYMENT_REQUIRED');
+        }
+        
+        throw error;
+      }
+      
+      // Check response body for rate limit error
+      if (data?.error && (data.error.includes('Rate limit') || data.error.includes('429'))) {
+        setRateLimited(true);
+        
+        if (retryCount < MAX_RETRIES) {
+          console.log(`Rate limited (from response), retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+          return callAIFunction(action, params, retryCount + 1);
+        }
+        
+        throw new Error('RATE_LIMITED');
+      }
+      
+      setRateLimited(false);
       return data;
     } catch (error: any) {
       console.error('AI Logistics error:', error);
       throw error;
     }
   }, []);
+
+  const handleError = (error: any, defaultMessage: string) => {
+    if (error.message === 'RATE_LIMITED') {
+      toast.error('AI service is busy. Please wait a moment and try again.', {
+        description: 'Rate limit exceeded - try again in 30 seconds',
+        duration: 5000
+      });
+    } else if (error.message === 'PAYMENT_REQUIRED') {
+      toast.error('AI credits exhausted. Please add funds to continue.', {
+        description: 'Visit Settings → Workspace → Usage to add credits',
+        duration: 8000
+      });
+    } else {
+      toast.error(defaultMessage);
+    }
+  };
 
   const fetchOverview = useCallback(async () => {
     setIsLoading(true);
@@ -114,12 +182,12 @@ export const useAILogistics = () => {
       if (data.carrierScores) setCarrierScores(data.carrierScores);
       return data;
     } catch (error: any) {
-      toast.error('Failed to fetch AI overview');
+      handleError(error, 'Failed to fetch AI overview');
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const analyzeShipment = useCallback(async (shipmentId: string, trackingCode?: string) => {
     setIsLoading(true);
@@ -128,12 +196,12 @@ export const useAILogistics = () => {
       toast.success('Shipment analyzed successfully');
       return data.analysis;
     } catch (error: any) {
-      toast.error('Failed to analyze shipment');
+      handleError(error, 'Failed to analyze shipment');
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const predictDelays = useCallback(async () => {
     setIsLoading(true);
@@ -143,12 +211,12 @@ export const useAILogistics = () => {
       toast.success(`Analyzed ${data.predictions?.length || 0} shipments for delay risk`);
       return data;
     } catch (error: any) {
-      toast.error('Failed to predict delays');
+      handleError(error, 'Failed to predict delays');
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const analyzeCarriers = useCallback(async () => {
     setIsLoading(true);
@@ -158,12 +226,12 @@ export const useAILogistics = () => {
       toast.success('Carrier performance analyzed');
       return data;
     } catch (error: any) {
-      toast.error('Failed to analyze carriers');
+      handleError(error, 'Failed to analyze carriers');
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const generateCustomerMessage = useCallback(async (shipmentId: string, trackingCode?: string) => {
     setIsLoading(true);
@@ -172,12 +240,12 @@ export const useAILogistics = () => {
       toast.success('Customer message generated');
       return data.message;
     } catch (error: any) {
-      toast.error('Failed to generate message');
+      handleError(error, 'Failed to generate message');
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -185,10 +253,10 @@ export const useAILogistics = () => {
       if (data.alerts) setAlerts(data.alerts);
       return data.alerts;
     } catch (error: any) {
-      toast.error('Failed to fetch alerts');
+      handleError(error, 'Failed to fetch alerts');
       throw error;
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const resolveAlert = useCallback(async (alertId: string) => {
     try {
@@ -198,10 +266,10 @@ export const useAILogistics = () => {
       ));
       toast.success('Alert resolved');
     } catch (error: any) {
-      toast.error('Failed to resolve alert');
+      handleError(error, 'Failed to resolve alert');
       throw error;
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const optimizeRoutes = useCallback(async () => {
     setIsLoading(true);
@@ -210,12 +278,12 @@ export const useAILogistics = () => {
       toast.success('Route optimization complete');
       return data;
     } catch (error: any) {
-      toast.error('Failed to optimize routes');
+      handleError(error, 'Failed to optimize routes');
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [callAIFunction]);
+  }, [callAIFunction, handleError]);
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -236,6 +304,7 @@ export const useAILogistics = () => {
 
   return {
     isLoading,
+    rateLimited,
     overview,
     alerts,
     predictions,
