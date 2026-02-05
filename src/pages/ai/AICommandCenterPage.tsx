@@ -25,6 +25,7 @@ const AICommandCenterPage: React.FC = () => {
   const { user } = useAuth();
   const { 
     isLoading, 
+    rateLimited,
     overview, 
     alerts, 
     stats, 
@@ -33,17 +34,49 @@ const AICommandCenterPage: React.FC = () => {
     resolveAlert
   } = useAILogistics();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      fetchOverview();
+      let cancelled = false;
+      (async () => {
+        try {
+          setLoadError(null);
+          await fetchOverview();
+        } catch (e: any) {
+          if (cancelled) return;
+          if (e?.message === 'RATE_LIMITED') {
+            setLoadError('Rate limit exceeded. Please wait ~30 seconds and try again.');
+          } else if (e?.message === 'PAYMENT_REQUIRED') {
+            setLoadError('AI credits exhausted. Please add funds to continue.');
+          } else {
+            setLoadError('Failed to load AI intelligence. Please try again.');
+          }
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
     }
   }, [user, fetchOverview]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchOverview();
-    setIsRefreshing(false);
+    try {
+      setLoadError(null);
+      await fetchOverview();
+    } catch (e: any) {
+      if (e?.message === 'RATE_LIMITED') {
+        setLoadError('Rate limit exceeded. Please wait ~30 seconds and try again.');
+      } else if (e?.message === 'PAYMENT_REQUIRED') {
+        setLoadError('AI credits exhausted. Please add funds to continue.');
+      } else {
+        setLoadError('Failed to refresh AI intelligence. Please try again.');
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const getSeverityColor = (severity: string) => {
@@ -73,13 +106,36 @@ const AICommandCenterPage: React.FC = () => {
           </div>
           <Button 
             onClick={handleRefresh} 
-            disabled={isRefreshing || isLoading}
+            disabled={isRefreshing || isLoading || rateLimited}
             className="bg-purple-600 hover:bg-purple-700"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh Intelligence
           </Button>
         </div>
+
+        {(loadError || rateLimited) && (
+          <Card className="bg-slate-800/80 border-slate-700 backdrop-blur-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-white font-medium">AI temporarily unavailable</p>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {loadError || 'Rate limit exceeded. Please wait ~30 seconds and try again.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  variant="outline"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Health Score & Headline */}
         <Card className="bg-gradient-to-r from-purple-800/50 to-pink-800/50 border-purple-500/30 backdrop-blur-sm">
