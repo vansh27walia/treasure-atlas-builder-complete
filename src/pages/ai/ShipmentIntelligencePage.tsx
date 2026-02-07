@@ -226,14 +226,14 @@ const ShipmentIntelligencePage: React.FC = () => {
                             Retry
                           </Button>
                         </div>
-                      </div> : isLoading ? <div className="space-y-4">
+                      </div> : isLoading ? <div className="space-y-4 text-primary">
                         <Skeleton className="h-6 w-3/4" />
                         <Skeleton className="h-4 w-full" />
                         <Skeleton className="h-4 w-2/3" />
                       </div> : analysis || existingInsight ? <div className="space-y-6">
                         {/* Summary */}
                         <div>
-                          <h4 className="text-cyan-300 text-sm font-medium mb-2">AI Summary</h4>
+                          <h4 className="text-sm font-medium mb-2 text-primary">AI Summary</h4>
                           <p className="text-white">
                             {analysis?.summary || existingInsight?.ai_summary}
                           </p>
@@ -241,8 +241,8 @@ const ShipmentIntelligencePage: React.FC = () => {
 
                         {/* Current Interpretation */}
                         {(analysis?.currentInterpretation || existingInsight?.current_interpretation) && <div>
-                            <h4 className="text-cyan-300 text-sm font-medium mb-2">What's Actually Happening</h4>
-                            <p className="text-slate-300">
+                            <h4 className="text-sm font-medium mb-2 text-primary">What's Actually Happening</h4>
+                            <p className="text-primary-foreground">
                               {analysis?.currentInterpretation || existingInsight?.current_interpretation}
                             </p>
                           </div>}
@@ -265,7 +265,7 @@ const ShipmentIntelligencePage: React.FC = () => {
                             </div>
                           </div>
                           <div className="bg-slate-700/50 rounded-lg p-3">
-                            <p className="text-slate-400 text-xs mb-1">Delay Probability</p>
+                            <p className="text-xs mb-1 text-primary-foreground">Delay Probability</p>
                             <div className="flex items-center gap-2">
                               <Progress value={(analysis?.delayProbability || existingInsight?.delay_probability || 0) * 100} className="h-2 flex-1" />
                               <span className="text-white text-sm">
@@ -282,12 +282,12 @@ const ShipmentIntelligencePage: React.FC = () => {
                         </div>
 
                         {/* Delay Reason */}
-                        {(analysis?.delayReason || existingInsight?.delay_reason) && <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                        {(analysis?.delayReason || existingInsight?.delay_reason) && <div className="border border-orange-500/30 rounded-lg p-4 bg-[#d9a236]">
                             <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="w-5 h-5 text-orange-400" />
-                              <h4 className="text-orange-300 font-medium">Potential Delay Reason</h4>
+                              <AlertTriangle className="w-5 h-5 text-white" />
+                              <h4 className="font-medium text-[#eee7e2]">Potential Delay Reason</h4>
                             </div>
-                            <p className="text-slate-300">
+                            <p className="text-primary-foreground">
                               {analysis?.delayReason || existingInsight?.delay_reason}
                             </p>
                           </div>}
