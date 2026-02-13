@@ -104,8 +104,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
         </div>
 
         {/* Voice Command Button */}
-        <div className={cn("p-3 border-b border-blue-800", collapsed && "px-2")}>
-          
+        
 
 
 
@@ -115,7 +114,8 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
 
 
 
-        </div>
+
+
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto">
