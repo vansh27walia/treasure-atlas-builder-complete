@@ -75,14 +75,8 @@ serve(async (req) => {
           const errorText = await shopifyResponse.text()
           console.error(`[SHOPIFY-ORDERS] ${connection.shop}: ${shopifyResponse.status} ${errorText}`)
           errors.push({ shop: connection.shop, status: shopifyResponse.status, message: errorText })
-
-          // If 403 with scope error, the token needs re-auth
-          if (shopifyResponse.status === 403 && errorText.includes('merchant approval')) {
-            // Delete the stale connection so user re-authenticates
-            await supabaseClient.from('shopify_connections').delete()
-              .eq('user_id', user.id).eq('shop', connection.shop)
-            console.log(`[SHOPIFY-ORDERS] Deleted stale connection for ${connection.shop}`)
-          }
+          // Do NOT delete the connection here — it causes a connect/disconnect loop.
+          // Instead, let the frontend show a reconnect banner via the needs_reconnect flag.
           continue
         }
 
