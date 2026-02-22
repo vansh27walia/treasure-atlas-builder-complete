@@ -29,6 +29,7 @@ const ImportPage = () => {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [needsReconnect, setNeedsReconnect] = useState(false);
+  const fetchingRef = React.useRef(false);
 
   useEffect(() => {
     if (user) {
@@ -88,6 +89,16 @@ const ImportPage = () => {
     }
     setIsConnecting(true);
     try {
+      // If reconnecting, fully reset first
+      if (needsReconnect || isConnected) {
+        await supabase.from('shopify_connections').delete().eq('user_id', user.id);
+        await supabase.from('oauth_states').delete().eq('user_id', user.id).eq('platform', 'shopify');
+        setIsConnected(false);
+        setConnectedShops([]);
+        setOrders([]);
+        setNeedsReconnect(false);
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         toast.error('Session expired. Please sign in again.');
@@ -103,7 +114,8 @@ const ImportPage = () => {
   };
 
   const fetchShopifyOrders = async () => {
-    if (!user) return;
+    if (!user || fetchingRef.current) return;
+    fetchingRef.current = true;
     setIsLoadingOrders(true);
     try {
       const response = await supabase.functions.invoke('shopify-orders');
@@ -113,9 +125,9 @@ const ImportPage = () => {
 
       if (needs_reconnect) {
         setNeedsReconnect(true);
-        setIsConnected(false);
-        setConnectedShops([]);
-        toast.error('Shopify access expired. Please reconnect your store.');
+        // Keep isConnected true — don't delete the connection or flip state
+        // This prevents the loop. The user can manually click Reconnect.
+        toast.error('Shopify access needs re-authorization. Please reconnect your store.');
         return;
       }
 
@@ -133,6 +145,7 @@ const ImportPage = () => {
       toast.error('Failed to fetch orders');
     } finally {
       setIsLoadingOrders(false);
+      fetchingRef.current = false;
     }
   };
 
