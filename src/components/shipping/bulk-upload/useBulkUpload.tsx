@@ -138,7 +138,6 @@ export const useBulkUpload = () => {
         console.log("Loaded default pickup address:", defaultAddress);
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
-          // Also persist into results context so rate fetching has it immediately
           setResults((prev) => ({ ...(prev as any), pickupAddress: defaultAddress } as any));
         } else {
           const addresses = await addressService.getSavedAddresses();
@@ -146,7 +145,6 @@ export const useBulkUpload = () => {
             const firstAddress = addresses[0];
             setPickupAddress(firstAddress);
             console.log("Using first available address:", firstAddress);
-            // Persist into results context as well
             setResults((prev) => ({ ...(prev as any), pickupAddress: firstAddress } as any));
           }
         }
@@ -158,6 +156,52 @@ export const useBulkUpload = () => {
     
     loadDefaultPickupAddress();
   }, []);
+
+  // Auto-process Shopify orders from sessionStorage (skips CSV upload + header mapping)
+  useEffect(() => {
+    const shopifyCSV = sessionStorage.getItem('shopify_auto_csv');
+    const isShopifyBatch = sessionStorage.getItem('shopify_auto_batch');
+    
+    if (shopifyCSV && isShopifyBatch === 'true') {
+      console.log('🛒 Auto-processing Shopify orders from sessionStorage...');
+      // Clear immediately to prevent re-processing on re-render
+      sessionStorage.removeItem('shopify_auto_csv');
+      sessionStorage.removeItem('shopify_auto_batch');
+      sessionStorage.removeItem('shopify_order_count');
+      
+      // Create a File object from the CSV string and trigger upload
+      const blob = new Blob([shopifyCSV], { type: 'text/csv' });
+      const file = new File([blob], 'shopify-orders.csv', { type: 'text/csv' });
+      
+      // Wait for pickup address to be loaded, then auto-upload
+      const attemptUpload = async () => {
+        // Small delay to ensure pickup address is loaded
+        await new Promise(r => setTimeout(r, 1000));
+        
+        if (pickupAddress) {
+          console.log('🚀 Auto-uploading Shopify CSV with pickup address');
+          try {
+            await originalHandleUpload(file, pickupAddress);
+            toast.success('Shopify orders auto-processed! Select rates below.');
+          } catch (err) {
+            console.error('Auto-upload failed:', err);
+          }
+        } else {
+          // Try loading address first
+          const addr = await addressService.getDefaultFromAddress();
+          if (addr) {
+            setPickupAddress(addr);
+            await originalHandleUpload(file, addr);
+            toast.success('Shopify orders auto-processed! Select rates below.');
+          } else {
+            toast.error('Please set a pickup address in Settings first.');
+          }
+        }
+      };
+      
+      attemptUpload();
+    }
+  }, [pickupAddress]);
 
   const handleEditShipment = async (shipmentId: string, updates: Partial<BulkShipment>) => {
     if (!results) return;
