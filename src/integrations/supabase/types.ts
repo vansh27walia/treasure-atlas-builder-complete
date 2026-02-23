@@ -799,7 +799,13 @@ export type Database = {
           rate_id: string | null
           service: string | null
           shipment_id: string | null
+          shopify_fulfillment_id: string | null
+          shopify_order_id: string | null
+          shopify_shop: string | null
+          shopify_sync_status: string | null
+          shopify_sync_timestamp: string | null
           status: string | null
+          synced_to_shopify: boolean | null
           to_address_json: Json | null
           tracking_code: string | null
           tracking_details: Json | null
@@ -833,7 +839,13 @@ export type Database = {
           rate_id?: string | null
           service?: string | null
           shipment_id?: string | null
+          shopify_fulfillment_id?: string | null
+          shopify_order_id?: string | null
+          shopify_shop?: string | null
+          shopify_sync_status?: string | null
+          shopify_sync_timestamp?: string | null
           status?: string | null
+          synced_to_shopify?: boolean | null
           to_address_json?: Json | null
           tracking_code?: string | null
           tracking_details?: Json | null
@@ -867,7 +879,13 @@ export type Database = {
           rate_id?: string | null
           service?: string | null
           shipment_id?: string | null
+          shopify_fulfillment_id?: string | null
+          shopify_order_id?: string | null
+          shopify_shop?: string | null
+          shopify_sync_status?: string | null
+          shopify_sync_timestamp?: string | null
           status?: string | null
+          synced_to_shopify?: boolean | null
           to_address_json?: Json | null
           tracking_code?: string | null
           tracking_details?: Json | null
