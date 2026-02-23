@@ -9,9 +9,9 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import DimensionModal, { DimensionData } from '@/components/shipping/DimensionModal';
+import ShopifyOrderReviewModal, { ReviewableOrder } from '@/components/shipping/ShopifyOrderReviewModal';
 import { useAutoBatch } from '@/hooks/useAutoBatch';
-import { ShopifyOrderRaw } from '@/utils/shopifyHeaderMapping';
+import { ShopifyOrderRaw, mapShopifyOrderToRow } from '@/utils/shopifyHeaderMapping';
 
 interface ShopifyOrder {
   order_id: string;
@@ -35,7 +35,8 @@ const ImportPage = () => {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [needsReconnect, setNeedsReconnect] = useState(false);
   const fetchingRef = React.useRef(false);
-  const [showDimensionModal, setShowDimensionModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewableOrders, setReviewableOrders] = useState<ReviewableOrder[]>([]);
 
   const autoBatch = useAutoBatch();
 
@@ -152,34 +153,46 @@ const ImportPage = () => {
     setSelectedOrders(prev => checked ? [...prev, orderId] : prev.filter(id => id !== orderId));
   };
 
+  const prepareReviewOrders = (orderIds: string[]) => {
+    const selected = orders.filter(o => orderIds.includes(o.order_id));
+    const reviewable: ReviewableOrder[] = selected.map(o => {
+      const raw: ShopifyOrderRaw = {
+        order_id: o.order_id, customer_name: o.customer_name,
+        shipping_address: o.shipping_address, total_weight: o.total_weight,
+        line_items: o.line_items, created_at: o.created_at,
+        shopify_order_id: o.shopify_order_id, shop: o.shop,
+      };
+      const mapped = mapShopifyOrderToRow(raw, { length: 12, width: 8, height: 6, weight: o.total_weight || 1 });
+      return {
+        order_id: o.order_id, customer_name: mapped.to_name,
+        to_street1: mapped.to_street1, to_street2: mapped.to_street2,
+        to_city: mapped.to_city, to_state: mapped.to_state,
+        to_zip: mapped.to_zip, to_country: mapped.to_country,
+        phone: mapped.to_phone, email: mapped.to_email,
+        weight: mapped.weight, length: mapped.length,
+        width: mapped.width, height: mapped.height,
+        line_items: o.line_items, approved: false,
+      };
+    });
+    setReviewableOrders(reviewable);
+    setShowReviewModal(true);
+  };
+
   const handleShipSelected = () => {
     if (selectedOrders.length === 0) { toast.error('Please select at least one order'); return; }
-    setShowDimensionModal(true);
+    prepareReviewOrders(selectedOrders);
   };
 
   const handleShipAll = () => {
-    setSelectedOrders(orders.map(o => o.order_id));
-    setShowDimensionModal(true);
+    const allIds = orders.map(o => o.order_id);
+    setSelectedOrders(allIds);
+    prepareReviewOrders(allIds);
   };
 
-  const handleDimensionConfirm = async (dimensions: DimensionData, applyToAll: boolean) => {
-    setShowDimensionModal(false);
-    const selectedOrderData = orders.filter(o => selectedOrders.includes(o.order_id));
-
-    const rawOrders: ShopifyOrderRaw[] = selectedOrderData.map(o => ({
-      order_id: o.order_id,
-      customer_name: o.customer_name,
-      shipping_address: o.shipping_address,
-      total_weight: o.total_weight,
-      line_items: o.line_items,
-      created_at: o.created_at,
-      shopify_order_id: o.shopify_order_id,
-      shop: o.shop,
-    }));
-
-    const csv = await autoBatch.processShopifyOrders(rawOrders, dimensions, applyToAll);
+  const handleReviewConfirm = async (approvedOrders: ReviewableOrder[]) => {
+    setShowReviewModal(false);
+    const csv = await autoBatch.processReviewedOrders(approvedOrders);
     if (csv) {
-      // Navigate to bulk-upload — the hook stored CSV in sessionStorage
       navigate('/bulk-upload');
     }
   };
@@ -380,12 +393,11 @@ const ImportPage = () => {
         )}
       </div>
 
-      <DimensionModal
-        open={showDimensionModal}
-        onClose={() => setShowDimensionModal(false)}
-        orderCount={selectedOrders.length}
-        onConfirm={handleDimensionConfirm}
-        defaultWeights={orders.filter(o => selectedOrders.includes(o.order_id)).map(o => o.total_weight)}
+      <ShopifyOrderReviewModal
+        open={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        orders={reviewableOrders}
+        onConfirmAll={handleReviewConfirm}
       />
     </div>
   );
