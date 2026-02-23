@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search, Plus } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search, Plus, ShoppingBag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { Progress } from '@/components/ui/progress';
@@ -24,12 +24,14 @@ const LabelSuccessPage: React.FC = () => {
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [trackingSearch, setTrackingSearch] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
+  const [shopifyFulfilled, setShopifyFulfilled] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const labelUrlParam = params.get('labelUrl');
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
+    const shopifyParam = params.get('shopifyFulfilled');
 
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
@@ -40,6 +42,9 @@ const LabelSuccessPage: React.FC = () => {
     }
     if (shipmentIdParam) {
       setShipmentId(decodeURIComponent(shipmentIdParam));
+    }
+    if (shopifyParam === 'true') {
+      setShopifyFulfilled(true);
     }
 
     toast.success('Your shipping label is ready!');
@@ -150,6 +155,14 @@ const LabelSuccessPage: React.FC = () => {
               </span>
             )}
           </p>
+
+          {/* Shopify Fulfillment Status */}
+          {shopifyFulfilled && (
+            <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
+              <ShoppingBag className="h-4 w-4" />
+              Shopify order fulfilled &amp; tracking synced
+            </div>
+          )}
 
           {/* Updated Label Options */}
           {labelUrl && (

@@ -105,3 +105,6 @@ verify_jwt = false
 
 [functions.ai-logistics-intelligence]
 verify_jwt = false
+
+[functions.shopify-fulfill-order]
+verify_jwt = false

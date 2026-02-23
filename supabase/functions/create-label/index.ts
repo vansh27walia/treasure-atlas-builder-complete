@@ -262,7 +262,7 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const { shipmentId, rateId, options = {}, customsInfo } = requestData;
+    const { shipmentId, rateId, options = {}, customsInfo, shopify_order_id, shopify_shop } = requestData;
     
     if (!shipmentId || !rateId) {
       console.error('Missing required parameters', { shipmentId, rateId });
@@ -428,7 +428,7 @@ serve(async (req) => {
     const isInternational = customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0;
 
     // Save the shipping record in the database with user_id and marked up rate
-    const shipmentRecord = {
+    const shipmentRecord: Record<string, any> = {
       user_id: user.id,
       shipment_id: shipmentId,
       rate_id: rateId,
@@ -438,8 +438,8 @@ serve(async (req) => {
       carrier: data.selected_rate?.carrier,
       service: data.selected_rate?.service,
       delivery_days: data.selected_rate?.delivery_days || null,
-      charged_rate: markedUpRate.toFixed(2), // Use marked up rate for billing
-      easypost_rate: originalRate.toFixed(2), // Store original EasyPost rate for reference
+      charged_rate: markedUpRate.toFixed(2),
+      easypost_rate: originalRate.toFixed(2),
       currency: data.selected_rate?.currency || 'USD',
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
@@ -448,6 +448,14 @@ serve(async (req) => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
+
+    // Add Shopify fields if this is a Shopify order
+    if (shopify_order_id) {
+      shipmentRecord.shopify_order_id = shopify_order_id;
+      shipmentRecord.shopify_shop = shopify_shop || null;
+      shipmentRecord.shopify_sync_status = 'pending';
+      shipmentRecord.synced_to_shopify = false;
+    }
 
     const { error: dbError } = await supabaseClient
       .from('shipment_records')
@@ -486,6 +494,38 @@ serve(async (req) => {
       }
     }
 
+    // If this is a Shopify order, trigger async fulfillment sync
+    let shopifyFulfillmentTriggered = false;
+    if (shopify_order_id && shopify_shop && data.tracking_code) {
+      try {
+        console.log(`[CREATE-LABEL] Triggering Shopify fulfillment for order ${shopify_order_id}`);
+        const fulfillUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/shopify-fulfill-order`;
+        // Fire and forget — don't block label response
+        fetch(fulfillUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shopify_order_id,
+            shopify_shop,
+            tracking_number: data.tracking_code,
+            carrier_name: data.selected_rate?.carrier || 'Unknown',
+            tracking_url: `https://track.easypost.com/${data.tracking_code}`,
+            notify_customer: true,
+          }),
+        }).then(res => {
+          console.log(`[CREATE-LABEL] Shopify fulfillment response: ${res.status}`);
+        }).catch(err => {
+          console.error(`[CREATE-LABEL] Shopify fulfillment error:`, err);
+        });
+        shopifyFulfillmentTriggered = true;
+      } catch (e) {
+        console.error('[CREATE-LABEL] Failed to trigger Shopify fulfillment:', e);
+      }
+    }
+
     // Return the label information with Supabase URL and markup info
     return new Response(
       JSON.stringify({
@@ -495,6 +535,7 @@ serve(async (req) => {
         chargedRate: markedUpRate.toFixed(2),
         originalRate: originalRate.toFixed(2),
         markupApplied: `${RATE_MARKUP_PERCENTAGE}%`,
+        shopifyFulfillmentTriggered,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
