@@ -27,6 +27,7 @@ import ShipToPage from './pages/ShipToPage';
 import FreightForwardingPage from './pages/FreightForwardingPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import ImportPage from './pages/ImportPage';
+import OrdersDashboard from './pages/OrdersDashboard';
 import ShopifyCallbackPage from './pages/ShopifyCallbackPage';
 import OnboardingModal from './components/onboarding/OnboardingModal';
 // AI Logistics Intelligence Pages
@@ -62,6 +63,7 @@ function AppContent() {
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/tracking" element={<TrackingPage />} />
               <Route path="/import" element={<ImportPage />} />
+              <Route path="/orders" element={<ProtectedRoute><OrdersDashboard /></ProtectedRoute>} />
               <Route path="/shopify-callback" element={<ShopifyCallbackPage />} />
               <Route
                 path="/dashboard"

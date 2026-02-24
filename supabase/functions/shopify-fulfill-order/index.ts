@@ -277,6 +277,30 @@ serve(async (req) => {
       }
     }
 
+    // Also update shopify_orders table
+    if (shopify_order_id) {
+      const { error: orderUpdateError } = await serviceClient
+        .from('shopify_orders')
+        .update({
+          order_status: 'fulfilled',
+          fulfillment_status: 'fulfilled',
+          synced_to_shopify: true,
+          sync_status: 'synced',
+          shopify_fulfillment_id: fulfillmentId?.toString(),
+          tracking_number: tracking_number,
+          carrier: carrier_name,
+          tracking_url: tracking_url || `https://track.easypost.com/${tracking_number}`,
+        })
+        .eq('shopify_order_id', shopify_order_id)
+        .eq('user_id', user.id);
+
+      if (orderUpdateError) {
+        console.error(`[SHOPIFY-FULFILL] shopify_orders update failed:`, orderUpdateError);
+      } else {
+        console.log(`[SHOPIFY-FULFILL] ✅ shopify_orders updated for order ${shopify_order_id}`);
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       fulfillment_id: fulfillmentId,
