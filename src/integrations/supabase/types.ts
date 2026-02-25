@@ -733,6 +733,59 @@ export type Database = {
         }
         Relationships: []
       }
+      returns: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          reason: string | null
+          return_carrier: string | null
+          return_label_url: string | null
+          return_status: string | null
+          return_tracking_number: string | null
+          shopify_order_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          reason?: string | null
+          return_carrier?: string | null
+          return_label_url?: string | null
+          return_status?: string | null
+          return_tracking_number?: string | null
+          shopify_order_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          reason?: string | null
+          return_carrier?: string | null
+          return_label_url?: string | null
+          return_status?: string | null
+          return_tracking_number?: string | null
+          shopify_order_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shopify_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_parcels: {
         Row: {
           height: number
@@ -1030,6 +1083,152 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      shopify_orders: {
+        Row: {
+          carrier: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          financial_status: string | null
+          fulfillment_status: string | null
+          id: string
+          label_url: string | null
+          line_items: string | null
+          order_number: string | null
+          order_status: string | null
+          shipment_record_id: number | null
+          shipping_address: Json | null
+          shipping_address_text: string | null
+          shop: string
+          shopify_fulfillment_id: string | null
+          shopify_order_id: string
+          store_id: string | null
+          sync_status: string | null
+          synced_to_shopify: boolean | null
+          total_price: number | null
+          total_weight: number | null
+          tracking_number: string | null
+          tracking_url: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          financial_status?: string | null
+          fulfillment_status?: string | null
+          id?: string
+          label_url?: string | null
+          line_items?: string | null
+          order_number?: string | null
+          order_status?: string | null
+          shipment_record_id?: number | null
+          shipping_address?: Json | null
+          shipping_address_text?: string | null
+          shop: string
+          shopify_fulfillment_id?: string | null
+          shopify_order_id: string
+          store_id?: string | null
+          sync_status?: string | null
+          synced_to_shopify?: boolean | null
+          total_price?: number | null
+          total_weight?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          financial_status?: string | null
+          fulfillment_status?: string | null
+          id?: string
+          label_url?: string | null
+          line_items?: string | null
+          order_number?: string | null
+          order_status?: string | null
+          shipment_record_id?: number | null
+          shipping_address?: Json | null
+          shipping_address_text?: string | null
+          shop?: string
+          shopify_fulfillment_id?: string | null
+          shopify_order_id?: string
+          store_id?: string | null
+          sync_status?: string | null
+          synced_to_shopify?: boolean | null
+          total_price?: number | null
+          total_weight?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopify_orders_shipment_record_id_fkey"
+            columns: ["shipment_record_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopify_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "shopify_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sync_error_logs: {
+        Row: {
+          api_response: Json | null
+          created_at: string | null
+          error_message: string | null
+          error_type: string
+          id: string
+          order_id: string | null
+          resolved: boolean | null
+          shopify_order_id: string | null
+          user_id: string
+        }
+        Insert: {
+          api_response?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          error_type: string
+          id?: string
+          order_id?: string | null
+          resolved?: boolean | null
+          shopify_order_id?: string | null
+          user_id: string
+        }
+        Update: {
+          api_response?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          error_type?: string
+          id?: string
+          order_id?: string | null
+          resolved?: boolean | null
+          shopify_order_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_error_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shopify_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tracking_records: {
         Row: {

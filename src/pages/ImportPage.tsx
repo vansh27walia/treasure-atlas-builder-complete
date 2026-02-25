@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink, Lock, RefreshCw, Truck } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink, Lock, RefreshCw, Truck, MapPin, Hash, Box } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +25,35 @@ interface ShopifyOrder {
   shop?: string;
 }
 
+interface ShippedOrder {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  shipping_address_text: string;
+  tracking_number: string;
+  tracking_url: string;
+  carrier: string;
+  fulfillment_status: string;
+  synced_to_shopify: boolean;
+  total_weight: number;
+  shop: string;
+  line_items: string;
+  created_at: string;
+  shipment_record_id: number | null;
+  // From joined shipment_records
+  parcel_json?: any;
+  label_url?: string;
+}
+
+const getCarrierTrackingUrl = (carrier: string, trackingNumber: string): string => {
+  const c = carrier?.toLowerCase() || '';
+  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${trackingNumber}`;
+  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${trackingNumber}`;
+  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
+  if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
+  return `https://track.easypost.com/${trackingNumber}`;
+};
+
 const ImportPage = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -37,6 +67,9 @@ const ImportPage = () => {
   const fetchingRef = React.useRef(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewableOrders, setReviewableOrders] = useState<ReviewableOrder[]>([]);
+  const [activeTab, setActiveTab] = useState('unfulfilled');
+  const [shippedOrders, setShippedOrders] = useState<ShippedOrder[]>([]);
+  const [isLoadingShipped, setIsLoadingShipped] = useState(false);
 
   const autoBatch = useAutoBatch();
 
@@ -82,6 +115,7 @@ const ImportPage = () => {
         setIsConnected(true);
         setNeedsReconnect(false);
         fetchShopifyOrders();
+        fetchShippedOrders();
       } else {
         setIsConnected(false);
         setConnectedShops([]);
@@ -132,6 +166,45 @@ const ImportPage = () => {
     } finally {
       setIsLoadingOrders(false);
       fetchingRef.current = false;
+    }
+  };
+
+  const fetchShippedOrders = async () => {
+    if (!user) return;
+    setIsLoadingShipped(true);
+    try {
+      const { data, error } = await supabase
+        .from('shopify_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('fulfillment_status', 'fulfilled')
+        .not('tracking_number', 'is', null)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: ShippedOrder[] = (data || []).map((o: any) => ({
+        id: o.id,
+        order_number: o.order_number || o.shopify_order_id,
+        customer_name: o.customer_name || 'Unknown',
+        shipping_address_text: o.shipping_address_text || '',
+        tracking_number: o.tracking_number || '',
+        tracking_url: o.tracking_url || '',
+        carrier: o.carrier || '',
+        fulfillment_status: o.fulfillment_status || 'fulfilled',
+        synced_to_shopify: o.synced_to_shopify || false,
+        total_weight: o.total_weight || 0,
+        shop: o.shop,
+        line_items: o.line_items || '',
+        created_at: o.created_at ? new Date(o.created_at).toLocaleDateString() : '',
+        shipment_record_id: o.shipment_record_id,
+        label_url: o.label_url,
+      }));
+      setShippedOrders(mapped);
+    } catch (error) {
+      console.error('Error fetching shipped orders:', error);
+    } finally {
+      setIsLoadingShipped(false);
     }
   };
 
@@ -310,7 +383,7 @@ const ImportPage = () => {
 
         {isConnected && (
           <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">
                 Shopify Orders
                 {connectedShops.length > 0 && (
@@ -319,76 +392,157 @@ const ImportPage = () => {
                   </span>
                 )}
               </h2>
-              {isLoadingOrders && (
-                <div className="flex items-center text-muted-foreground">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...
-                </div>
-              )}
             </div>
 
-            {orders.length > 0 ? (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox checked={selectedOrders.length === orders.length && orders.length > 0} onCheckedChange={handleSelectAll} />
-                      </TableHead>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead>Weight</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Date</TableHead>
-                      {connectedShops.length > 1 && <TableHead>Store</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map(order => (
-                      <TableRow key={`${order.shop}-${order.order_id}`}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedOrders.includes(order.order_id)}
-                            onCheckedChange={(checked) => handleSelectOrder(order.order_id, checked as boolean)}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{order.order_id}</TableCell>
-                        <TableCell>{order.customer_name}</TableCell>
-                        <TableCell className="max-w-xs truncate">{order.shipping_address}</TableCell>
-                        <TableCell>{order.total_weight > 0 ? `${order.total_weight} lbs` : '—'}</TableCell>
-                        <TableCell className="max-w-xs truncate">{order.line_items}</TableCell>
-                        <TableCell>{order.created_at}</TableCell>
-                        {connectedShops.length > 1 && (
-                          <TableCell className="text-sm text-muted-foreground">{getStoreName(order.shop || '')}</TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-6">
+                <TabsTrigger value="unfulfilled" className="gap-2">
+                  <Package className="w-4 h-4" />
+                  Unfulfilled ({orders.length})
+                </TabsTrigger>
+                <TabsTrigger value="shipped" className="gap-2">
+                  <Truck className="w-4 h-4" />
+                  Shipped ({shippedOrders.length})
+                </TabsTrigger>
+              </TabsList>
 
-                <div className="flex items-center justify-between mt-6 pt-6 border-t">
-                  <div className="text-sm text-muted-foreground">{selectedOrders.length} of {orders.length} selected</div>
-                  <div className="flex space-x-3">
-                    <Button variant="outline" onClick={handleShipSelected} disabled={selectedOrders.length === 0 || autoBatch.isProcessing}>
-                      {autoBatch.isProcessing ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
-                      ) : (
-                        <><Truck className="w-4 h-4 mr-2" /> Ship Selected ({selectedOrders.length})</>
-                      )}
-                    </Button>
-                    <Button onClick={handleShipAll} disabled={autoBatch.isProcessing}>
-                      <Truck className="w-4 h-4 mr-2" /> Ship All ({orders.length})
-                    </Button>
+              <TabsContent value="unfulfilled">
+                {isLoadingOrders && (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading orders...
                   </div>
-                </div>
-              </>
-            ) : !isLoadingOrders ? (
-              <div className="text-center py-12">
-                <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No unfulfilled orders</h3>
-                <p className="text-muted-foreground">All orders have been fulfilled, or no orders exist yet.</p>
-              </div>
-            ) : null}
+                )}
+                {!isLoadingOrders && orders.length > 0 ? (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">
+                            <Checkbox checked={selectedOrders.length === orders.length && orders.length > 0} onCheckedChange={handleSelectAll} />
+                          </TableHead>
+                          <TableHead>Order #</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Address</TableHead>
+                          <TableHead>Weight</TableHead>
+                          <TableHead>Items</TableHead>
+                          <TableHead>Date</TableHead>
+                          {connectedShops.length > 1 && <TableHead>Store</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {orders.map(order => (
+                          <TableRow key={`${order.shop}-${order.order_id}`}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedOrders.includes(order.order_id)}
+                                onCheckedChange={(checked) => handleSelectOrder(order.order_id, checked as boolean)}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{order.order_id}</TableCell>
+                            <TableCell>{order.customer_name}</TableCell>
+                            <TableCell className="max-w-xs truncate">{order.shipping_address}</TableCell>
+                            <TableCell>{order.total_weight > 0 ? `${order.total_weight} lbs` : '—'}</TableCell>
+                            <TableCell className="max-w-xs truncate">{order.line_items}</TableCell>
+                            <TableCell>{order.created_at}</TableCell>
+                            {connectedShops.length > 1 && (
+                              <TableCell className="text-sm text-muted-foreground">{getStoreName(order.shop || '')}</TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t">
+                      <div className="text-sm text-muted-foreground">{selectedOrders.length} of {orders.length} selected</div>
+                      <div className="flex space-x-3">
+                        <Button variant="outline" onClick={handleShipSelected} disabled={selectedOrders.length === 0 || autoBatch.isProcessing}>
+                          {autoBatch.isProcessing ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
+                          ) : (
+                            <><Truck className="w-4 h-4 mr-2" /> Ship Selected ({selectedOrders.length})</>
+                          )}
+                        </Button>
+                        <Button onClick={handleShipAll} disabled={autoBatch.isProcessing}>
+                          <Truck className="w-4 h-4 mr-2" /> Ship All ({orders.length})
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : !isLoadingOrders ? (
+                  <div className="text-center py-12">
+                    <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No unfulfilled orders</h3>
+                    <p className="text-muted-foreground">All orders have been fulfilled, or no orders exist yet.</p>
+                  </div>
+                ) : null}
+              </TabsContent>
+
+              <TabsContent value="shipped">
+                {isLoadingShipped && (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading shipped orders...
+                  </div>
+                )}
+                {!isLoadingShipped && shippedOrders.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order #</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Address</TableHead>
+                        <TableHead>Weight</TableHead>
+                        <TableHead>Carrier</TableHead>
+                        <TableHead>Tracking #</TableHead>
+                        <TableHead>Shopify Sync</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {shippedOrders.map(order => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">{order.order_number}</TableCell>
+                          <TableCell>{order.customer_name}</TableCell>
+                          <TableCell className="max-w-xs truncate">{order.shipping_address_text}</TableCell>
+                          <TableCell>{order.total_weight > 0 ? `${order.total_weight} lbs` : '—'}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{order.carrier || 'Unknown'}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <a
+                              href={getCarrierTrackingUrl(order.carrier, order.tracking_number)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline font-mono text-sm inline-flex items-center gap-1"
+                            >
+                              {order.tracking_number}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </TableCell>
+                          <TableCell>
+                            {order.synced_to_shopify ? (
+                              <Badge className="bg-green-100 text-green-800 border-green-200">
+                                <Check className="w-3 h-3 mr-1" /> Synced
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
+                                Pending
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{order.created_at}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : !isLoadingShipped ? (
+                  <div className="text-center py-12">
+                    <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No shipped orders yet</h3>
+                    <p className="text-muted-foreground">Orders will appear here after labels are created and synced to Shopify.</p>
+                  </div>
+                ) : null}
+              </TabsContent>
+            </Tabs>
           </Card>
         )}
       </div>
