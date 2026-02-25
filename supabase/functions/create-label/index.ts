@@ -457,15 +457,17 @@ serve(async (req) => {
       shipmentRecord.synced_to_shopify = false;
     }
 
-    const { error: dbError } = await supabaseClient
+    const { data: insertedRecord, error: dbError } = await supabaseClient
       .from('shipment_records')
-      .insert(shipmentRecord);
+      .insert(shipmentRecord)
+      .select('id')
+      .single();
       
     if (dbError) {
       console.error('Error saving shipment record:', dbError);
       // Continue anyway as we already have the label
     } else {
-      console.log(`Successfully saved tracking record for user: ${user.id} with ${RATE_MARKUP_PERCENTAGE}% markup`);
+      console.log(`Successfully saved tracking record for user: ${user.id} with ${RATE_MARKUP_PERCENTAGE}% markup (record id: ${insertedRecord?.id})`);
     }
 
     // Also save to tracking_records table
@@ -508,6 +510,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            shipment_record_id: insertedRecord?.id || null,
             shopify_order_id,
             shopify_shop,
             tracking_number: data.tracking_code,

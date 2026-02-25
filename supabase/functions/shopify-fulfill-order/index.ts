@@ -257,7 +257,7 @@ serve(async (req) => {
     const fulfillmentId = fulfillData.fulfillment?.id;
     console.log(`[SHOPIFY-FULFILL] ✅ Fulfillment created: ${fulfillmentId}`);
 
-    // STEP 3: Update our database
+    // STEP 3: Update shipment_records table
     if (shipment_record_id) {
       const { error: updateError } = await supabaseClient
         .from('shipment_records')
@@ -271,10 +271,33 @@ serve(async (req) => {
         .eq('id', shipment_record_id);
 
       if (updateError) {
-        console.error(`[SHOPIFY-FULFILL] DB update failed:`, updateError);
+        console.error(`[SHOPIFY-FULFILL] shipment_records update failed:`, updateError);
       } else {
-        console.log(`[SHOPIFY-FULFILL] ✅ DB updated for record ${shipment_record_id}`);
+        console.log(`[SHOPIFY-FULFILL] ✅ shipment_records updated for record ${shipment_record_id}`);
       }
+    }
+
+    // STEP 4: Update shopify_orders table with fulfillment data
+    const { error: orderUpdateError } = await supabaseClient
+      .from('shopify_orders')
+      .update({
+        order_status: 'fulfilled',
+        fulfillment_status: 'fulfilled',
+        sync_status: 'synced',
+        synced_to_shopify: true,
+        tracking_number: tracking_number,
+        tracking_url: tracking_url || `https://track.easypost.com/${tracking_number}`,
+        carrier: carrier_name,
+        shopify_fulfillment_id: fulfillmentId?.toString(),
+        shipment_record_id: shipment_record_id || null,
+      })
+      .eq('shopify_order_id', shopify_order_id)
+      .eq('user_id', user.id);
+
+    if (orderUpdateError) {
+      console.error(`[SHOPIFY-FULFILL] shopify_orders update failed:`, orderUpdateError);
+    } else {
+      console.log(`[SHOPIFY-FULFILL] ✅ shopify_orders updated for order ${shopify_order_id}`);
     }
 
     return new Response(JSON.stringify({
