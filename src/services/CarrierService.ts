@@ -214,7 +214,7 @@ class CarrierService {
   /**
    * Creates a shipping label with customs info and automatically saves tracking data with user association
    */
-  public async createLabel(shipmentId: string, rateId: string, customsInfo?: any, carrier: CarrierType = 'easypost'): Promise<{
+  public async createLabel(shipmentId: string, rateId: string, customsInfo?: any, carrier: CarrierType = 'easypost', shopifyMeta?: { shopify_order_id?: string; shopify_shop?: string }): Promise<{
     labelUrl: string;
     trackingCode: string;
     chargedRate?: string;
