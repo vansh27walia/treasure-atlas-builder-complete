@@ -385,9 +385,19 @@ export const useBulkUpload = () => {
         pickupAddress
       });
 
+      // Attach Shopify metadata to shipments for fulfillment sync-back
+      const shipmentsWithShopify = shipmentsToProcess.map(s => {
+        const reference = s.details?.reference || s.id;
+        const shopifyMeta = shopifyOrderMapRef.current[reference];
+        if (shopifyMeta) {
+          return { ...s, shopify_order_id: shopifyMeta.shopify_order_id, shopify_shop: shopifyMeta.shop };
+        }
+        return s;
+      });
+
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: shipmentsToProcess,
+          shipments: shipmentsWithShopify,
           pickupAddress,
           labelOptions: {
             generateBatch: true,
