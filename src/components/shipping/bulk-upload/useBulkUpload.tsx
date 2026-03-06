@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
+  // Ref to hold Shopify order mapping for fulfillment sync-back
+  const shopifyOrderMapRef = useRef<Record<string, { shopify_order_id: string; shop: string }>>({});
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [batchError, setBatchError] = useState<{ packageNumber: number; error: string; shipmentId: string } | null>(null);
   const [labelGenerationProgress, setLabelGenerationProgress] = useState({
