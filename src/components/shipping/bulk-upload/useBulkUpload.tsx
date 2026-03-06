@@ -164,10 +164,21 @@ export const useBulkUpload = () => {
     
     if (shopifyCSV && isShopifyBatch === 'true') {
       console.log('🛒 Auto-processing Shopify orders from sessionStorage...');
+      // Read and store Shopify order mapping before clearing
+      const orderMapStr = sessionStorage.getItem('shopify_order_map');
+      if (orderMapStr) {
+        try {
+          shopifyOrderMapRef.current = JSON.parse(orderMapStr);
+          console.log('📦 Loaded Shopify order map:', Object.keys(shopifyOrderMapRef.current).length, 'orders');
+        } catch (e) {
+          console.error('Failed to parse shopify_order_map:', e);
+        }
+      }
       // Clear immediately to prevent re-processing on re-render
       sessionStorage.removeItem('shopify_auto_csv');
       sessionStorage.removeItem('shopify_auto_batch');
       sessionStorage.removeItem('shopify_order_count');
+      sessionStorage.removeItem('shopify_order_map');
       
       // Create a File object from the CSV string and trigger upload
       const blob = new Blob([shopifyCSV], { type: 'text/csv' });
