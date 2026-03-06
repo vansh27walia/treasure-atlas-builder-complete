@@ -613,7 +613,7 @@ serve(async (req: Request) => {
         const labelWithStoredUrls = await processAndStoreLabel(easypostLabelData);
 
         // Prepare the record for database insertion, using the stored_label_url
-        const shipmentRecord = {
+        const shipmentRecord: Record<string, any> = {
           user_id: user.id,
           shipment_id: shipment.easypost_id, // Use the EasyPost ID as the shipment_id for your database record
           rate_id: shipment.selectedRateId,
@@ -634,8 +634,16 @@ serve(async (req: Request) => {
           updated_at: new Date().toISOString()
         };
 
+        // Add Shopify fields if this shipment has Shopify metadata
+        if (shipment.shopify_order_id) {
+          shipmentRecord.shopify_order_id = shipment.shopify_order_id;
+          shipmentRecord.shopify_shop = shipment.shopify_shop || null;
+          shipmentRecord.shopify_sync_status = 'pending';
+          shipmentRecord.synced_to_shopify = false;
+        }
+
         // Save tracking record to Supabase database (using the user's client with RLS)
-        const { error: dbError } = await supabaseClient.from('shipment_records').insert(shipmentRecord);
+        const { data: insertedRecord, error: dbError } = await supabaseClient.from('shipment_records').insert(shipmentRecord).select('id').single();
         if (dbError) {
           console.error('Error saving individual shipment record to Supabase DB:', dbError);
           // Don't throw, just log and mark as failed for DB record, but label generation might still be successful
@@ -648,6 +656,37 @@ serve(async (req: Request) => {
           continue; // Move to next shipment
         } else {
           console.log(`Successfully saved tracking record for shipment ${shipment.id} to DB.`);
+        }
+
+        // Trigger Shopify fulfillment sync if this is a Shopify order
+        if (shipment.shopify_order_id && shipment.shopify_shop && labelWithStoredUrls.tracking_code) {
+          try {
+            console.log(`[BULK-LABELS] Triggering Shopify fulfillment for order ${shipment.shopify_order_id}`);
+            const fulfillUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/shopify-fulfill-order`;
+            // Fire and forget — don't block label response
+            fetch(fulfillUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                shipment_record_id: insertedRecord?.id || null,
+                shopify_order_id: shipment.shopify_order_id,
+                shopify_shop: shipment.shopify_shop,
+                tracking_number: labelWithStoredUrls.tracking_code,
+                carrier_name: labelWithStoredUrls.selected_rate?.carrier || 'Unknown',
+                tracking_url: `https://track.easypost.com/${labelWithStoredUrls.tracking_code}`,
+                notify_customer: true,
+              }),
+            }).then(res => {
+              console.log(`[BULK-LABELS] Shopify fulfillment response for ${shipment.shopify_order_id}: ${res.status}`);
+            }).catch(err => {
+              console.error(`[BULK-LABELS] Shopify fulfillment error for ${shipment.shopify_order_id}:`, err);
+            });
+          } catch (e) {
+            console.error(`[BULK-LABELS] Failed to trigger Shopify fulfillment:`, e);
+          }
         }
 
         // Prepare the response object for the frontend

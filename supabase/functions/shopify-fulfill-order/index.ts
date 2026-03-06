@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SHOPIFY_API_VERSION = '2024-01';
+const SHOPIFY_API_VERSION = '2025-01';
 const MAX_RETRIES = 3;
 
 interface FulfillmentRequest {
