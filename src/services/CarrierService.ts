@@ -268,7 +268,9 @@ class CarrierService {
             shipmentId, 
             rateId, 
             carrier: 'easypost',
-            customsInfo 
+            customsInfo,
+            shopify_order_id: shopifyMeta?.shopify_order_id,
+            shopify_shop: shopifyMeta?.shopify_shop,
           }
         });
 
