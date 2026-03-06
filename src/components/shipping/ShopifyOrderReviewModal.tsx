@@ -26,6 +26,8 @@ export interface ReviewableOrder {
   height: number;
   line_items: string;
   approved: boolean;
+  shopify_order_id?: string;
+  shop?: string;
 }
 
 interface ShopifyOrderReviewModalProps {

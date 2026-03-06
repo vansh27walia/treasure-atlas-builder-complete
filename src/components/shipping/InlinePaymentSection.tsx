@@ -70,7 +70,9 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
           options: {
             label_format: 'PDF',
             label_size: '4x6'
-          }
+          },
+          shopify_order_id: shipmentDetails?.shopify_order_id || undefined,
+          shopify_shop: shipmentDetails?.shopify_shop || undefined,
         }
       });
 

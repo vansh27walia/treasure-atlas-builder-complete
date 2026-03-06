@@ -245,6 +245,7 @@ const ImportPage = () => {
         weight: mapped.weight, length: mapped.length,
         width: mapped.width, height: mapped.height,
         line_items: o.line_items, approved: false,
+        shopify_order_id: o.shopify_order_id, shop: o.shop,
       };
     });
     setReviewableOrders(reviewable);

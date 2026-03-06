@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
+  // Ref to hold Shopify order mapping for fulfillment sync-back
+  const shopifyOrderMapRef = useRef<Record<string, { shopify_order_id: string; shop: string }>>({});
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [batchError, setBatchError] = useState<{ packageNumber: number; error: string; shipmentId: string } | null>(null);
   const [labelGenerationProgress, setLabelGenerationProgress] = useState({
@@ -164,10 +166,21 @@ export const useBulkUpload = () => {
     
     if (shopifyCSV && isShopifyBatch === 'true') {
       console.log('🛒 Auto-processing Shopify orders from sessionStorage...');
+      // Read and store Shopify order mapping before clearing
+      const orderMapStr = sessionStorage.getItem('shopify_order_map');
+      if (orderMapStr) {
+        try {
+          shopifyOrderMapRef.current = JSON.parse(orderMapStr);
+          console.log('📦 Loaded Shopify order map:', Object.keys(shopifyOrderMapRef.current).length, 'orders');
+        } catch (e) {
+          console.error('Failed to parse shopify_order_map:', e);
+        }
+      }
       // Clear immediately to prevent re-processing on re-render
       sessionStorage.removeItem('shopify_auto_csv');
       sessionStorage.removeItem('shopify_auto_batch');
       sessionStorage.removeItem('shopify_order_count');
+      sessionStorage.removeItem('shopify_order_map');
       
       // Create a File object from the CSV string and trigger upload
       const blob = new Blob([shopifyCSV], { type: 'text/csv' });
@@ -372,9 +385,19 @@ export const useBulkUpload = () => {
         pickupAddress
       });
 
+      // Attach Shopify metadata to shipments for fulfillment sync-back
+      const shipmentsWithShopify = shipmentsToProcess.map(s => {
+        const reference = s.details?.reference || s.id;
+        const shopifyMeta = shopifyOrderMapRef.current[reference];
+        if (shopifyMeta) {
+          return { ...s, shopify_order_id: shopifyMeta.shopify_order_id, shopify_shop: shopifyMeta.shop };
+        }
+        return s;
+      });
+
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: shipmentsToProcess,
+          shipments: shipmentsWithShopify,
           pickupAddress,
           labelOptions: {
             generateBatch: true,

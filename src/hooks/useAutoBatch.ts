@@ -69,10 +69,25 @@ export const useAutoBatch = () => {
       const validRows = rows.filter(r => r.to_name && r.to_street1 && r.to_city && r.to_state && r.to_zip);
       if (validRows.length === 0) throw new Error('No valid orders.');
 
+      // Build a mapping of order_id (reference) → shopify metadata for fulfillment sync
+      const shopifyOrderMap: Record<string, { shopify_order_id: string; shop: string }> = {};
+      orders.forEach(o => {
+        if (o.shopify_order_id && o.shop) {
+          shopifyOrderMap[o.order_id] = {
+            shopify_order_id: o.shopify_order_id,
+            shop: o.shop,
+          };
+        }
+      });
+
       const csvContent = rowsToCSV(validRows);
       sessionStorage.setItem('shopify_auto_csv', csvContent);
       sessionStorage.setItem('shopify_auto_batch', 'true');
       sessionStorage.setItem('shopify_order_count', validRows.length.toString());
+      // Store Shopify order mapping so bulk label creation can trigger fulfillment sync
+      if (Object.keys(shopifyOrderMap).length > 0) {
+        sessionStorage.setItem('shopify_order_map', JSON.stringify(shopifyOrderMap));
+      }
       setState({ isProcessing: false, error: null });
       toast.success(`${validRows.length} orders confirmed! Fetching rates...`);
       return csvContent;
