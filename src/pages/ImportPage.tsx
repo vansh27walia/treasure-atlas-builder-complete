@@ -158,8 +158,19 @@ const ImportPage = () => {
         return;
       }
       if (apiError && (!fetchedOrders || fetchedOrders.length === 0)) { toast.error(apiError); return; }
-      setOrders(fetchedOrders || []);
-      if (fetchedOrders?.length > 0) toast.success(`Loaded ${fetchedOrders.length} unfulfilled orders`);
+
+      // Filter out orders that are already fulfilled locally (in shipped orders)
+      const { data: fulfilledLocal } = await supabase
+        .from('shopify_orders')
+        .select('shopify_order_id')
+        .eq('user_id', user.id)
+        .eq('fulfillment_status', 'fulfilled');
+      
+      const fulfilledIds = new Set((fulfilledLocal || []).map(o => o.shopify_order_id));
+      const filtered = (fetchedOrders || []).filter((o: ShopifyOrder) => !fulfilledIds.has(o.shopify_order_id));
+
+      setOrders(filtered);
+      if (filtered.length > 0) toast.success(`Loaded ${filtered.length} unfulfilled orders`);
     } catch (error) {
       console.error('Fetch orders error:', error);
       toast.error('Failed to fetch orders');
