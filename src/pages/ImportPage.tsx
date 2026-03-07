@@ -490,6 +490,12 @@ const ImportPage = () => {
               </TabsContent>
 
               <TabsContent value="shipped">
+                <div className="flex justify-end mb-4">
+                  <Button variant="outline" size="sm" onClick={fetchShippedOrders} disabled={isLoadingShipped}>
+                    {isLoadingShipped ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    Refresh
+                  </Button>
+                </div>
                 {isLoadingShipped && (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading shipped orders...
