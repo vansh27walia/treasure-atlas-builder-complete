@@ -40,19 +40,10 @@ interface ShippedOrder {
   line_items: string;
   created_at: string;
   shipment_record_id: number | null;
-  // From joined shipment_records
+  est_delivery_date?: string | null;
   parcel_json?: any;
   label_url?: string;
 }
-
-const getCarrierTrackingUrl = (carrier: string, trackingNumber: string): string => {
-  const c = carrier?.toLowerCase() || '';
-  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${trackingNumber}`;
-  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${trackingNumber}`;
-  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
-  if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
-  return `https://track.easypost.com/${trackingNumber}`;
-};
 
 const ImportPage = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -186,7 +177,7 @@ const ImportPage = () => {
     try {
       const { data, error } = await supabase
         .from('shopify_orders')
-        .select('*')
+        .select('*, shipment_records:shipment_record_id(est_delivery_date)')
         .eq('user_id', user.id)
         .eq('fulfillment_status', 'fulfilled')
         .not('tracking_number', 'is', null)
@@ -210,6 +201,7 @@ const ImportPage = () => {
         created_at: o.created_at ? new Date(o.created_at).toLocaleDateString() : '',
         shipment_record_id: o.shipment_record_id,
         label_url: o.label_url,
+        est_delivery_date: o.shipment_records?.est_delivery_date || null,
       }));
       setShippedOrders(mapped);
     } catch (error) {
@@ -511,6 +503,7 @@ const ImportPage = () => {
                         <TableHead>Weight</TableHead>
                         <TableHead>Carrier</TableHead>
                         <TableHead>Tracking #</TableHead>
+                        <TableHead>Est. Delivery</TableHead>
                         <TableHead>Shopify Sync</TableHead>
                         <TableHead>Date</TableHead>
                       </TableRow>
@@ -526,15 +519,20 @@ const ImportPage = () => {
                             <Badge variant="outline">{order.carrier || 'Unknown'}</Badge>
                           </TableCell>
                           <TableCell>
-                            <a
-                              href={getCarrierTrackingUrl(order.carrier, order.tracking_number)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline font-mono text-sm inline-flex items-center gap-1"
+                            <button
+                              onClick={() => navigate(`/tracking?search=${encodeURIComponent(order.tracking_number)}`)}
+                              className="text-primary hover:underline font-mono text-sm inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                             >
                               {order.tracking_number}
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                              <Truck className="w-3 h-3" />
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            {order.est_delivery_date ? (
+                              <span className="text-sm font-medium">{new Date(order.est_delivery_date).toLocaleDateString()}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             {order.synced_to_shopify ? (
