@@ -299,21 +299,36 @@ export const useShipmentRates = (
     }
   };
   
-  const handleBulkApplyCarrier = (carrierId: string, serviceId: string) => {
+  const handleBulkApplyCarrier = (carrierName: string, serviceName?: string) => {
     const latest = latestResultsRef.current;
     if (!latest) return;
     
+    const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const targetCarrier = normalize(carrierName);
+    const targetService = serviceName ? normalize(serviceName) : '';
+    
+    let matchCount = 0;
+    
     const updatedShipments = latest.processedShipments.map(shipment => {
-      const normalize = (s: string) => (s || '').toLowerCase().trim();
-      const targetCarrier = normalize(carrierId);
-      const targetService = normalize(serviceId);
-      const matchingRate = shipment.availableRates?.find((rate: any) => {
+      if (!shipment.availableRates || shipment.availableRates.length === 0) return shipment;
+      
+      // Find matching rate: carrier must match, service is optional
+      const matchingRate = shipment.availableRates.find((rate: any) => {
         const rc = normalize(String(rate.carrier));
         const rs = normalize(String(rate.service));
-        return (rc === targetCarrier || rc.includes(targetCarrier)) && (rs === targetService || rs.includes(targetService));
+        
+        const carrierMatch = rc === targetCarrier || rc.includes(targetCarrier) || targetCarrier.includes(rc);
+        if (!carrierMatch) return false;
+        
+        // If no service specified, match any rate from this carrier
+        if (!targetService) return true;
+        
+        // Flexible service matching
+        return rs === targetService || rs.includes(targetService) || targetService.includes(rs);
       });
       
       if (matchingRate) {
+        matchCount++;
         return { 
           ...shipment, 
           selectedRateId: matchingRate.id,
@@ -323,11 +338,10 @@ export const useShipmentRates = (
         } as any;
       }
       
-      // If no matching rate, keep the current selection
       return shipment as any;
     });
     
-    // Recalculate totals including insurance ($2 per $100, rounded up), respecting disabled state
+    // Recalculate totals including insurance
     const updatedWithInsurance = updatedShipments.map((s: any) => {
       const declared = (s.declared_value ?? s.details?.declared_value ?? 0) as number;
       const insuranceCost = s.insurance_enabled === false ? 0 : (declared > 0 ? Math.ceil(Number(declared) / 100) * 2 : 0);
@@ -346,7 +360,11 @@ export const useShipmentRates = (
       totalCost
     });
     
-    toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
+    if (matchCount > 0) {
+      toast.success(`Applied ${carrierName}${serviceName ? ' ' + serviceName : ''} to ${matchCount} shipments`);
+    } else {
+      toast.warning(`No shipments have ${carrierName}${serviceName ? ' ' + serviceName : ''} available in their rates`);
+    }
   };
 
   return {
