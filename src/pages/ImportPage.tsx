@@ -45,15 +45,6 @@ interface ShippedOrder {
   label_url?: string;
 }
 
-const getCarrierTrackingUrl = (carrier: string, trackingNumber: string): string => {
-  const c = carrier?.toLowerCase() || '';
-  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${trackingNumber}`;
-  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${trackingNumber}`;
-  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
-  if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
-  return `https://track.easypost.com/${trackingNumber}`;
-};
-
 const ImportPage = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
