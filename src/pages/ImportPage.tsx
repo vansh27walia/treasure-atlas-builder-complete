@@ -62,6 +62,8 @@ const ImportPage = () => {
   const [activeTab, setActiveTab] = useState('unfulfilled');
   const [shippedOrders, setShippedOrders] = useState<ShippedOrder[]>([]);
   const [isLoadingShipped, setIsLoadingShipped] = useState(false);
+  const [showPickupOverlay, setShowPickupOverlay] = useState(false);
+  const [pendingApprovedOrders, setPendingApprovedOrders] = useState<ReviewableOrder[]>([]);
 
   const autoBatch = useAutoBatch();
 
