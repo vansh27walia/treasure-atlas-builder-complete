@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink, Lock, RefreshCw, Truck, MapPin, Hash, Box } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -267,18 +266,11 @@ const ImportPage = () => {
     prepareReviewOrders(allIds);
   };
 
-  const [isFetchingRates, setIsFetchingRates] = useState(false);
-
   const handleReviewConfirm = async (approvedOrders: ReviewableOrder[]) => {
     setShowReviewModal(false);
-    setIsFetchingRates(true);
-    try {
-      const csv = await autoBatch.processReviewedOrders(approvedOrders);
-      if (csv) {
-        navigate('/bulk-upload');
-      }
-    } finally {
-      setIsFetchingRates(false);
+    const csv = await autoBatch.processReviewedOrders(approvedOrders);
+    if (csv) {
+      navigate('/bulk-upload');
     }
   };
 
@@ -577,25 +569,6 @@ const ImportPage = () => {
         orders={reviewableOrders}
         onConfirmAll={handleReviewConfirm}
       />
-
-      {/* Full-screen loading overlay while rates are being fetched */}
-      {isFetchingRates && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
-          <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-card border shadow-lg max-w-md text-center">
-            <div className="relative">
-              <Loader2 className="w-12 h-12 animate-spin text-primary" />
-              <Truck className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-            </div>
-            <h3 className="text-xl font-semibold">Fetching Shipping Rates</h3>
-            <p className="text-muted-foreground text-sm">
-              We're processing your orders and fetching the best available rates from all carriers. This may take a moment…
-            </p>
-            <div className="w-full">
-              <Progress value={undefined} className="h-2 animate-pulse" />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
