@@ -1,12 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Check, ChevronLeft, ChevronRight, Edit, Globe, Package, Phone, Save, Truck } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Globe, Package, Phone, Truck, Mail, MapPin, Ruler } from 'lucide-react';
 import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
 
 export interface ReviewableOrder {
@@ -45,8 +45,8 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
 }) => {
   const [orders, setOrders] = useState<ReviewableOrder[]>(initialOrders);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [weightUnit, setWeightUnit] = useState<'lb' | 'oz' | 'kg'>('lb');
 
-  // Reset state when modal opens with new orders
   React.useEffect(() => {
     if (open) {
       setOrders(initialOrders.map(o => ({ ...o, approved: false })));
@@ -65,7 +65,6 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
 
   const handleApprove = () => {
     setOrders(prev => prev.map((o, i) => i === currentIndex ? { ...o, approved: true } : o));
-    // Auto-advance to next unapproved
     const nextUnapproved = orders.findIndex((o, i) => i > currentIndex && !o.approved);
     if (nextUnapproved !== -1) {
       setCurrentIndex(nextUnapproved);
@@ -82,12 +81,15 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
             Review Orders ({currentIndex + 1} / {orders.length})
           </DialogTitle>
+          <DialogDescription>
+            Review and edit recipient address and package dimensions for each order before shipping.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Progress Bar */}
@@ -119,78 +121,76 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
           ))}
         </div>
 
-        {/* Edit Form - matches EditShipmentModal layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {/* Left Column - Address */}
-          <div className="space-y-3">
-            <div>
-              <Label>Recipient Name</Label>
-              <Input
-                value={current.customer_name}
-                onChange={(e) => updateField('customer_name', e.target.value)}
-                placeholder="Customer name"
-              />
-            </div>
+        {/* ── ADDRESS SECTION (matches FreshEditModal layout) ── */}
+        <div className="space-y-6 mt-2">
+          <div>
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <MapPin className="h-4 w-4" /> Recipient Address
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Recipient Name</Label>
+                <Input
+                  value={current.customer_name}
+                  onChange={(e) => updateField('customer_name', e.target.value)}
+                  placeholder="Customer name"
+                />
+              </div>
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> Phone Number
+                </Label>
+                <Input
+                  value={current.phone}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                  placeholder="Phone number"
+                />
+              </div>
 
-            <div>
-              <Label className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" /> Phone Number
-              </Label>
-              <Input
-                value={current.phone}
-                onChange={(e) => updateField('phone', e.target.value)}
-                placeholder="Phone number"
-              />
-            </div>
+              {/* Google Autocomplete - full width, on top */}
+              <div className="md:col-span-2">
+                <Label>Address (Google Autocomplete)</Label>
+                <AddressAutoComplete
+                  onChange={(v) => updateField('to_street1', v)}
+                  onAddressSelected={() => {}}
+                  onFullAddressPopulated={(addr) => {
+                    setOrders(prev => prev.map((o, i) => i === currentIndex ? {
+                      ...o,
+                      to_street1: addr.street1 || addr.street || '',
+                      to_city: addr.city || '',
+                      to_state: addr.state || '',
+                      to_zip: addr.zip || '',
+                      to_country: addr.country || 'US',
+                    } : o));
+                  }}
+                  placeholder="Start typing address..."
+                />
+                {current.to_street1 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Current: {current.to_street1}
+                  </p>
+                )}
+              </div>
 
-            <div>
-              <Label>Address (Google Autocomplete)</Label>
-              <AddressAutoComplete
-                onChange={(v) => updateField('to_street1', v)}
-                onAddressSelected={() => {}}
-                onFullAddressPopulated={(addr) => {
-                  setOrders(prev => prev.map((o, i) => i === currentIndex ? {
-                    ...o,
-                    to_street1: addr.street || '',
-                    to_city: addr.city || '',
-                    to_state: addr.state || '',
-                    to_zip: addr.zip || '',
-                    to_country: addr.country || 'US',
-                  } : o));
-                }}
-                placeholder="Start typing address..."
-              />
-              {current.to_street1 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Current: {current.to_street1}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Apartment / Suite</Label>
-              <Input
-                value={current.to_street2}
-                onChange={(e) => updateField('to_street2', e.target.value)}
-                placeholder="Apt, Suite, etc."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Apartment / Suite</Label>
+                <Input
+                  value={current.to_street2}
+                  onChange={(e) => updateField('to_street2', e.target.value)}
+                  placeholder="Apt, Suite, etc. (optional)"
+                />
+              </div>
               <div>
                 <Label>City</Label>
-                <Input value={current.to_city} onChange={(e) => updateField('to_city', e.target.value)} />
+                <Input value={current.to_city} onChange={(e) => updateField('to_city', e.target.value)} placeholder="City" />
               </div>
               <div>
                 <Label>State</Label>
-                <Input value={current.to_state} onChange={(e) => updateField('to_state', e.target.value)} />
+                <Input value={current.to_state} onChange={(e) => updateField('to_state', e.target.value)} placeholder="State code (e.g., CA)" />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Zip Code</Label>
-                <Input value={current.to_zip} onChange={(e) => updateField('to_zip', e.target.value)} />
+                <Input value={current.to_zip} onChange={(e) => updateField('to_zip', e.target.value)} placeholder="ZIP Code" />
               </div>
               <div>
                 <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Country</Label>
@@ -205,24 +205,19 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Email</Label>
+                <Input value={current.email} onChange={(e) => updateField('email', e.target.value)} placeholder="Email address" />
+              </div>
             </div>
           </div>
 
-          {/* Right Column - Package */}
-          <div className="space-y-3">
-            <div>
-              <Label className="font-semibold text-primary">Weight (lbs)</Label>
-              <Input
-                type="number"
-                value={current.weight}
-                onChange={(e) => updateField('weight', Number(e.target.value))}
-                step="0.1"
-                min="0.1"
-                className="text-lg font-semibold"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
+          {/* ── PACKAGE DIMENSIONS SECTION (separate, like FreshEditModal) ── */}
+          <div>
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <Ruler className="h-4 w-4" /> Package Dimensions
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div>
                 <Label>Length (in)</Label>
                 <Input type="number" value={current.length} onChange={(e) => updateField('length', Number(e.target.value))} step="0.1" min="0.1" />
@@ -235,23 +230,41 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
                 <Label>Height (in)</Label>
                 <Input type="number" value={current.height} onChange={(e) => updateField('height', Number(e.target.value))} step="0.1" min="0.1" />
               </div>
+              <div>
+                <Label>Weight</Label>
+                <Input
+                  type="number"
+                  value={current.weight}
+                  onChange={(e) => updateField('weight', Number(e.target.value))}
+                  step="0.01"
+                  min="0.01"
+                  className="text-base font-semibold"
+                />
+              </div>
+              <div>
+                <Label>Unit</Label>
+                <Select value={weightUnit} onValueChange={(v) => setWeightUnit(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lb">Pounds (lb)</SelectItem>
+                    <SelectItem value="oz">Ounces (oz)</SelectItem>
+                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+          </div>
 
-            <div>
-              <Label>Email</Label>
-              <Input value={current.email} onChange={(e) => updateField('email', e.target.value)} placeholder="Email" />
-            </div>
+          {/* Line Items */}
+          <div>
+            <Label>Line Items</Label>
+            <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md mt-1">{current.line_items || 'No items'}</p>
+          </div>
 
-            <div>
-              <Label>Line Items</Label>
-              <p className="text-sm text-muted-foreground bg-muted p-2 rounded">{current.line_items || 'No items'}</p>
-            </div>
-
-            <div className="mt-2">
-              <Badge variant={current.approved ? 'default' : 'secondary'} className={current.approved ? 'bg-green-600' : ''}>
-                {current.approved ? '✅ Approved' : '⏳ Pending Review'}
-              </Badge>
-            </div>
+          <div>
+            <Badge variant={current.approved ? 'default' : 'secondary'} className={current.approved ? 'bg-green-600' : ''}>
+              {current.approved ? '✅ Approved' : '⏳ Pending Review'}
+            </Badge>
           </div>
         </div>
 
