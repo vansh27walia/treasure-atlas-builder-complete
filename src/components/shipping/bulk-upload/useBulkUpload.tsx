@@ -26,6 +26,9 @@ export const useBulkUpload = () => {
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [isShopifyAutoProcessing, setIsShopifyAutoProcessing] = useState(
+    () => sessionStorage.getItem('shopify_auto_batch') === 'true'
+  );
   
   const {
     file,
