@@ -200,6 +200,7 @@ export const useBulkUpload = () => {
     const isShopifyBatch = sessionStorage.getItem('shopify_auto_batch');
     
     if (shopifyCSV && isShopifyBatch === 'true') {
+      setIsShopifyAutoProcessing(true);
       console.log('🛒 Auto-processing Shopify orders from sessionStorage...');
       // Read and store Shopify order mapping before clearing
       const orderMapStr = sessionStorage.getItem('shopify_order_map');
@@ -245,6 +246,9 @@ export const useBulkUpload = () => {
             toast.error('Please set a pickup address in Settings first.');
           }
         }
+        setIsShopifyAutoProcessing(false);
+        // Clean up fromAddress after use
+        sessionStorage.removeItem('fromAddress');
       };
       
       attemptUpload();
