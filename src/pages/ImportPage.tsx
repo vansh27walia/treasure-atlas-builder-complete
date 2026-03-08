@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ShopifyOrderReviewModal, { ReviewableOrder } from '@/components/shipping/ShopifyOrderReviewModal';
+import PickupAddressOverlay from '@/components/shipping/PickupAddressOverlay';
 import { useAutoBatch } from '@/hooks/useAutoBatch';
 import { ShopifyOrderRaw, mapShopifyOrderToRow } from '@/utils/shopifyHeaderMapping';
 
