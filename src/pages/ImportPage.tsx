@@ -503,6 +503,7 @@ const ImportPage = () => {
                         <TableHead>Weight</TableHead>
                         <TableHead>Carrier</TableHead>
                         <TableHead>Tracking #</TableHead>
+                        <TableHead>Est. Delivery</TableHead>
                         <TableHead>Shopify Sync</TableHead>
                         <TableHead>Date</TableHead>
                       </TableRow>
@@ -525,6 +526,13 @@ const ImportPage = () => {
                               {order.tracking_number}
                               <Truck className="w-3 h-3" />
                             </button>
+                          </TableCell>
+                          <TableCell>
+                            {order.est_delivery_date ? (
+                              <span className="text-sm font-medium">{new Date(order.est_delivery_date).toLocaleDateString()}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             {order.synced_to_shopify ? (
