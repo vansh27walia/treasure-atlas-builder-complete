@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink, Eye, Mail } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink, Eye, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { CancelLabelDialog } from '@/components/shipping/CancelLabelDialog';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { toast } from 'sonner';
+
 interface TrackingEvent {
   id: string;
   description: string;
@@ -43,7 +46,6 @@ interface TrackingListItemProps {
   onSelect: (trackingCode: string) => void;
 }
 
-// Helper function for getting status icon
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'delivered':
@@ -56,116 +58,145 @@ const getStatusIcon = (status: string) => {
     case 'canceled':
       return <span className="text-red-600 font-bold text-xl">✕</span>;
     default:
-      return <Clock className="h-5 w-5 text-gray-500" />;
+      return <Clock className="h-5 w-5 text-muted-foreground" />;
   }
 };
 
-// Helper function to check if label can be cancelled
 const canCancelLabel = (status: string) => {
   const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
   return !ineligibleStatuses.includes(status.toLowerCase());
 };
+
 const TrackingListItem: React.FC<TrackingListItemProps> = ({
   item,
   isSelected,
   onSelect
 }) => {
+  const navigate = useNavigate();
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'delivered':
-        return <Badge className="bg-green-500">Delivered</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Delivered</Badge>;
       case 'in_transit':
-        return <Badge className="bg-blue-500">In Transit</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">In Transit</Badge>;
       case 'out_for_delivery':
-        return <Badge className="bg-purple-500">Out for Delivery</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Out for Delivery</Badge>;
       case 'cancelled':
       case 'canceled':
-        return <Badge className="bg-red-500">Canceled</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-200">Canceled</Badge>;
       case 'refund_pending':
-        return <Badge className="bg-orange-500">Refund Pending</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Refund Pending</Badge>;
       default:
-        return <Badge className="bg-gray-500">Processing</Badge>;
+        return <Badge variant="secondary">Processing</Badge>;
     }
   };
-  const canCancelLabel = (status: string) => {
-    const ineligibleStatuses = ['cancelled', 'canceled', 'refund_pending', 'delivered', 'out_for_delivery', 'in_transit'];
-    return !ineligibleStatuses.includes(status.toLowerCase());
-  };
+
   const getEstimatedDeliveryText = (item: TrackingInfo) => {
     if (item.status === 'delivered') {
       return 'Delivered on ' + new Date(item.last_update).toLocaleDateString();
     }
     if (item.estimated_delivery) {
-      return `Est. delivery: ${new Date(item.estimated_delivery.date).toLocaleDateString()} ${item.estimated_delivery.time_range}`;
+      return `Est. ${new Date(item.estimated_delivery.date).toLocaleDateString()} ${item.estimated_delivery.time_range}`;
     }
     if (item.eta) {
-      return 'Est. delivery: ' + new Date(item.eta).toLocaleDateString();
+      return 'Est. ' + new Date(item.eta).toLocaleDateString();
     }
-    return 'No estimated delivery time';
+    return 'No ETA available';
   };
+
+  const handleTrackingClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/tracking?search=${encodeURIComponent(item.tracking_code)}`);
+  };
+
   const isCanceled = item.status === 'cancelled' || item.status === 'canceled';
-  return <div className={`border rounded-md overflow-hidden shadow-sm ${isCanceled ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
-      <div className={`p-4 flex justify-between items-center cursor-pointer ${isCanceled ? 'hover:bg-red-100' : 'hover:bg-gray-50'}`} onClick={() => onSelect(item.tracking_code)}>
-        <div className="flex items-center">
-          {getStatusIcon(item.status)}
-          <div className="ml-3">
-            <div className="font-semibold flex items-center">
-              {item.carrier} - {item.tracking_code}
+
+  return (
+    <Card className={`overflow-hidden transition-all duration-200 ${isCanceled ? 'border-red-200 bg-red-50/50' : isSelected ? 'border-primary/40 shadow-md' : 'hover:shadow-md hover:border-primary/20'}`}>
+      {/* Header Row */}
+      <div
+        className="p-4 flex items-center justify-between cursor-pointer"
+        onClick={() => onSelect(item.tracking_code)}
+      >
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          {/* Status Icon */}
+          <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
+            item.status === 'delivered' ? 'bg-green-100' :
+            item.status === 'in_transit' ? 'bg-blue-100' :
+            item.status === 'out_for_delivery' ? 'bg-purple-100' :
+            isCanceled ? 'bg-red-100' : 'bg-muted'
+          }`}>
+            {getStatusIcon(item.status)}
+          </div>
+
+          {/* Info */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-foreground">{item.carrier}</span>
+              <span className="text-muted-foreground">•</span>
+              <button
+                onClick={handleTrackingClick}
+                className="font-mono text-sm text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+              >
+                {item.tracking_code}
+              </button>
             </div>
-            <div className="text-sm text-gray-500">
-              To: {item.recipient} • {item.recipient_address}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm text-muted-foreground truncate mt-0.5">
+              To: {item.recipient} — {item.recipient_address}
+            </p>
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               {getStatusBadge(item.status)}
-              <span className="text-sm text-gray-500">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
                 {getEstimatedDeliveryText(item)}
               </span>
             </div>
           </div>
         </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <Badge variant="outline" className="hidden md:flex">
+
+        {/* Right side */}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+          <Badge variant="outline" className="hidden md:flex text-xs">
             {item.package_details.service}
           </Badge>
-          
-          {item.label_url && <Button size="sm" variant="ghost" asChild className="rounded-full p-2">
+          {item.label_url && !isCanceled && (
+            <Button size="sm" variant="ghost" className="rounded-full h-8 w-8 p-0" asChild>
               <a href={item.label_url} target="_blank" rel="noopener noreferrer">
                 <Download className="h-4 w-4" />
               </a>
-            </Button>}
+            </Button>
+          )}
+          {isSelected ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </div>
       </div>
-      
+
+      {/* Expanded Details */}
       {isSelected && <TrackingDetails item={item} />}
-    </div>;
+    </Card>
+  );
 };
+
 interface TrackingDetailsProps {
   item: TrackingInfo;
 }
-export const TrackingDetails: React.FC<TrackingDetailsProps> = ({
-  item
-}) => {
+
+export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
   const isCanceled = item.status === 'cancelled' || item.status === 'canceled';
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [openToEmailTab, setOpenToEmailTab] = useState(false);
+
   const convertPngTo4x6Pdf = async (imageUrl: string): Promise<Blob> => {
-    const {
-      PDFDocument
-    } = await import('pdf-lib');
+    const { PDFDocument } = await import('pdf-lib');
     const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
     const imageBytes = await response.arrayBuffer();
     const pdfDoc = await PDFDocument.create();
     const pngImage = await pdfDoc.embedPng(imageBytes);
     const labelWidth = 288;
     const labelHeight = 432;
     const page = pdfDoc.addPage([labelWidth, labelHeight]);
-    const {
-      width: imgWidth,
-      height: imgHeight
-    } = pngImage.scale(1);
+    const { width: imgWidth, height: imgHeight } = pngImage.scale(1);
     const scaleX = labelWidth / imgWidth;
     const scaleY = labelHeight / imgHeight;
     const scale = Math.min(scaleX, scaleY);
@@ -173,22 +204,13 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({
     const scaledHeight = imgHeight * scale;
     const x = (labelWidth - scaledWidth) / 2;
     const y = (labelHeight - scaledHeight) / 2;
-    page.drawImage(pngImage, {
-      x,
-      y,
-      width: scaledWidth,
-      height: scaledHeight
-    });
+    page.drawImage(pngImage, { x, y, width: scaledWidth, height: scaledHeight });
     const pdfBytes = await pdfDoc.save();
-    return new Blob([new Uint8Array(pdfBytes)], {
-      type: 'application/pdf'
-    });
+    return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
   };
+
   const handleDirectDownload = async () => {
-    if (!item.label_url) {
-      toast.error('Label URL not available');
-      return;
-    }
+    if (!item.label_url) { toast.error('Label URL not available'); return; }
     try {
       toast.loading('Preparing 4x6 PDF label...');
       let blob: Blob;
@@ -218,14 +240,9 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({
       toast.error('Failed to download PDF. Please try again.');
     }
   };
-  const handlePrintPreview = () => {
-    setOpenToEmailTab(false);
-    setIsPreviewOpen(true);
-  };
-  const handleEmailLabel = () => {
-    setOpenToEmailTab(true);
-    setIsPreviewOpen(true);
-  };
+
+  const handlePrintPreview = () => { setOpenToEmailTab(false); setIsPreviewOpen(true); };
+
   const shipmentDetails = {
     fromAddress: 'Pickup Address',
     toAddress: item.recipient_address,
@@ -234,110 +251,139 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({
     service: item.package_details.service,
     carrier: item.carrier
   };
-  return <div className={`px-4 pb-4 pt-2 border-t ${isCanceled ? 'bg-red-50' : 'bg-gray-50'}`}>
+
+  return (
+    <div className={`px-4 pb-4 pt-3 border-t ${isCanceled ? 'bg-red-50' : 'bg-muted/30'}`}>
+      {/* Info Grid */}
       <div className="grid gap-4 md:grid-cols-3 mb-4">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500">Package Details</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Package Details</p>
           <p className="text-sm">Weight: {item.package_details.weight}</p>
           <p className="text-sm">Dimensions: {item.package_details.dimensions}</p>
           <p className="text-sm">Service: {item.package_details.service}</p>
         </div>
-        
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500">Recipient</p>
-          <p className="text-sm">{item.recipient}</p>
-          <p className="text-sm">{item.recipient_address}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recipient</p>
+          <p className="text-sm font-medium">{item.recipient}</p>
+          <p className="text-sm text-muted-foreground">{item.recipient_address}</p>
         </div>
-        
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500">Shipment ID</p>
-          <p className="text-sm">{item.shipment_id}</p>
-          <p className="text-xs font-medium text-gray-500 mt-2">Last Updated</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Shipment ID</p>
+          <p className="text-sm font-mono">{item.shipment_id}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">Last Updated</p>
           <p className="text-sm">{new Date(item.last_update).toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Display canceled message */}
-      {isCanceled && <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
+      {/* Canceled notice */}
+      {isCanceled && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
           <div className="flex items-center gap-2">
             <span className="text-red-600 font-bold text-2xl">✕</span>
             <p className="text-red-800 font-semibold text-lg">This label has been canceled</p>
           </div>
           <p className="text-red-700 text-sm mt-2">Tracking Number: {item.tracking_code}</p>
-        </div>}
+        </div>
+      )}
 
-      {/* Display refund pending message */}
-      {item.status === 'refund_pending' && <div className="mb-4 p-4 bg-orange-100 border border-orange-300 rounded-lg">
+      {/* Refund pending */}
+      {item.status === 'refund_pending' && (
+        <div className="mb-4 p-4 bg-orange-100 border border-orange-300 rounded-lg">
           <div className="flex items-center gap-2">
             <Clock className="h-6 w-6 text-orange-600" />
             <div>
               <p className="text-orange-800 font-semibold text-lg">Refund in Progress</p>
-              <p className="text-orange-700 text-sm mt-1">Your refund has been submitted and will be processed within 48 hours.</p>
+              <p className="text-orange-700 text-sm mt-1">Your refund will be processed within 48 hours.</p>
             </div>
           </div>
-        </div>}
+        </div>
+      )}
 
-      {/* Display Label URL if available and not canceled */}
-      {!isCanceled && item.label_url && <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+      {/* Label URL */}
+      {!isCanceled && item.label_url && (
+        <div className="mb-4 p-3 bg-primary/5 border border-primary/10 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-900">Shipping Label</p>
-              <p className="text-xs text-blue-700 break-all">{item.label_url}</p>
+              <p className="text-sm font-medium">Shipping Label</p>
+              <p className="text-xs text-muted-foreground break-all mt-0.5">{item.label_url}</p>
             </div>
             <Button size="sm" variant="outline" asChild>
               <a href={item.label_url} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                <ExternalLink className="h-3 w-3 mr-1" />
-                View
+                <ExternalLink className="h-3 w-3 mr-1" /> View
               </a>
             </Button>
           </div>
-        </div>}
-      
-      {!isCanceled && item.status !== 'refund_pending' && <h4 className="text-sm font-semibold mb-3">Tracking History</h4>}
-      {!isCanceled && item.status !== 'refund_pending' && <div className="relative">
-          <div className="absolute top-0 bottom-0 left-[16px] w-[2px] bg-gray-200"></div>
-          {item.tracking_events?.map((event, index) => <div key={event.id} className="flex mb-4 relative">
-              <div className={`h-8 w-8 rounded-full ${event.status === 'delivered' ? 'bg-green-500' : event.status === 'in_transit' ? 'bg-blue-500' : event.status === 'out_for_delivery' ? 'bg-purple-500' : 'bg-gray-500'} flex items-center justify-center z-10`}>
-                {getStatusIcon(event.status)}
+        </div>
+      )}
+
+      {/* Tracking Timeline */}
+      {!isCanceled && item.status !== 'refund_pending' && item.tracking_events && item.tracking_events.length > 0 && (
+        <>
+          <h4 className="text-sm font-semibold mb-3">Tracking History</h4>
+          <div className="relative pl-6">
+            <div className="absolute top-0 bottom-0 left-[11px] w-[2px] bg-border"></div>
+            {item.tracking_events.map((event) => (
+              <div key={event.id} className="flex mb-4 relative">
+                <div className={`absolute -left-[14px] h-6 w-6 rounded-full flex items-center justify-center z-10 ${
+                  event.status === 'delivered' ? 'bg-green-500' :
+                  event.status === 'in_transit' ? 'bg-blue-500' :
+                  event.status === 'out_for_delivery' ? 'bg-purple-500' : 'bg-muted-foreground/30'
+                }`}>
+                  <div className="h-2 w-2 bg-white rounded-full" />
+                </div>
+                <div className="ml-4">
+                  <p className="font-medium text-sm">{event.description}</p>
+                  <p className="text-xs text-muted-foreground">{event.location}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(event.timestamp).toLocaleString()}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <div className="font-medium">{event.description}</div>
-                <div className="text-sm text-gray-600">{event.location}</div>
-                <div className="text-xs text-gray-500">{new Date(event.timestamp).toLocaleString()}</div>
-              </div>
-            </div>)}
-        </div>}
-      
-      {/* Action Buttons */}
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Actions */}
       <div className="flex flex-wrap justify-end mt-4 gap-2">
-        {!isCanceled && item.status !== 'refund_pending' && item.label_url && <>
-            {/* View Button */}
-            <Button size="sm" variant="outline" className="border-gray-200 hover:bg-gray-50" asChild>
+        {!isCanceled && item.status !== 'refund_pending' && item.label_url && (
+          <>
+            <Button size="sm" variant="outline" asChild>
               <a href={item.label_url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-1" />
-                View
+                <ExternalLink className="h-4 w-4 mr-1" /> View
               </a>
             </Button>
-
-            {/* Download Button */}
-            <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 text-blue-700" onClick={handleDirectDownload}>
-              <Download className="h-4 w-4 mr-1" />
-              Download
+            <Button size="sm" variant="outline" onClick={handleDirectDownload}>
+              <Download className="h-4 w-4 mr-1" /> Download
             </Button>
-
-            {/* Print Preview Button */}
-            <PrintPreview labelUrl={item.label_url} trackingCode={item.tracking_code} shipmentId={item.shipment_id} shipmentDetails={shipmentDetails} isOpenProp={isPreviewOpen} onOpenChangeProp={setIsPreviewOpen} openToEmailTab={openToEmailTab} triggerButton={<Button size="sm" variant="outline" className="border-purple-200 hover:bg-purple-50 text-purple-700" onClick={handlePrintPreview}>
-                  <Eye className="h-4 w-4 mr-1" />
-                  Print Preview
-                </Button>} />
-
-            {/* Email Button */}
-            
-          </>}
-        {canCancelLabel(item.status) && item.label_url && <CancelLabelDialog shipmentId={item.shipment_id} trackingCode={item.tracking_code} carrier={item.carrier} service={item.package_details.service} fromAddress="Pickup Address" toAddress={item.recipient_address} trigger={<Button size="sm" variant="destructive">
-                Cancel Label
-              </Button>} />}
+            <PrintPreview
+              labelUrl={item.label_url}
+              trackingCode={item.tracking_code}
+              shipmentId={item.shipment_id}
+              shipmentDetails={shipmentDetails}
+              isOpenProp={isPreviewOpen}
+              onOpenChangeProp={setIsPreviewOpen}
+              openToEmailTab={openToEmailTab}
+              triggerButton={
+                <Button size="sm" variant="outline" onClick={handlePrintPreview}>
+                  <Eye className="h-4 w-4 mr-1" /> Print Preview
+                </Button>
+              }
+            />
+          </>
+        )}
+        {canCancelLabel(item.status) && item.label_url && (
+          <CancelLabelDialog
+            shipmentId={item.shipment_id}
+            trackingCode={item.tracking_code}
+            carrier={item.carrier}
+            service={item.package_details.service}
+            fromAddress="Pickup Address"
+            toAddress={item.recipient_address}
+            trigger={<Button size="sm" variant="destructive">Cancel Label</Button>}
+          />
+        )}
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default TrackingListItem;
