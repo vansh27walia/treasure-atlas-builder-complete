@@ -266,11 +266,18 @@ const ImportPage = () => {
     prepareReviewOrders(allIds);
   };
 
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+
   const handleReviewConfirm = async (approvedOrders: ReviewableOrder[]) => {
     setShowReviewModal(false);
-    const csv = await autoBatch.processReviewedOrders(approvedOrders);
-    if (csv) {
-      navigate('/bulk-upload');
+    setIsFetchingRates(true);
+    try {
+      const csv = await autoBatch.processReviewedOrders(approvedOrders);
+      if (csv) {
+        navigate('/bulk-upload');
+      }
+    } finally {
+      setIsFetchingRates(false);
     }
   };
 
