@@ -26,6 +26,9 @@ export const useBulkUpload = () => {
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [isShopifyAutoProcessing, setIsShopifyAutoProcessing] = useState(
+    () => sessionStorage.getItem('shopify_auto_batch') === 'true'
+  );
   
   const {
     file,
@@ -135,6 +138,38 @@ export const useBulkUpload = () => {
   useEffect(() => {
     const loadDefaultPickupAddress = async () => {
       try {
+        // Check if a pickup address was set from the Shopify flow (PickupAddressOverlay)
+        const storedFromAddress = sessionStorage.getItem('fromAddress');
+        if (storedFromAddress) {
+          try {
+            const parsed = JSON.parse(storedFromAddress);
+            if (parsed && parsed.street1) {
+              console.log('Using pickup address from Shopify flow:', parsed);
+              const addr: SavedAddress = {
+                id: 0,
+                street1: parsed.street1,
+                street2: parsed.street2 || '',
+                city: parsed.city,
+                state: parsed.state,
+                zip: parsed.zip,
+                country: parsed.country || 'US',
+                name: parsed.name || '',
+                company: parsed.company || '',
+                phone: parsed.phone || '',
+                is_default_from: false,
+                is_default_to: false,
+                ...parsed,
+              };
+              setPickupAddress(addr);
+              setResults((prev) => ({ ...(prev as any), pickupAddress: addr } as any));
+              // Don't remove yet – auto-upload needs it
+              return;
+            }
+          } catch (e) {
+            console.error('Failed to parse fromAddress:', e);
+          }
+        }
+
         console.log('Loading default pickup address...');
         const defaultAddress = await addressService.getDefaultFromAddress();
         console.log("Loaded default pickup address:", defaultAddress);
@@ -165,6 +200,7 @@ export const useBulkUpload = () => {
     const isShopifyBatch = sessionStorage.getItem('shopify_auto_batch');
     
     if (shopifyCSV && isShopifyBatch === 'true') {
+      setIsShopifyAutoProcessing(true);
       console.log('🛒 Auto-processing Shopify orders from sessionStorage...');
       // Read and store Shopify order mapping before clearing
       const orderMapStr = sessionStorage.getItem('shopify_order_map');
@@ -210,6 +246,9 @@ export const useBulkUpload = () => {
             toast.error('Please set a pickup address in Settings first.');
           }
         }
+        setIsShopifyAutoProcessing(false);
+        // Clean up fromAddress after use
+        sessionStorage.removeItem('fromAddress');
       };
       
       attemptUpload();
@@ -599,6 +638,7 @@ export const useBulkUpload = () => {
   return {
     file,
     isUploading,
+    isShopifyAutoProcessing,
     uploadStatus,
     results,
     progress,
