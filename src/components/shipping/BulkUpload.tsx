@@ -36,6 +36,7 @@ const BulkUpload: React.FC = () => {
   const {
     file,
     isUploading,
+    isShopifyAutoProcessing,
     isPaying,
     isCreatingLabels,
     isFetchingRates,
