@@ -40,7 +40,7 @@ interface ShippedOrder {
   line_items: string;
   created_at: string;
   shipment_record_id: number | null;
-  // From joined shipment_records
+  est_delivery_date?: string | null;
   parcel_json?: any;
   label_url?: string;
 }
