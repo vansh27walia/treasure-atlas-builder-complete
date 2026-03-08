@@ -177,7 +177,7 @@ const ImportPage = () => {
     try {
       const { data, error } = await supabase
         .from('shopify_orders')
-        .select('*')
+        .select('*, shipment_records:shipment_record_id(est_delivery_date)')
         .eq('user_id', user.id)
         .eq('fulfillment_status', 'fulfilled')
         .not('tracking_number', 'is', null)
@@ -201,6 +201,7 @@ const ImportPage = () => {
         created_at: o.created_at ? new Date(o.created_at).toLocaleDateString() : '',
         shipment_record_id: o.shipment_record_id,
         label_url: o.label_url,
+        est_delivery_date: o.shipment_records?.est_delivery_date || null,
       }));
       setShippedOrders(mapped);
     } catch (error) {
