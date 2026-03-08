@@ -146,12 +146,14 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
             <div>
               <Label>Address (Google Autocomplete)</Label>
               <AddressAutoComplete
+                key={`addr-${currentIndex}`}
+                defaultValue={current.to_street1}
                 onChange={(v) => updateField('to_street1', v)}
                 onAddressSelected={() => {}}
                 onFullAddressPopulated={(addr) => {
                   setOrders(prev => prev.map((o, i) => i === currentIndex ? {
                     ...o,
-                    to_street1: addr.street || '',
+                    to_street1: addr.street1 || addr.street || '',
                     to_city: addr.city || '',
                     to_state: addr.state || '',
                     to_zip: addr.zip || '',
@@ -160,11 +162,6 @@ const ShopifyOrderReviewModal: React.FC<ShopifyOrderReviewModalProps> = ({
                 }}
                 placeholder="Start typing address..."
               />
-              {current.to_street1 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Current: {current.to_street1}
-                </p>
-              )}
             </div>
 
             <div>
