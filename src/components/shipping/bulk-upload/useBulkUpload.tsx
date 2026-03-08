@@ -638,6 +638,7 @@ export const useBulkUpload = () => {
   return {
     file,
     isUploading,
+    isShopifyAutoProcessing,
     uploadStatus,
     results,
     progress,
