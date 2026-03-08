@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ShopifyOrderReviewModal, { ReviewableOrder } from '@/components/shipping/ShopifyOrderReviewModal';
+import PickupAddressOverlay from '@/components/shipping/PickupAddressOverlay';
 import { useAutoBatch } from '@/hooks/useAutoBatch';
 import { ShopifyOrderRaw, mapShopifyOrderToRow } from '@/utils/shopifyHeaderMapping';
 
@@ -61,6 +62,8 @@ const ImportPage = () => {
   const [activeTab, setActiveTab] = useState('unfulfilled');
   const [shippedOrders, setShippedOrders] = useState<ShippedOrder[]>([]);
   const [isLoadingShipped, setIsLoadingShipped] = useState(false);
+  const [showPickupOverlay, setShowPickupOverlay] = useState(false);
+  const [pendingApprovedOrders, setPendingApprovedOrders] = useState<ReviewableOrder[]>([]);
 
   const autoBatch = useAutoBatch();
 
@@ -268,7 +271,25 @@ const ImportPage = () => {
 
   const handleReviewConfirm = async (approvedOrders: ReviewableOrder[]) => {
     setShowReviewModal(false);
-    const csv = await autoBatch.processReviewedOrders(approvedOrders);
+    setPendingApprovedOrders(approvedOrders);
+    setShowPickupOverlay(true);
+  };
+
+  const handlePickupConfirm = async (pickupAddress: any) => {
+    setShowPickupOverlay(false);
+    // Store the pickup address for the batch
+    sessionStorage.setItem('fromAddress', JSON.stringify({
+      name: pickupAddress.name || '',
+      company: pickupAddress.company || '',
+      street1: pickupAddress.street1 || '',
+      street2: pickupAddress.street2 || '',
+      city: pickupAddress.city || '',
+      state: pickupAddress.state || '',
+      zip: pickupAddress.zip || '',
+      country: pickupAddress.country || 'US',
+      phone: pickupAddress.phone || '',
+    }));
+    const csv = await autoBatch.processReviewedOrders(pendingApprovedOrders);
     if (csv) {
       navigate('/bulk-upload');
     }
@@ -568,6 +589,12 @@ const ImportPage = () => {
         onClose={() => setShowReviewModal(false)}
         orders={reviewableOrders}
         onConfirmAll={handleReviewConfirm}
+      />
+
+      <PickupAddressOverlay
+        open={showPickupOverlay}
+        onClose={() => setShowPickupOverlay(false)}
+        onConfirm={handlePickupConfirm}
       />
     </div>
   );
