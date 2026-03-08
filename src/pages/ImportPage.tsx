@@ -590,6 +590,12 @@ const ImportPage = () => {
         orders={reviewableOrders}
         onConfirmAll={handleReviewConfirm}
       />
+
+      <PickupAddressOverlay
+        open={showPickupOverlay}
+        onClose={() => setShowPickupOverlay(false)}
+        onConfirm={handlePickupConfirm}
+      />
     </div>
   );
 };
