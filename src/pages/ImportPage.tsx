@@ -517,15 +517,13 @@ const ImportPage = () => {
                             <Badge variant="outline">{order.carrier || 'Unknown'}</Badge>
                           </TableCell>
                           <TableCell>
-                            <a
-                              href={getCarrierTrackingUrl(order.carrier, order.tracking_number)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline font-mono text-sm inline-flex items-center gap-1"
+                            <button
+                              onClick={() => navigate(`/tracking?search=${encodeURIComponent(order.tracking_number)}`)}
+                              className="text-primary hover:underline font-mono text-sm inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                             >
                               {order.tracking_number}
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                              <Truck className="w-3 h-3" />
+                            </button>
                           </TableCell>
                           <TableCell>
                             {order.synced_to_shopify ? (
