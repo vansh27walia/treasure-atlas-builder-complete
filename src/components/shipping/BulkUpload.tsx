@@ -267,7 +267,32 @@ const BulkUpload: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl py-[40px] px-[45px]">
-              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />}
+              {/* Shopify Auto-Processing Loading State */}
+              {isShopifyAutoProcessing && (
+                <div className="flex flex-col items-center justify-center py-20 space-y-6">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+                      <Sparkles className="w-10 h-10 text-primary animate-spin" style={{ animationDuration: '3s' }} />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                      <UploadCloud className="w-3 h-3 text-white" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">Processing Shopify Orders</h2>
+                    <p className="text-muted-foreground max-w-md">
+                      Fetching live shipping rates from multiple carriers. This may take a moment...
+                    </p>
+                  </div>
+                  <div className="w-64">
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!isShopifyAutoProcessing && (uploadStatus === 'idle' || uploadStatus === 'uploading') && <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />}
               
               {uploadStatus === 'editing' && results && <div className="space-y-8">
                   <div className="text-center py-0">
