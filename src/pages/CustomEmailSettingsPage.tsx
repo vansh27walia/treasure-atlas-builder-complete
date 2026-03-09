@@ -25,7 +25,7 @@ const CustomEmailSettingsPage: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('merchant_email_settings')
         .select('*')
         .eq('user_id', user!.id)
