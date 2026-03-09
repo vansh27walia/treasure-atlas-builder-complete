@@ -64,6 +64,10 @@ function AppContent() {
               <Route path="/ship-to" element={<ShipToPage />} />
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/tracking" element={<TrackingPage />} />
+              <Route path="/track" element={<PublicTrackingPage />} />
+              <Route path="/track/:trackingNumber" element={<PublicTrackingPage />} />
+              <Route path="/custom-tracking" element={<ProtectedRoute><CustomTrackingSettingsPage /></ProtectedRoute>} />
+              <Route path="/custom-email-settings" element={<ProtectedRoute><CustomEmailSettingsPage /></ProtectedRoute>} />
               <Route path="/import" element={<ImportPage />} />
               <Route path="/shopify-callback" element={<ShopifyCallbackPage />} />
               <Route
