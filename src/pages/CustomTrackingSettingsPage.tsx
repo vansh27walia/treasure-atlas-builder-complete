@@ -27,7 +27,7 @@ const CustomTrackingSettingsPage: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('merchant_tracking_settings')
         .select('*')
         .eq('user_id', user!.id)
