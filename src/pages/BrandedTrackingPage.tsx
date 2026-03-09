@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,14 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
-  Palette, Mail, Layout, Save, ExternalLink, Eye, CheckCircle,
-  Copy, Store, Globe, Image, AtSign, MessageSquare, Type, Info
+  Save, ExternalLink, Eye, CheckCircle, Copy, Globe, Upload, Palette,
+  Store, AtSign, MessageSquare, Type, Mail, Package, Truck, MapPin, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MerchantSettings {
   logo_url: string;
@@ -31,21 +30,9 @@ interface MerchantSettings {
 }
 
 const templates = [
-  {
-    id: 'minimal',
-    name: 'Minimal',
-    description: 'Clean, centered layout with just the essentials.',
-  },
-  {
-    id: 'timeline',
-    name: 'Timeline',
-    description: 'Step-by-step event timeline for detailed tracking.',
-  },
-  {
-    id: 'modern',
-    name: 'Modern Card',
-    description: 'Dashboard-style cards with a visual progress bar.',
-  },
+  { id: 'minimal', name: 'Minimal', description: 'Clean centered layout with just the essentials' },
+  { id: 'timeline', name: 'Timeline', description: 'Step-by-step event timeline for detailed tracking' },
+  { id: 'modern', name: 'Modern Card', description: 'Dashboard-style cards with a visual progress bar' },
 ];
 
 const BrandedTrackingPage: React.FC = () => {
@@ -53,6 +40,8 @@ const BrandedTrackingPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<MerchantSettings>({
     logo_url: '',
     brand_color: '#3B82F6',
@@ -113,6 +102,45 @@ const BrandedTrackingPage: React.FC = () => {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a PNG, JPG, WebP, or SVG file');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File must be under 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/logo.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from('shipping-labels')
+        .upload(path, file, { upsert: true });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage
+        .from('shipping-labels')
+        .getPublicUrl(path);
+
+      update('logo_url', urlData.publicUrl);
+      toast.success('Logo uploaded successfully');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error('Failed to upload logo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
@@ -160,7 +188,7 @@ const BrandedTrackingPage: React.FC = () => {
   const copyUrl = () => {
     navigator.clipboard.writeText(trackingUrl);
     setCopied(true);
-    toast.success('URL copied to clipboard');
+    toast.success('URL copied');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -173,314 +201,366 @@ const BrandedTrackingPage: React.FC = () => {
   }
 
   return (
-    <TooltipProvider>
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Branded Tracking</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Set up your branded tracking page, email notifications, and customer experience.
-            </p>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Branded Tracking</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Configure your customer-facing tracking page, templates, and email notifications.
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={saving} className="gap-2">
+          <Save className="h-4 w-4" />
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
+
+      {/* Tracking URL */}
+      <div className="rounded-lg border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Globe className="h-4 w-4 text-primary" />
           </div>
-          <Button onClick={handleSave} disabled={saving} size="lg" className="gap-2 shadow-sm">
-            <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Changes'}
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Your Tracking URL</p>
+            <p className="text-sm font-mono text-foreground truncate">{trackingUrl}</p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={copyUrl}>
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? 'Copied!' : 'Copy'}
           </Button>
-        </div>
-
-        {/* Tracking URL Bar */}
-        <div className="rounded-xl border bg-card p-4 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Globe className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Your Tracking Page</p>
-              <p className="text-sm font-mono text-foreground truncate">{trackingUrl}</p>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={copyUrl}>
-              <Copy className="h-3.5 w-3.5" />
-              {copied ? 'Copied!' : 'Copy'}
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(`${window.location.origin}/track`, '_blank')}>
-              <Eye className="h-3.5 w-3.5" /> Preview
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabbed Sections */}
-        <Tabs defaultValue="branding" className="space-y-6">
-          <TabsList className="bg-muted/50 p-1 h-auto">
-            <TabsTrigger value="branding" className="gap-2 data-[state=active]:shadow-sm">
-              <Palette className="h-4 w-4" /> Branding
-            </TabsTrigger>
-            <TabsTrigger value="template" className="gap-2 data-[state=active]:shadow-sm">
-              <Layout className="h-4 w-4" /> Template
-            </TabsTrigger>
-            <TabsTrigger value="email" className="gap-2 data-[state=active]:shadow-sm">
-              <Mail className="h-4 w-4" /> Email
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ── BRANDING TAB ── */}
-          <TabsContent value="branding" className="space-y-6 mt-0">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Store Identity</CardTitle>
-                <CardDescription>This information appears on your customer-facing tracking page.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <FormField icon={<Store className="h-4 w-4" />} label="Store Name">
-                    <Input value={settings.store_name} onChange={e => update('store_name', e.target.value)} placeholder="My Awesome Store" />
-                  </FormField>
-                  <FormField icon={<Globe className="h-4 w-4" />} label="Website URL">
-                    <Input value={settings.website_url} onChange={e => update('website_url', e.target.value)} placeholder="https://mystore.com" />
-                  </FormField>
-                  <FormField icon={<Image className="h-4 w-4" />} label="Logo URL" hint="Paste a direct link to your logo image">
-                    <Input value={settings.logo_url} onChange={e => update('logo_url', e.target.value)} placeholder="https://mystore.com/logo.png" />
-                    {settings.logo_url && (
-                      <div className="mt-2 p-2 rounded-lg border bg-muted/30 inline-block">
-                        <img src={settings.logo_url} alt="Logo preview" className="h-8 object-contain" />
-                      </div>
-                    )}
-                  </FormField>
-                  <FormField icon={<Palette className="h-4 w-4" />} label="Brand Color">
-                    <div className="flex gap-2 items-center">
-                      <div className="relative">
-                        <input
-                          type="color"
-                          value={settings.brand_color}
-                          onChange={e => update('brand_color', e.target.value)}
-                          className="w-10 h-10 rounded-lg cursor-pointer border border-border appearance-none bg-transparent"
-                          style={{ padding: 0 }}
-                        />
-                      </div>
-                      <Input value={settings.brand_color} onChange={e => update('brand_color', e.target.value)} className="flex-1 font-mono text-sm" />
-                      <div className="w-8 h-8 rounded-md border" style={{ backgroundColor: settings.brand_color }} />
-                    </div>
-                  </FormField>
-                  <FormField icon={<AtSign className="h-4 w-4" />} label="Support Email">
-                    <Input value={settings.support_email} onChange={e => update('support_email', e.target.value)} placeholder="support@mystore.com" type="email" />
-                  </FormField>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Customer Messages</CardTitle>
-                <CardDescription>Messages displayed on your branded tracking page.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <FormField icon={<MessageSquare className="h-4 w-4" />} label="Tracking Page Message" hint="Shown below the shipment status">
-                  <Textarea value={settings.custom_message} onChange={e => update('custom_message', e.target.value)} placeholder="Thank you for your order!" rows={2} className="resize-none" />
-                </FormField>
-                <FormField icon={<Type className="h-4 w-4" />} label="Banner Message" hint="Optional colored bar at the top of the page">
-                  <Input value={settings.banner_message} onChange={e => update('banner_message', e.target.value)} placeholder="Free shipping on orders over $50!" />
-                </FormField>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ── TEMPLATE TAB ── */}
-          <TabsContent value="template" className="mt-0">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Tracking Page Layout</CardTitle>
-                <CardDescription>Select a template for your customer-facing tracking page.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {templates.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => update('tracking_template', t.id)}
-                      className={cn(
-                        'group relative rounded-xl border-2 p-5 text-left transition-all duration-200',
-                        settings.tracking_template === t.id
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                          : 'border-border hover:border-primary/40 hover:bg-muted/30'
-                      )}
-                    >
-                      {settings.tracking_template === t.id && (
-                        <div className="absolute top-3 right-3">
-                          <CheckCircle className="h-5 w-5 text-primary" />
-                        </div>
-                      )}
-                      <div className="h-28 rounded-lg bg-muted/60 mb-4 flex items-center justify-center overflow-hidden border">
-                        <TemplatePreview id={t.id} color={settings.brand_color} />
-                      </div>
-                      <p className="font-semibold text-sm text-foreground">{t.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{t.description}</p>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ── EMAIL TAB ── */}
-          <TabsContent value="email" className="space-y-6 mt-0">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Email Configuration</CardTitle>
-                <CardDescription>Customize the notification email sent when a tracking number is created.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <FormField icon={<Type className="h-4 w-4" />} label="Email Subject">
-                  <Input value={settings.email_subject} onChange={e => update('email_subject', e.target.value)} placeholder="Your shipment is on its way!" />
-                </FormField>
-                <FormField icon={<MessageSquare className="h-4 w-4" />} label="Email Body">
-                  <Textarea value={settings.email_message} onChange={e => update('email_message', e.target.value)} placeholder="Your order has been shipped..." rows={3} className="resize-none" />
-                </FormField>
-                <FormField icon={<AtSign className="h-4 w-4" />} label="Reply-to Email">
-                  <Input value={settings.email_support_email} onChange={e => update('email_support_email', e.target.value)} placeholder="support@mystore.com" type="email" />
-                </FormField>
-              </CardContent>
-            </Card>
-
-            {/* Email Preview */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Email Preview</CardTitle>
-                <CardDescription>This is what your customers will see.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-xl border bg-muted/20 p-6 max-w-lg mx-auto">
-                  {/* Mock email */}
-                  <div className="rounded-lg bg-white border shadow-sm overflow-hidden">
-                    {/* Email header bar */}
-                    <div className="h-1.5" style={{ backgroundColor: settings.brand_color }} />
-                    <div className="p-6 space-y-4">
-                      {settings.logo_url && (
-                        <img src={settings.logo_url} alt="Logo" className="h-7 object-contain" />
-                      )}
-                      <p className="font-semibold text-base text-gray-900">
-                        {settings.email_subject || 'Your shipment is on its way!'}
-                      </p>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        {settings.email_message || 'Your order has been shipped.'}
-                      </p>
-                      <div className="pt-2">
-                        <div
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-medium"
-                          style={{ backgroundColor: settings.brand_color }}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Track Your Package
-                        </div>
-                      </div>
-                      <Separator />
-                      <p className="text-xs text-gray-400">
-                        {settings.store_name || 'Your Store'} • {settings.support_email || settings.email_support_email || 'support@store.com'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* Sticky Save Bar (bottom) */}
-        <div className="sticky bottom-0 bg-background/80 backdrop-blur-sm border-t mt-8 -mx-4 md:-mx-8 px-4 md:px-8 py-4 flex justify-end">
-          <Button onClick={handleSave} disabled={saving} size="lg" className="gap-2 shadow-sm">
-            <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Changes'}
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(`${window.location.origin}/track`, '_blank')}>
+            <Eye className="h-3.5 w-3.5" /> Preview
           </Button>
         </div>
       </div>
-    </TooltipProvider>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        {/* Left: Settings */}
+        <div className="lg:col-span-3 space-y-6">
+
+          {/* Section 1: Branding */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Palette className="h-4 w-4 text-primary" /> Store Branding
+              </CardTitle>
+              <CardDescription>Logo, colors, and identity shown on your tracking page.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Store Logo</Label>
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {settings.logo_url ? (
+                      <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                    ) : (
+                      <Upload className="h-6 w-6 text-muted-foreground/50" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {uploading ? 'Uploading...' : 'Upload Logo'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">PNG, JPG, WebP, or SVG. Max 2MB.</p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Store Name</Label>
+                  <Input value={settings.store_name} onChange={e => update('store_name', e.target.value)} placeholder="My Store" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Website URL</Label>
+                  <Input value={settings.website_url} onChange={e => update('website_url', e.target.value)} placeholder="https://mystore.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Support Email</Label>
+                  <Input value={settings.support_email} onChange={e => update('support_email', e.target.value)} placeholder="support@mystore.com" type="email" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Brand Color</Label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={settings.brand_color}
+                      onChange={e => update('brand_color', e.target.value)}
+                      className="w-10 h-10 rounded-lg cursor-pointer border border-border"
+                    />
+                    <Input value={settings.brand_color} onChange={e => update('brand_color', e.target.value)} className="flex-1 font-mono text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">Custom Message</Label>
+                <Textarea value={settings.custom_message} onChange={e => update('custom_message', e.target.value)} placeholder="Thank you for your order!" rows={2} className="resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Banner Message <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input value={settings.banner_message} onChange={e => update('banner_message', e.target.value)} placeholder="Free shipping on orders over $50!" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Section 2: Template Selection - Vertical */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Store className="h-4 w-4 text-primary" /> Tracking Page Template
+              </CardTitle>
+              <CardDescription>Choose a layout for your customer tracking page.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {templates.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => update('tracking_template', t.id)}
+                  className={cn(
+                    'w-full flex items-center gap-4 rounded-lg border-2 p-4 text-left transition-all',
+                    settings.tracking_template === t.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/30 hover:bg-muted/30'
+                  )}
+                >
+                  <div className="w-16 h-12 rounded-md bg-muted/60 border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <MiniPreview id={t.id} color={settings.brand_color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.description}</p>
+                  </div>
+                  {settings.tracking_template === t.id && (
+                    <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                  )}
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Section 3: Email Settings */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" /> Email Notifications
+              </CardTitle>
+              <CardDescription>Customize the email sent when a tracking number is created.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm">Subject</Label>
+                <Input value={settings.email_subject} onChange={e => update('email_subject', e.target.value)} placeholder="Your shipment is on its way!" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Body</Label>
+                <Textarea value={settings.email_message} onChange={e => update('email_message', e.target.value)} placeholder="Your order has been shipped..." rows={3} className="resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Reply-to Email</Label>
+                <Input value={settings.email_support_email} onChange={e => update('email_support_email', e.target.value)} placeholder="support@mystore.com" type="email" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: Live Preview */}
+        <div className="lg:col-span-2">
+          <div className="sticky top-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground">Live Preview</p>
+              <Badge variant="secondary" className="text-xs">{templates.find(t => t.id === settings.tracking_template)?.name}</Badge>
+            </div>
+
+            {/* Tracking Page Preview */}
+            <div className="rounded-xl border bg-background shadow-sm overflow-hidden">
+              <TrackingPagePreview settings={settings} />
+            </div>
+
+            {/* Email Preview */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Email Preview</p>
+              <div className="rounded-xl border bg-background shadow-sm overflow-hidden">
+                <div className="h-1" style={{ backgroundColor: settings.brand_color }} />
+                <div className="p-4 space-y-3">
+                  {settings.logo_url && <img src={settings.logo_url} alt="Logo" className="h-6 object-contain" />}
+                  <p className="font-semibold text-sm text-foreground">{settings.email_subject || 'Your shipment is on its way!'}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{settings.email_message || 'Your order has been shipped.'}</p>
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-white text-xs font-medium"
+                    style={{ backgroundColor: settings.brand_color }}
+                  >
+                    <ExternalLink className="h-3 w-3" /> Track Package
+                  </div>
+                  <Separator />
+                  <p className="text-[10px] text-muted-foreground">
+                    {settings.store_name || 'Your Store'} • {settings.support_email || settings.email_support_email || 'support@store.com'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-// ── Reusable Form Field ──
-const FormField: React.FC<{
-  icon: React.ReactNode;
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}> = ({ icon, label, hint, children }) => (
-  <div className="space-y-2">
-    <div className="flex items-center gap-2">
-      <span className="text-muted-foreground">{icon}</span>
-      <Label className="text-sm font-medium">{label}</Label>
-      {hint && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-[200px] text-xs">
-            {hint}
-          </TooltipContent>
-        </Tooltip>
-      )}
-    </div>
-    {children}
-  </div>
-);
-
-// ── Mini Template Previews ──
-const TemplatePreview: React.FC<{ id: string; color: string }> = ({ id, color }) => {
+/* ── Mini template icon previews ── */
+const MiniPreview: React.FC<{ id: string; color: string }> = ({ id, color }) => {
   if (id === 'minimal') {
     return (
-      <div className="w-full h-full p-3 flex flex-col items-center justify-center gap-1.5">
-        <div className="w-10 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-        <div className="w-14 h-1.5 rounded-full bg-muted-foreground/15" />
-        <div className="w-12 h-1.5 rounded-full bg-muted-foreground/10" />
-        <div className="w-8 h-5 rounded mt-1" style={{ backgroundColor: color, opacity: 0.2 }} />
+      <div className="flex flex-col items-center gap-1 p-1">
+        <div className="w-6 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+        <div className="w-8 h-1 rounded-full bg-muted-foreground/15" />
+        <div className="w-5 h-1 rounded-full bg-muted-foreground/10" />
       </div>
     );
   }
   if (id === 'timeline') {
     return (
-      <div className="w-full h-full p-3 flex gap-3">
-        <div className="flex flex-col items-center gap-1.5 pt-0.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-          <div className="w-0.5 flex-1 bg-muted-foreground/15 rounded-full" />
-          <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/20" />
-          <div className="w-0.5 flex-1 bg-muted-foreground/15 rounded-full" />
-          <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/15" />
+      <div className="flex gap-1.5 p-1">
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+          <div className="w-px flex-1 bg-muted-foreground/15" />
+          <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/20" />
         </div>
-        <div className="flex flex-col gap-3 flex-1 pt-0.5">
-          <div className="space-y-1">
-            <div className="w-full h-2 rounded-full bg-muted-foreground/15" />
-            <div className="w-2/3 h-1.5 rounded-full bg-muted-foreground/10" />
-          </div>
-          <div className="space-y-1">
-            <div className="w-3/4 h-2 rounded-full bg-muted-foreground/12" />
-            <div className="w-1/2 h-1.5 rounded-full bg-muted-foreground/8" />
-          </div>
-          <div className="w-2/3 h-2 rounded-full bg-muted-foreground/10" />
+        <div className="flex flex-col gap-1.5 flex-1">
+          <div className="w-full h-1 rounded bg-muted-foreground/15" />
+          <div className="w-2/3 h-1 rounded bg-muted-foreground/10" />
         </div>
       </div>
     );
   }
-  // modern
   return (
-    <div className="w-full h-full p-3 flex flex-col gap-2">
-      <div className="flex gap-2">
-        {[...Array(4)].map((_, i) => (
-          <div
-            key={i}
-            className={cn("flex-1 h-2 rounded-full", i >= 2 && "bg-muted-foreground/15")}
-            style={i < 2 ? { backgroundColor: color, opacity: 0.6 } : undefined}
-          />
+    <div className="flex flex-col gap-1 p-1 w-full">
+      <div className="flex gap-0.5">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="flex-1 h-1 rounded-full" style={i < 2 ? { backgroundColor: color, opacity: 0.5 } : { backgroundColor: '#d1d5db' }} />
         ))}
       </div>
-      <div className="flex gap-2 flex-1">
-        <div className="w-1/2 rounded-md border bg-card p-1.5">
-          <div className="w-full h-1.5 rounded bg-muted-foreground/12 mb-1" />
-          <div className="w-2/3 h-1.5 rounded bg-muted-foreground/8" />
+      <div className="flex gap-1">
+        <div className="flex-1 h-3 rounded border bg-card" />
+        <div className="flex-1 h-3 rounded border bg-card" />
+      </div>
+    </div>
+  );
+};
+
+/* ── Live Tracking Page Preview ── */
+const TrackingPagePreview: React.FC<{ settings: MerchantSettings }> = ({ settings }) => {
+  const brandColor = settings.brand_color || '#3B82F6';
+  const template = settings.tracking_template;
+
+  const mockEvents = [
+    { status: 'In Transit', date: 'Mar 9, 2:30 PM', location: 'Chicago, IL' },
+    { status: 'Picked Up', date: 'Mar 8, 9:00 AM', location: 'New York, NY' },
+    { status: 'Label Created', date: 'Mar 7, 4:15 PM', location: 'New York, NY' },
+  ];
+
+  return (
+    <div className="text-xs">
+      {/* Banner */}
+      {settings.banner_message && (
+        <div className="text-white text-center py-1 px-2 text-[10px]" style={{ backgroundColor: brandColor }}>
+          {settings.banner_message}
         </div>
-        <div className="w-1/2 rounded-md border bg-card p-1.5">
-          <div className="w-full h-1.5 rounded bg-muted-foreground/12 mb-1" />
-          <div className="w-2/3 h-1.5 rounded bg-muted-foreground/8" />
+      )}
+
+      {/* Header */}
+      <div className="border-b px-3 py-2 flex items-center gap-2">
+        {settings.logo_url ? (
+          <img src={settings.logo_url} alt="Logo" className="h-5 object-contain" />
+        ) : (
+          <div className="flex items-center gap-1">
+            <Package className="h-3 w-3" style={{ color: brandColor }} />
+            <span className="font-semibold text-[10px] text-foreground">{settings.store_name || 'Your Store'}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 space-y-3">
+        {/* Status */}
+        <div className={cn("flex items-center gap-2", template === 'minimal' && 'justify-center flex-col')}>
+          <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: `${brandColor}20`, color: brandColor }}>
+            <Truck className="h-3 w-3" />
+          </div>
+          <div className={template === 'minimal' ? 'text-center' : ''}>
+            <Badge className="text-[9px] px-1.5 py-0" style={{ backgroundColor: brandColor, color: '#fff' }}>In Transit</Badge>
+            <p className="font-mono text-[9px] text-muted-foreground mt-0.5">9400111899223</p>
+          </div>
         </div>
+
+        {template === 'modern' && (
+          <div className="flex gap-1">
+            {['Created', 'Picked Up', 'In Transit', 'Delivered'].map((s, i) => (
+              <div key={s} className="flex-1">
+                <div className="h-1 rounded-full" style={{ backgroundColor: i <= 2 ? brandColor : '#e5e7eb' }} />
+                <p className="text-[7px] text-muted-foreground mt-0.5 text-center">{s}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {settings.custom_message && (
+          <div className="rounded px-2 py-1.5 border-l-2 text-[10px] text-muted-foreground" style={{ borderColor: brandColor, backgroundColor: `${brandColor}08` }}>
+            {settings.custom_message}
+          </div>
+        )}
+
+        {/* Events */}
+        <div className="space-y-0">
+          {mockEvents.map((evt, i) => (
+            <div key={i} className="flex gap-2">
+              {template !== 'minimal' && (
+                <div className="flex flex-col items-center">
+                  <div className="w-1.5 h-1.5 rounded-full mt-1" style={{ backgroundColor: i === 0 ? brandColor : '#d1d5db' }} />
+                  {i < mockEvents.length - 1 && <div className="w-px flex-1 bg-border my-0.5" />}
+                </div>
+              )}
+              <div className="pb-2 flex-1">
+                <p className={cn("text-[10px] font-medium", i === 0 ? 'text-foreground' : 'text-muted-foreground')}>{evt.status}</p>
+                <div className="flex items-center gap-1 text-[8px] text-muted-foreground">
+                  <span>{evt.date}</span>
+                  <span>•</span>
+                  <MapPin className="h-2 w-2" />
+                  <span>{evt.location}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        {settings.support_email && (
+          <div className="text-center text-[9px] text-muted-foreground pt-1 border-t">
+            Need help? <span style={{ color: brandColor }}>{settings.support_email}</span>
+          </div>
+        )}
       </div>
     </div>
   );

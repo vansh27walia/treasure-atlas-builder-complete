@@ -24,8 +24,8 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide sidebar on auth pages
-  const isAuthPage = location.pathname === '/auth' || location.pathname === '/reset-password';
+  // Hide sidebar on auth pages and public tracking pages
+  const isAuthPage = location.pathname === '/auth' || location.pathname === '/reset-password' || location.pathname.startsWith('/track');
 
   // Handle sidebar collapse toggle
   const toggleSidebar = () => {
