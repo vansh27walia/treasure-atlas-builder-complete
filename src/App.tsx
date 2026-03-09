@@ -38,8 +38,7 @@ import CustomerSupportAIPage from './pages/ai/CustomerSupportAIPage';
 import RouteOptimizationPage from './pages/ai/RouteOptimizationPage';
 import AIAlertsPage from './pages/ai/AIAlertsPage';
 import AISettingsPage from './pages/ai/AISettingsPage';
-import CustomTrackingSettingsPage from './pages/CustomTrackingSettingsPage';
-import CustomEmailSettingsPage from './pages/CustomEmailSettingsPage';
+import BrandedTrackingPage from './pages/BrandedTrackingPage';
 import PublicTrackingPage from './pages/PublicTrackingPage';
 
 function AppContent() {
