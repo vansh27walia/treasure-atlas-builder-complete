@@ -465,15 +465,19 @@ const TemplatePreview: React.FC<{ id: string; color: string }> = ({ id, color })
     <div className="w-full h-full p-3 flex flex-col gap-2">
       <div className="flex gap-2">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="flex-1 h-2 rounded-full" style={{ backgroundColor: i < 2 ? color : undefined, opacity: i < 2 ? 0.6 : undefined }} className={cn("flex-1 h-2 rounded-full", i >= 2 && "bg-muted-foreground/15")} />
+          <div
+            key={i}
+            className={cn("flex-1 h-2 rounded-full", i >= 2 && "bg-muted-foreground/15")}
+            style={i < 2 ? { backgroundColor: color, opacity: 0.6 } : undefined}
+          />
         ))}
       </div>
       <div className="flex gap-2 flex-1">
-        <div className="w-1/2 rounded-md border bg-white p-1.5">
+        <div className="w-1/2 rounded-md border bg-card p-1.5">
           <div className="w-full h-1.5 rounded bg-muted-foreground/12 mb-1" />
           <div className="w-2/3 h-1.5 rounded bg-muted-foreground/8" />
         </div>
-        <div className="w-1/2 rounded-md border bg-white p-1.5">
+        <div className="w-1/2 rounded-md border bg-card p-1.5">
           <div className="w-full h-1.5 rounded bg-muted-foreground/12 mb-1" />
           <div className="w-2/3 h-1.5 rounded bg-muted-foreground/8" />
         </div>
