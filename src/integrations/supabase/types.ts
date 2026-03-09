@@ -666,9 +666,12 @@ export type Database = {
           custom_message: string | null
           id: string
           logo_url: string | null
+          store_name: string | null
           support_email: string | null
+          tracking_template: string
           updated_at: string
           user_id: string
+          website_url: string | null
         }
         Insert: {
           banner_message?: string | null
@@ -677,9 +680,12 @@ export type Database = {
           custom_message?: string | null
           id?: string
           logo_url?: string | null
+          store_name?: string | null
           support_email?: string | null
+          tracking_template?: string
           updated_at?: string
           user_id: string
+          website_url?: string | null
         }
         Update: {
           banner_message?: string | null
@@ -688,9 +694,12 @@ export type Database = {
           custom_message?: string | null
           id?: string
           logo_url?: string | null
+          store_name?: string | null
           support_email?: string | null
+          tracking_template?: string
           updated_at?: string
           user_id?: string
+          website_url?: string | null
         }
         Relationships: []
       }
