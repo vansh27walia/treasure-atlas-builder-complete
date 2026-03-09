@@ -108,3 +108,6 @@ verify_jwt = false
 
 [functions.shopify-fulfill-order]
 verify_jwt = false
+
+[functions.public-tracking]
+verify_jwt = false
