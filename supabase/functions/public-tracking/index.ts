@@ -25,13 +25,12 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Find shipment by tracking number
-    const { data: shipment, error: shipmentError } = await supabase
+    const { data: shipment } = await supabase
       .from('shipments')
       .select('*')
       .eq('tracking_code', tracking_number)
       .maybeSingle();
 
-    // Also check shipment_records
     const { data: shipmentRecord } = await supabase
       .from('shipment_records')
       .select('*')
@@ -49,7 +48,7 @@ Deno.serve(async (req) => {
 
     const userId = record.user_id;
 
-    // Get merchant branding
+    // Get merchant branding (includes new fields)
     const { data: merchantSettings } = await supabase
       .from('merchant_tracking_settings')
       .select('*')
@@ -63,7 +62,6 @@ Deno.serve(async (req) => {
       .eq('tracking_number', tracking_number)
       .order('event_date', { ascending: false });
 
-    // Build response with safe public data only
     const trackingData = {
       tracking_number,
       carrier: record.carrier || 'Unknown',
@@ -79,6 +77,9 @@ Deno.serve(async (req) => {
         support_email: merchantSettings.support_email,
         custom_message: merchantSettings.custom_message,
         banner_message: merchantSettings.banner_message,
+        store_name: merchantSettings.store_name,
+        website_url: merchantSettings.website_url,
+        tracking_template: merchantSettings.tracking_template || 'timeline',
       } : null,
     };
 

@@ -98,8 +98,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
     { icon: <Calculator className="h-5 w-5" />, title: 'Rate Calculator', to: '/rate-calculator' },
     { icon: <Truck className="h-5 w-5" />, title: 'Tracking', to: '/tracking' },
     { icon: <MapPin className="h-5 w-5" />, title: 'Pickup Scheduling', to: '/pickup' },
-    { icon: <Plane className="h-5 w-5" />, title: 'Custom Tracking Page', to: '/custom-tracking' },
-    { icon: <FileText className="h-5 w-5" />, title: 'Custom Email Settings', to: '/custom-email-settings' }
+    { icon: <Plane className="h-5 w-5" />, title: 'Branded Tracking', to: '/branded-tracking' }
   ];
 
   // Freight services
