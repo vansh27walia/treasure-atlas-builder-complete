@@ -628,6 +628,72 @@ export type Database = {
         }
         Relationships: []
       }
+      merchant_email_settings: {
+        Row: {
+          created_at: string
+          email_message: string | null
+          email_subject: string | null
+          id: string
+          support_email: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_message?: string | null
+          email_subject?: string | null
+          id?: string
+          support_email?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_message?: string | null
+          email_subject?: string | null
+          id?: string
+          support_email?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      merchant_tracking_settings: {
+        Row: {
+          banner_message: string | null
+          brand_color: string | null
+          created_at: string
+          custom_message: string | null
+          id: string
+          logo_url: string | null
+          support_email: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          banner_message?: string | null
+          brand_color?: string | null
+          created_at?: string
+          custom_message?: string | null
+          id?: string
+          logo_url?: string | null
+          support_email?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          banner_message?: string | null
+          brand_color?: string | null
+          created_at?: string
+          custom_message?: string | null
+          id?: string
+          logo_url?: string | null
+          support_email?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       oauth_states: {
         Row: {
           id: string
@@ -1229,6 +1295,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tracking_events: {
+        Row: {
+          created_at: string
+          event_date: string
+          event_description: string | null
+          event_status: string
+          id: string
+          location: string | null
+          shipment_id: string
+          tracking_number: string
+        }
+        Insert: {
+          created_at?: string
+          event_date?: string
+          event_description?: string | null
+          event_status: string
+          id?: string
+          location?: string | null
+          shipment_id: string
+          tracking_number: string
+        }
+        Update: {
+          created_at?: string
+          event_date?: string
+          event_description?: string | null
+          event_status?: string
+          id?: string
+          location?: string | null
+          shipment_id?: string
+          tracking_number?: string
+        }
+        Relationships: []
       }
       tracking_records: {
         Row: {
