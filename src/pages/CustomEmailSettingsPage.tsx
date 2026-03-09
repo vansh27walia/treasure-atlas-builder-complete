@@ -49,19 +49,19 @@ const CustomEmailSettingsPage: React.FC = () => {
     if (!user) return;
     setSaving(true);
     try {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from('merchant_email_settings')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        await (supabase as any)
           .from('merchant_email_settings')
           .update({ ...settings, updated_at: new Date().toISOString() })
           .eq('user_id', user.id);
       } else {
-        await supabase
+        await (supabase as any)
           .from('merchant_email_settings')
           .insert({ ...settings, user_id: user.id });
       }

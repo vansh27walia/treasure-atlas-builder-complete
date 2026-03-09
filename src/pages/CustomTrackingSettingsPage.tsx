@@ -53,19 +53,19 @@ const CustomTrackingSettingsPage: React.FC = () => {
     if (!user) return;
     setSaving(true);
     try {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from('merchant_tracking_settings')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        await (supabase as any)
           .from('merchant_tracking_settings')
           .update({ ...settings, updated_at: new Date().toISOString() })
           .eq('user_id', user.id);
       } else {
-        await supabase
+        await (supabase as any)
           .from('merchant_tracking_settings')
           .insert({ ...settings, user_id: user.id });
       }
